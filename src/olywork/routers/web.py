@@ -428,7 +428,7 @@ async def catalog_index():
         for r in prov_rows)
     # Cross-links to the other hubs — keeps Google from losing these URLs
     hub_links = (
-        '<p class="lede" style="margin-top:-16px;">'
+        '<p class="cat-lede" style="margin-top:-16px;">'
         'Looking for a job rather than a platform? '
         '<a href="/use-cases" style="color:var(--ink);font-weight:600;text-decoration:underline;text-underline-offset:3px">Use cases</a> compare providers by job, '
         '<a href="/workflows" style="color:var(--ink);font-weight:600;text-decoration:underline;text-underline-offset:3px">Workflows</a> '
@@ -467,11 +467,13 @@ async def catalog_index():
 
     prerender = (
         _PRERENDER_CSS
-        + f'''<div class="cat-hero">
+        + f'''<div class="cat-hero-bar">
+<div class="cat-hero-inner">
   <div class="cat-eyebrow">Tool catalog</div>
-  <h1>{total_eps:,} endpoints.<br><span style="opacity:.4">One key.</span></h1>
-  <p class="lede">{total_eps:,} endpoints across {len(rows)} platforms and {len(providers)} providers — every tool your agent can call through one key, priced per call with no provider signup.</p>
+  <h1 class="cat-h1">{total_eps:,} endpoints.<br><span style="opacity:.4">One key.</span></h1>
+  <p class="cat-lede">{total_eps:,} endpoints across {len(rows)} platforms and {len(providers)} providers — every tool your agent can call through one key, priced per call with no provider signup.</p>
   {hub_links}
+</div>
 </div>
 <div class="stats-strip">
   <div class="stat-item"><div class="stat-n">{total_eps:,}</div><div class="stat-l">Endpoints</div></div>
