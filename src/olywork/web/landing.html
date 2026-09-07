@@ -2,846 +2,1112 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>Olywork — The OpenRouter for Agent Tools</title>
-<meta name="description" content="Every tool your agent needs. 2,896 catalogued endpoints across 60+ providers. One token, pay per call in micro-USD."/>
-
+<meta name="description" content="One token. 2,800+ endpoints. 60+ providers. Give your AI agent every tool it needs — Google, Twitter, LinkedIn, GitHub and more — with zero API key management."/>
 <!-- {BASE} placeholder is substituted at runtime by the registry engine -->
 <link rel="canonical" href="{BASE}/"/>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg"/>
 <link rel="apple-touch-icon" href="/media/brand/logo.png"/>
-
 <meta property="og:type" content="website"/>
 <meta property="og:site_name" content="Olywork"/>
 <meta property="og:url" content="{BASE}/"/>
 <meta property="og:title" content="Olywork — The OpenRouter for Agent Tools"/>
 <meta property="og:description" content="Every tool your agent needs with one token. 2,896+ endpoints across 60+ providers."/>
 <meta property="og:image" content="{BASE}/media/og.png"/>
-
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-
 <style>
+/* ─── TOKENS ─────────────────────────────────────────────────────────────── */
 :root {
-  --bg: #F4F2EC;
-  --surface: #FCFBFA;
-  --surface-muted: #E8E5DA;
-  --ink: #202020;
-  --ink-secondary: #585750;
-  --ink-muted: #7E7C74;
-  --border: #E8E5DA;
-  --accent: #9FF25F;
-  --accent-hover: #8EE250;
-  --primary-deep: #1A1A1A;
-  --primary-soft: #D6E7EA;
-  
-  --font-heading: "Plus Jakarta Sans", sans-serif;
-  --font-body: 'Inter', sans-serif;
+  --bg:       #F4F2EC;
+  --surface:  #FCFBFA;
+  --panel2:   #EDEAE0;
+  --ink:      #202020;
+  --muted:    #7E7C74;
+  --muted2:   #A09E96;
+  --line:     #E8E5DA;
+  --line2:    #D5D1C3;
+  --accent:   #9FF25F;
+  --accent-h: #8EE250;
+  --inv:      #1A1A1A;
+  --inv-ink:  #FCFBFA;
+  --ease:     cubic-bezier(.2,.72,.25,1);
+  --font-h:   "Plus Jakarta Sans", sans-serif;
+  --font-b:   "Inter", sans-serif;
+  --font-m:   ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
 
+/* ─── RESET ──────────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-body { background-color: var(--bg); color: var(--ink); font-family: var(--font-body); overflow-x: hidden; -webkit-font-smoothing: antialiased; }
-a { text-decoration: none; color: inherit; }
-button { background: none; border: none; cursor: pointer; font-family: inherit; }
+html { scroll-behavior: smooth; overflow-x: clip; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-b); -webkit-font-smoothing: antialiased; overflow-x: clip; }
+a { color: inherit; text-decoration: none; }
+img, svg { display: block; }
 
-/* NAVBAR */
-.navbar { position: fixed; top: 0; width: 100%; height: 80px; display: flex; align-items: center; justify-content: space-between; padding: 0 48px; background: rgba(244, 242, 236, 0.95); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(232, 229, 218, 0.6); z-index: 50; }
-.brand { font-family: var(--font-heading); font-size: 24px; font-weight: 800; display: flex; align-items: center; gap: 8px; letter-spacing: -0.04em; }
-.brand svg { height: 24px; width: auto; }
-.nav-links { display: flex; gap: 32px; align-items: center; }
-.nav-link { font-size: 15px; color: var(--ink-muted); font-weight: 500; transition: color 0.2s; }
+/* ─── NAV ────────────────────────────────────────────────────────────────── */
+.nav {
+  position: fixed; inset: 0 0 auto 0; height: 72px;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 40px;
+  background: rgba(244,242,236,.88);
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(232,229,218,.6);
+  z-index: 100;
+}
+.nav-brand {
+  display: flex; align-items: center; gap: 8px;
+  font-family: var(--font-h); font-size: 20px; font-weight: 800;
+  letter-spacing: -0.04em; color: var(--ink);
+}
+.nav-brand svg { width: 22px; height: 22px; }
+.nav-links { display: flex; align-items: center; gap: 28px; font-size: 14px; }
+.nav-link { color: var(--muted); font-weight: 500; transition: color .18s; }
 .nav-link:hover { color: var(--ink); }
+.nav-cta {
+  background: var(--ink); color: var(--bg) !important;
+  padding: 9px 22px; border-radius: 99px; font-weight: 700; font-size: 14px;
+  transition: transform .2s var(--ease), background .2s;
+}
+.nav-cta:hover { background: #333; transform: scale(1.04); }
 
-/* BUTTONS */
-.btn-primary { background: var(--ink); color: #FFF; padding: 0 24px; height: 40px; border-radius: 99px; font-weight: 600; font-size: 14px; display: inline-flex; align-items: center; justify-content: center; transition: all 0.2s ease; }
-.btn-primary:hover { transform: scale(1.03); background: #333; }
-.btn-accent { background: var(--accent); color: var(--ink); padding: 0 40px; height: 56px; border-radius: 99px; font-weight: 700; font-size: 18px; font-family: var(--font-heading); display: inline-flex; align-items: center; gap: 12px; transition: all 0.2s ease; border: 1px solid rgba(0,0,0,0.05); }
-.btn-accent:hover { transform: scale(1.03); background: var(--accent-hover); }
+/* ─── HERO ───────────────────────────────────────────────────────────────── */
+.hero {
+  position: relative; min-height: 100vh;
+  display: flex; flex-direction: column; align-items: center;
+  padding-top: 152px; padding-bottom: 0;
+  overflow: hidden;
+}
+/* 3-D canvas grid background */
+#hero-canvas {
+  position: absolute; inset: 0;
+  z-index: 0; opacity: .55;
+  mask-image: linear-gradient(to bottom, black 0%, black 55%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, black 0%, black 55%, transparent 100%);
+}
 
-/* HERO */
-.hero { position: relative; padding-top: 160px; min-height: 100vh; display: flex; flex-direction: column; align-items: center; z-index: 1; }
-.hero-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; opacity: 0.6; mask-image: linear-gradient(to bottom, #000 0%, #000 70%, transparent 100%); -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 70%, transparent 100%); }
+.hero-inner { position: relative; z-index: 2; width: 100%; max-width: 1200px; display: flex; flex-direction: column; align-items: center; }
 
-.trusted { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; font-size: 14px; font-weight: 500; color: var(--ink); }
-.avatars { display: flex; }
-.avatars img { width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--bg); margin-left: -12px; }
-.avatars img:first-child { margin-left: 0; }
+/* Eyebrow badge */
+.hero-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: 99px; padding: 6px 16px 6px 8px;
+  font-size: 13px; font-weight: 600; color: var(--muted);
+  margin-bottom: 28px;
+}
+.hero-badge-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--accent); box-shadow: 0 0 0 4px rgba(159,242,95,.25);
+  animation: pulse 2s ease-in-out infinite;
+}
+@keyframes pulse { 0%,100% { box-shadow: 0 0 0 4px rgba(159,242,95,.25); } 50% { box-shadow: 0 0 0 8px rgba(159,242,95,.1); } }
 
-.headline { font-family: var(--font-heading); font-size: 72px; font-weight: 800; line-height: 1.05; text-align: center; letter-spacing: -0.04em; margin-bottom: 24px; max-width: 900px; }
-.headline span { color: var(--ink-muted); }
-.subhead { font-size: 20px; color: var(--ink-secondary); text-align: center; margin-bottom: 48px; max-width: 600px; line-height: 1.4; }
+/* Headline */
+.hero-h1 {
+  font-family: var(--font-h); font-size: clamp(52px, 7vw, 96px);
+  font-weight: 800; line-height: 1.04; letter-spacing: -0.05em;
+  text-align: center; max-width: 900px; margin-bottom: 24px;
+}
+.hero-h1 em { color: var(--muted); font-style: normal; }
 
-/* SEARCH BAR */
-.search-wrapper { position: relative; width: 100%; max-width: 800px; margin-bottom: 64px; }
-.search-wrapper::before { content: ''; position: absolute; inset: -4px; border-radius: 20px; background: transparent; border: 3px solid rgba(0,0,0,0.05); z-index: 0; }
-.search-glass { position: relative; z-index: 1; background: rgba(255,255,255,0.4); backdrop-filter: blur(10px); border-radius: 16px; display: flex; flex-direction: column; padding: 8px; }
-.search-input { width: 100%; background: transparent; border: none; font-family: var(--font-heading); font-size: 24px; padding: 24px 32px; outline: none; color: var(--ink); font-weight: 600; resize: none; overflow: hidden; min-height: 80px; }
-.search-input::placeholder { color: var(--ink-muted); }
-.search-btn-container { display: flex; justify-content: center; margin-top: -28px; z-index: 2; position: relative; }
+.hero-sub {
+  font-size: clamp(16px, 2vw, 20px); color: var(--muted);
+  text-align: center; max-width: 560px; line-height: 1.5;
+  margin-bottom: 44px;
+}
 
-/* FAN CARDS */
-.fan-container { position: relative; width: 100%; max-width: 1200px; height: 500px; margin: 0 auto; perspective: 1000px; }
-.fan-card { position: absolute; top: 0; width: 320px; height: 420px; border-radius: 24px; padding: 32px; display: flex; flex-direction: column; transition: transform 0.8s cubic-bezier(0.2, 0.8, 0.2, 1); transform-origin: bottom center; box-shadow: none; border: 1px solid rgba(0,0,0,0.04); }
-.fan-card.c1 { background: var(--accent); left: 5%; transform: rotate(-8deg) translateY(40px); z-index: 1; }
-.fan-card.c2 { background: var(--primary-deep); left: 30%; transform: rotate(-3deg) translateY(10px); z-index: 2; color: #FFF; }
-.fan-card.c3 { background: var(--surface); left: 55%; transform: rotate(3deg) translateY(10px); z-index: 3; }
-.fan-card.c4 { background: var(--primary-soft); left: 80%; transform: rotate(8deg) translateY(40px); z-index: 4; }
+/* CTA row */
+.hero-cta {
+  display: flex; align-items: center; gap: 14px;
+  margin-bottom: 80px; flex-wrap: wrap; justify-content: center;
+}
+.btn-lime {
+  display: inline-flex; align-items: center; gap: 10px;
+  background: var(--accent); color: var(--ink);
+  font-family: var(--font-h); font-weight: 700; font-size: 17px;
+  padding: 15px 36px; border-radius: 99px;
+  border: 1px solid rgba(0,0,0,.05);
+  transition: transform .22s var(--ease), background .2s;
+}
+.btn-lime:hover { transform: scale(1.04); background: var(--accent-h); }
+.btn-outline {
+  display: inline-flex; align-items: center; gap: 8px;
+  color: var(--muted); font-weight: 500; font-size: 15px;
+  padding: 14px 24px; border-radius: 99px;
+  border: 1.5px solid var(--line);
+  transition: border-color .2s, color .2s, transform .2s;
+}
+.btn-outline:hover { border-color: var(--ink); color: var(--ink); transform: scale(1.02); }
 
-.fan-card h3 { font-family: var(--font-heading); font-size: 56px; font-weight: 800; line-height: 1; margin-bottom: 8px; letter-spacing: -0.04em; }
-.fan-card p { font-size: 20px; font-weight: 600; }
-.fan-card.c2 h3 { color: var(--accent); }
-.fan-card.c2 p { color: #FFF; }
+/* ─── FAN CARDS ──────────────────────────────────────────────────────────── */
+.fan-wrap {
+  position: relative; width: 100%; max-width: 1100px;
+  height: 360px; margin: 0 auto;
+}
+.fan-card {
+  position: absolute; top: 0;
+  width: 270px; height: 320px;
+  border-radius: 24px; padding: 32px 28px;
+  display: flex; flex-direction: column;
+  border: 1px solid transparent;
+  will-change: transform;
+  transition: transform .7s cubic-bezier(.2,.8,.2,1);
+  cursor: default; user-select: none;
+}
+.fan-card:nth-child(1) { background: var(--accent);   left: 2%;  transform: rotate(-10deg) translateY(48px); z-index: 1; }
+.fan-card:nth-child(2) { background: var(--inv);       left: 26%; transform: rotate(-4deg)  translateY(18px); z-index: 2; }
+.fan-card:nth-child(3) { background: var(--surface);   left: 50%; transform: rotate(2deg)   translateY(10px); z-index: 3; border-color: var(--line); }
+.fan-card:nth-child(4) { background: #D6ECF0;          left: 74%; transform: rotate(9deg)   translateY(36px); z-index: 4; }
 
-.fan-container:hover .fan-card.c1 { transform: rotate(-12deg) translateY(20px) translateX(-20px); }
-.fan-container:hover .fan-card.c2 { transform: rotate(-5deg) translateY(-10px) translateX(-10px); }
-.fan-container:hover .fan-card.c3 { transform: rotate(5deg) translateY(-10px) translateX(10px); }
-.fan-container:hover .fan-card.c4 { transform: rotate(12deg) translateY(20px) translateX(20px); }
+.fan-wrap:hover .fan-card:nth-child(1) { transform: rotate(-14deg) translateY(26px) translateX(-24px); }
+.fan-wrap:hover .fan-card:nth-child(2) { transform: rotate(-6deg)  translateY(-8px) translateX(-12px); }
+.fan-wrap:hover .fan-card:nth-child(3) { transform: rotate(4deg)   translateY(-8px) translateX(12px); }
+.fan-wrap:hover .fan-card:nth-child(4) { transform: rotate(14deg)  translateY(26px) translateX(24px); }
 
+.fan-num {
+  font-family: var(--font-h); font-size: 64px; font-weight: 800;
+  letter-spacing: -0.05em; line-height: 1; margin-bottom: 6px;
+}
+.fan-label { font-size: 18px; font-weight: 700; }
 
-/* TICKER */
-.ticker-section { padding: 40px 0; overflow: hidden; width: 100%; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); background: var(--surface); }
-.ticker-row { display: flex; width: max-content; animation: ticker 40s linear infinite; gap: 32px; margin-bottom: 24px; }
-.ticker-row.reverse { animation-direction: reverse; margin-bottom: 0; }
-@keyframes ticker { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+.fan-card:nth-child(1) .fan-num,
+.fan-card:nth-child(1) .fan-label { color: var(--ink); }
 
-.ticker-item { display: flex; align-items: center; gap: 16px; background: var(--bg); padding: 12px 24px; border-radius: 99px; border: 1px solid var(--border); }
-.ticker-tag { font-size: 13px; font-weight: 600; color: var(--ink-secondary); text-transform: uppercase; letter-spacing: 0.05em; }
-.ticker-text { font-family: var(--font-heading); font-size: 18px; font-weight: 700; color: var(--ink); }
+.fan-card:nth-child(2) .fan-num  { color: var(--accent); }
+.fan-card:nth-child(2) .fan-label { color: rgba(252,251,250,.8); }
 
-/* SPHERE SECTION */
-.sphere-section { padding: 120px 0; display: flex; flex-direction: column; align-items: center; text-align: center; }
-.sphere-wrapper { position: relative; width: 600px; height: 600px; display: flex; align-items: center; justify-content: center; }
-.sphere-text { position: absolute; width: 100%; height: 100%; animation: spin 20s linear infinite; }
-@keyframes spin { 100% { transform: rotate(360deg); } }
-.sphere-center { width: 300px; height: 300px; border-radius: 50%; background: var(--surface); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; }
+.fan-card:nth-child(3) .fan-num,
+.fan-card:nth-child(3) .fan-label { color: var(--ink); }
 
-@media (max-width: 1024px) {
-  .headline { font-size: 48px; }
-  .fan-container { height: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; padding: 0 24px; }
-  .fan-card { position: relative; left: 0 !important; top: 0 !important; transform: none !important; width: 100%; height: 300px; margin-bottom: 0; }
-  .fan-container:hover .fan-card { transform: none !important; }
+.fan-card:nth-child(4) .fan-num,
+.fan-card:nth-child(4) .fan-label { color: #1a4a54; }
+
+.fan-icon {
+  width: 44px; height: 44px; border-radius: 12px;
+  display: grid; place-items: center; font-size: 22px;
+  margin-bottom: 20px;
+}
+.fan-card:nth-child(1) .fan-icon { background: rgba(32,32,32,.08); }
+.fan-card:nth-child(2) .fan-icon { background: rgba(255,255,255,.08); }
+.fan-card:nth-child(3) .fan-icon { background: var(--panel2); }
+.fan-card:nth-child(4) .fan-icon { background: rgba(26,74,84,.08); }
+
+/* ─── TICKER ─────────────────────────────────────────────────────────────── */
+.ticker-section {
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  padding: 28px 0; overflow: hidden;
+  width: 100%;
+}
+.ticker-track {
+  display: flex; width: max-content;
+  gap: 12px; align-items: center;
+  animation: slide 45s linear infinite;
+}
+.ticker-track.rev { animation-direction: reverse; margin-top: 12px; animation-duration: 55s; }
+@keyframes slide { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+
+.ticker-pill {
+  display: inline-flex; align-items: center; gap: 10px;
+  background: var(--bg); border: 1px solid var(--line);
+  border-radius: 99px; padding: 8px 18px 8px 10px;
+  flex-shrink: 0; white-space: nowrap;
+}
+.ticker-pill-ico {
+  width: 32px; height: 32px; border-radius: 8px;
+  border: 1px solid var(--line); background: var(--surface);
+  overflow: hidden; display: grid; place-items: center;
+}
+.ticker-pill-ico img { width: 20px; height: 20px; object-fit: contain; }
+.ticker-pill-tag {
+  font-family: var(--font-m); font-size: 10px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .1em;
+  color: var(--muted); margin-right: 2px;
+}
+.ticker-pill-name {
+  font-family: var(--font-h); font-size: 15px; font-weight: 700;
+  color: var(--ink);
+}
+.ticker-sep { color: var(--line2); font-size: 18px; flex-shrink: 0; }
+
+/* ─── SECTION COMMON ─────────────────────────────────────────────────────── */
+.section { padding: 120px 40px; max-width: 1200px; margin: 0 auto; }
+.section-full { padding: 120px 0; overflow: hidden; }
+.eyebrow {
+  display: inline-block;
+  font-family: var(--font-m); font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .14em;
+  color: var(--muted); margin-bottom: 16px;
+}
+.sec-title {
+  font-family: var(--font-h); font-size: clamp(36px, 4.5vw, 56px);
+  font-weight: 800; letter-spacing: -.04em; line-height: 1.06;
+  margin-bottom: 18px;
+}
+.sec-sub {
+  font-size: 17px; color: var(--muted); max-width: 52ch;
+  line-height: 1.55;
+}
+
+/* ─── KEY-VISUAL / GLOBE ─────────────────────────────────────────────────── */
+.globe-section {
+  display: flex; align-items: center; justify-content: center;
+  padding: 80px 40px 0; flex-direction: column; text-align: center;
+  max-width: 1200px; margin: 0 auto;
+}
+.globe-wrap {
+  position: relative; width: 520px; height: 520px;
+  display: flex; align-items: center; justify-content: center;
+  margin: 40px auto;
+}
+.globe-ring {
+  position: absolute; inset: 0;
+  border-radius: 50%;
+  border: 1px dashed var(--line2);
+  animation: ring-spin 22s linear infinite;
+}
+@keyframes ring-spin { to { transform: rotate(360deg); } }
+.globe-ring::before {
+  content: '';
+  position: absolute; top: -6px; left: 50%; transform: translateX(-50%);
+  width: 12px; height: 12px; border-radius: 50%;
+  background: var(--accent);
+}
+.globe-ring.ring-2 { inset: 40px; animation-duration: 18s; animation-direction: reverse; }
+.globe-ring.ring-2::before { background: var(--line2); }
+.globe-ring.ring-3 { inset: 80px; animation-duration: 30s; }
+.globe-ring.ring-3::before { width: 8px; height: 8px; background: var(--muted2); }
+.globe-center {
+  width: 200px; height: 200px; border-radius: 50%;
+  background: var(--inv); border: 1px solid var(--line2);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 4px;
+}
+.globe-center-n {
+  font-family: var(--font-h); font-size: 48px; font-weight: 800;
+  color: var(--accent); letter-spacing: -0.05em; line-height: 1;
+}
+.globe-center-l { font-size: 13px; color: rgba(252,251,250,.55); }
+
+/* Floating provider badges */
+.globe-badges {
+  position: absolute; inset: 0; pointer-events: none;
+}
+.globe-badge {
+  position: absolute;
+  display: flex; align-items: center; gap: 6px;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: 99px; padding: 6px 12px 6px 8px;
+  font-size: 12px; font-weight: 600; color: var(--ink);
+  white-space: nowrap;
+  animation: badge-float 4s ease-in-out infinite;
+}
+.globe-badge img { width: 18px; height: 18px; object-fit: contain; }
+.globe-badge:nth-child(1) { top: 8%;   left: 4%;  animation-delay: 0s; }
+.globe-badge:nth-child(2) { top: 8%;   right: 4%; animation-delay: .7s; }
+.globe-badge:nth-child(3) { bottom: 18%; left: 2%; animation-delay: 1.4s; }
+.globe-badge:nth-child(4) { bottom: 18%; right: 2%; animation-delay: 2.1s; }
+.globe-badge:nth-child(5) { top: 50%;  left: -4%; transform: translateY(-50%); animation-delay: .35s; }
+.globe-badge:nth-child(6) { top: 50%;  right: -4%; transform: translateY(-50%); animation-delay: 1.05s; }
+@keyframes badge-float {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-8px); }
+}
+.globe-badge:nth-child(5),
+.globe-badge:nth-child(6) {
+  animation: badge-float-h 4s ease-in-out infinite;
+}
+@keyframes badge-float-h {
+  0%, 100% { transform: translateY(-50%) translateX(0); }
+  50%       { transform: translateY(-50%) translateX(-6px); }
+}
+
+/* ─── BENTO FEATURES ─────────────────────────────────────────────────────── */
+.bento {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 16px;
+}
+.bento-cell {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: 24px; padding: 36px; overflow: hidden;
+  transition: transform .3s var(--ease), border-color .3s;
+  position: relative;
+}
+.bento-cell:hover { transform: translateY(-4px); border-color: var(--line2); }
+.bento-cell.c8  { grid-column: span 8; }
+.bento-cell.c4  { grid-column: span 4; }
+.bento-cell.c6  { grid-column: span 6; }
+.bento-cell.c5  { grid-column: span 5; }
+.bento-cell.c7  { grid-column: span 7; }
+.bento-cell.lime { background: var(--accent); border-color: transparent; }
+.bento-cell.dark { background: var(--inv); border-color: transparent; }
+.bento-cell.dark:hover { border-color: transparent; }
+.bento-cell.lime:hover { border-color: transparent; }
+.bento-h {
+  font-family: var(--font-h); font-size: 22px; font-weight: 800;
+  letter-spacing: -.03em; margin-bottom: 10px;
+}
+.bento-cell.dark .bento-h { color: var(--accent); }
+.bento-p { font-size: 14px; color: var(--muted); line-height: 1.6; }
+.bento-cell.dark .bento-p { color: rgba(252,251,250,.55); }
+.bento-cell.lime .bento-p { color: rgba(32,32,32,.65); }
+.bento-n {
+  font-family: var(--font-h); font-size: 72px; font-weight: 800;
+  letter-spacing: -.06em; line-height: 1; margin-bottom: 4px;
+}
+.bento-cell.dark .bento-n { color: var(--accent); }
+.bento-icon {
+  width: 52px; height: 52px; border-radius: 14px;
+  border: 1px solid var(--line); background: var(--panel2);
+  display: grid; place-items: center; font-size: 24px;
+  margin-bottom: 24px;
+}
+.bento-cell.dark .bento-icon { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.1); }
+.bento-cell.lime .bento-icon { background: rgba(32,32,32,.1); border-color: rgba(32,32,32,.1); }
+
+/* Mini code snippet inside bento */
+.bento-code {
+  background: rgba(32,32,32,.06); border-radius: 12px;
+  padding: 16px; font-family: var(--font-m); font-size: 12px;
+  line-height: 1.7; margin-top: 20px; overflow: hidden;
+}
+.bento-cell.dark .bento-code { background: rgba(255,255,255,.05); color: #9FF25F; }
+.c-k { color: #9FF25F; } .c-s { color: #7ec8e3; }
+.c-cell { color: var(--muted2); font-style: italic; }
+.bento-cell.dark .c-cell { color: rgba(255,255,255,.35); }
+
+/* ─── HOW IT WORKS ───────────────────────────────────────────────────────── */
+.hiw-section { padding: 120px 40px; max-width: 1200px; margin: 0 auto; }
+.hiw-header { text-align: center; margin-bottom: 80px; }
+.hiw-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+
+.hiw-card {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: 24px; padding: 48px 36px;
+  position: relative; overflow: hidden;
+  transition: transform .4s var(--ease), border-color .4s;
+  cursor: default;
+}
+.hiw-card::after {
+  content: attr(data-n);
+  position: absolute; top: 16px; right: 24px;
+  font-family: var(--font-h); font-size: 120px; font-weight: 800;
+  line-height: 1; letter-spacing: -.06em;
+  color: rgba(32,32,32,.048); pointer-events: none;
+  transition: transform .4s var(--ease);
+}
+.hiw-card:hover { transform: translateY(-8px); border-color: var(--line2); }
+.hiw-card:hover::after { transform: scale(1.06) translateY(-4px); }
+
+.hiw-icon {
+  width: 60px; height: 60px; border-radius: 16px;
+  border: 1px solid var(--line); background: var(--panel2);
+  display: grid; place-items: center; font-size: 28px;
+  margin-bottom: 28px;
+  transition: transform .3s var(--ease);
+}
+.hiw-card:hover .hiw-icon { transform: scale(1.1); }
+.hiw-h {
+  font-family: var(--font-h); font-size: 24px; font-weight: 800;
+  letter-spacing: -.03em; margin-bottom: 12px;
+}
+.hiw-p { font-size: 15px; color: var(--muted); line-height: 1.65; }
+.hiw-code {
+  margin-top: 20px; background: rgba(32,32,32,.06);
+  border-radius: 10px; padding: 12px 16px;
+  font-family: var(--font-m); font-size: 12px; line-height: 1.7;
+}
+
+/* Accent card */
+.hiw-card.lime {
+  background: var(--accent); border-color: transparent;
+}
+.hiw-card.lime::after { color: rgba(32,32,32,.06); }
+.hiw-card.lime .hiw-icon { background: rgba(32,32,32,.1); border-color: rgba(32,32,32,.1); }
+.hiw-card.lime .hiw-p { color: rgba(32,32,32,.65); }
+.hiw-card.lime .hiw-code { background: rgba(32,32,32,.08); color: var(--ink); }
+
+/* Dark card */
+.hiw-card.dark {
+  background: var(--inv); border-color: transparent;
+}
+.hiw-card.dark::after { color: rgba(255,255,255,.04); }
+.hiw-card.dark .hiw-icon { background: rgba(255,255,255,.07); border-color: rgba(255,255,255,.1); }
+.hiw-card.dark .hiw-h { color: var(--accent); }
+.hiw-card.dark .hiw-p { color: rgba(252,251,250,.55); }
+.hiw-card.dark .hiw-code { background: rgba(255,255,255,.06); color: #9FF25F; }
+
+/* ─── LOGO TICKER (providers) ────────────────────────────────────────────── */
+.logo-ticker { padding: 48px 0; overflow: hidden; }
+.logo-row { display: flex; width: max-content; gap: 12px; animation: slide 60s linear infinite; }
+.logo-row.r2 { animation-direction: reverse; margin-top: 12px; animation-duration: 75s; }
+.logo-tile {
+  width: 68px; height: 68px; border-radius: 16px; flex-shrink: 0;
+  background: var(--surface); border: 1px solid var(--line);
+  display: grid; place-items: center; padding: 14px;
+  transition: border-color .2s;
+}
+.logo-tile:hover { border-color: var(--line2); }
+.logo-tile img { width: 100%; height: 100%; object-fit: contain; }
+
+/* ─── SOCIAL PROOF / QUOTE ───────────────────────────────────────────────── */
+.quote-section {
+  background: var(--inv); border-radius: 32px;
+  padding: 80px; margin: 0 40px;
+  text-align: center; max-width: 1120px; margin: 0 auto 0;
+}
+.quote-text {
+  font-family: var(--font-h); font-size: clamp(24px, 3vw, 40px);
+  font-weight: 800; letter-spacing: -.04em; line-height: 1.15;
+  color: var(--inv-ink); margin-bottom: 32px; max-width: 800px; margin-left: auto; margin-right: auto;
+}
+.quote-text em { color: var(--accent); font-style: normal; }
+.quote-stats { display: flex; gap: 48px; justify-content: center; flex-wrap: wrap; }
+.q-stat-n { font-family: var(--font-h); font-size: 44px; font-weight: 800; letter-spacing: -.05em; color: var(--inv-ink); line-height: 1; }
+.q-stat-l { font-size: 13px; color: rgba(252,251,250,.45); margin-top: 4px; }
+
+/* ─── CTA STRIP ──────────────────────────────────────────────────────────── */
+.cta-strip {
+  background: var(--inv); border-radius: 28px;
+  padding: 80px 56px; text-align: center;
+  margin: 80px 40px; max-width: 1120px;
+  margin-left: auto; margin-right: auto;
+}
+.cta-strip h2 {
+  font-family: var(--font-h); font-size: clamp(32px, 5vw, 56px);
+  font-weight: 800; letter-spacing: -.04em; color: var(--inv-ink);
+  margin-bottom: 16px;
+}
+.cta-strip p { color: rgba(252,251,250,.55); font-size: 17px; margin-bottom: 36px; }
+.cta-btns { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+
+/* ─── FAQ ────────────────────────────────────────────────────────────────── */
+.faq-section { padding: 120px 40px; max-width: 800px; margin: 0 auto; }
+.faq-header { text-align: center; margin-bottom: 64px; }
+.faq-item { border-bottom: 1px solid var(--line); }
+.faq-item:first-of-type { border-top: 1px solid var(--line); }
+.faq-q {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; padding: 24px 0;
+  font-weight: 700; font-size: 16px;
+  cursor: pointer; user-select: none;
+  background: none; border: none; width: 100%; text-align: left;
+  color: var(--ink); font-family: var(--font-b);
+}
+.faq-q-icon {
+  flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%;
+  border: 1.5px solid var(--line);
+  display: grid; place-items: center; font-size: 20px;
+  color: var(--muted);
+  transition: transform .35s var(--ease), border-color .35s, background .35s, color .35s;
+}
+.faq-item.open .faq-q-icon {
+  transform: rotate(45deg);
+  border-color: var(--ink); background: var(--ink); color: var(--bg);
+}
+.faq-body { max-height: 0; overflow: hidden; transition: max-height .45s var(--ease); }
+.faq-item.open .faq-body { max-height: 500px; }
+.faq-p { padding: 0 4px 28px; font-size: 15px; color: var(--muted); line-height: 1.75; }
+.faq-p code {
+  font-family: var(--font-m); font-size: 12.5px;
+  background: var(--panel2); border: 1px solid var(--line);
+  border-radius: 5px; padding: 1px 6px; color: var(--ink);
+}
+
+/* ─── FOOTER ─────────────────────────────────────────────────────────────── */
+.footer {
+  background: var(--surface); border-top: 1px solid var(--line);
+  padding: 72px 40px 40px;
+}
+.footer-inner {
+  max-width: 1200px; margin: 0 auto;
+  display: grid; grid-template-columns: 1fr auto; gap: 64px; align-items: start;
+}
+.footer-brand {
+  display: flex; align-items: center; gap: 8px;
+  font-family: var(--font-h); font-size: 20px; font-weight: 800;
+  letter-spacing: -.04em; margin-bottom: 12px;
+}
+.footer-tag {
+  font-size: 13.5px; color: var(--muted); line-height: 1.5;
+  max-width: 28ch; margin-bottom: 24px;
+}
+.footer-cols { display: flex; gap: 56px; }
+.footer-col { display: flex; flex-direction: column; gap: 10px; min-width: 100px; }
+.footer-col-h {
+  font-size: 12px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .07em; color: var(--ink); margin-bottom: 4px;
+}
+.footer-col a { font-size: 13.5px; color: var(--muted); transition: color .2s; }
+.footer-col a:hover { color: var(--ink); }
+.footer-bottom {
+  max-width: 1200px; margin: 40px auto 0;
+  padding-top: 24px; border-top: 1px solid var(--line);
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 12.5px; color: var(--muted2);
+}
+
+/* ─── RESPONSIVE ─────────────────────────────────────────────────────────── */
+@media (max-width: 1100px) {
+  .bento { grid-template-columns: 1fr 1fr; }
+  .bento-cell.c8,.bento-cell.c7,.bento-cell.c5 { grid-column: span 2; }
+  .bento-cell.c4,.bento-cell.c6 { grid-column: span 1; }
+  .hiw-grid { grid-template-columns: 1fr; gap: 12px; }
+  .globe-wrap { width: 380px; height: 380px; }
+}
+@media (max-width: 768px) {
+  .nav { padding: 0 20px; }
+  .nav-links .nav-link { display: none; }
+  .hero { padding-top: 120px; }
+  .hero-h1 { font-size: 42px; }
+  .fan-wrap { height: 240px; }
+  .fan-card { width: 180px; height: 210px; padding: 20px 16px; }
+  .fan-num { font-size: 44px; }
+  .fan-label { font-size: 14px; }
+  .fan-card:nth-child(1) { left: 0; }
+  .fan-card:nth-child(2) { left: 22%; }
+  .fan-card:nth-child(3) { left: 44%; }
+  .fan-card:nth-child(4) { left: 66%; }
+  .section, .hiw-section { padding: 64px 20px; }
+  .bento { grid-template-columns: 1fr; }
+  .bento-cell.c8,.bento-cell.c4,.bento-cell.c6,.bento-cell.c5,.bento-cell.c7 { grid-column: span 1; }
+  .quote-section,.cta-strip { padding: 48px 28px; margin: 0 16px; border-radius: 20px; }
+  .footer { padding: 48px 24px 32px; }
+  .footer-inner { grid-template-columns: 1fr; gap: 40px; }
+  .footer-cols { flex-wrap: wrap; gap: 32px; }
+  .footer-bottom { flex-direction: column; gap: 8px; text-align: center; }
+  .globe-wrap { width: 280px; height: 280px; }
+  .glob-badge { display: none; }
+  .faq-section { padding: 64px 20px; }
 }
 </style>
-<link rel="stylesheet" href="/olywork.css"/>
 </head>
 <body>
 
-<div class="navwrap"><nav class="nav" style="position:fixed;top:0;width:100%;height:80px;display:flex;align-items:center;justify-content:space-between;padding:0 48px;background:rgba(244,242,236,0.95);backdrop-filter:blur(12px);border-bottom:1px solid rgba(232,229,218,0.6);z-index:50;left:0;">
-  <a class="brand" href="/" style="display:flex;align-items:center;gap:8px;font-family:var(--display);font-weight:800;font-size:24px;letter-spacing:-0.04em;">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:24px;height:24px;"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+<!-- ─── NAV ────────────────────────────────────────────────────────────── -->
+<nav class="nav" aria-label="Main navigation">
+  <a class="nav-brand" href="/">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
     Olywork
   </a>
-  <div class="links" style="display:flex;gap:32px;align-items:center;">
-    <a href="/catalog" style="font-weight:500;">Catalog</a>
-    <a href="/docs" style="font-weight:500;">API</a>
-    <a href="/tutorial" style="font-weight:500;">Tutorial</a>
-    <a href="/app" style="background:var(--ink);color:var(--bg);padding:10px 24px;border-radius:99px;font-weight:600;">Start free</a>
+  <div class="nav-links">
+    <a class="nav-link" href="/catalog">Catalog</a>
+    <a class="nav-link" href="/docs">API Docs</a>
+    <a class="nav-link" href="/tutorial">Tutorial</a>
+    <a class="nav-link" href="/pricing">Pricing</a>
+    <a class="nav-cta" href="/app">Start free →</a>
   </div>
-</nav></div>
+</nav>
 
+<!-- ─── HERO ────────────────────────────────────────────────────────────── -->
 <section class="hero">
-  <canvas class="hero-canvas" id="heroCanvas"></canvas>
-  
-  <div class="trusted">
-    <span>Trusted by 10,000+ early users</span>
-    <div class="avatars">
-      <img src="https://i.pravatar.cc/100?img=1" alt="User">
-      <img src="https://i.pravatar.cc/100?img=2" alt="User">
-      <img src="https://i.pravatar.cc/100?img=3" alt="User">
-      <img src="https://i.pravatar.cc/100?img=4" alt="User">
-      <img src="https://i.pravatar.cc/100?img=5" alt="User">
+  <canvas id="hero-canvas"></canvas>
+  <div class="hero-inner">
+    <!-- Badge -->
+    <div class="hero-badge">
+      <span class="hero-badge-dot"></span>
+      Now live · 2,896+ endpoints
     </div>
-  </div>
 
-  <h1 class="headline">Get the tool you want connected.<br><span>Cheaper, faster, better.</span></h1>
-  <p class="subhead">The open marketplace where AI agents seamlessly call 2,896+ tools with zero API keys and micro-USD pricing.</p>
+    <!-- Headline -->
+    <h1 class="hero-h1">
+      One token.<br>
+      <em>Every tool.</em>
+    </h1>
+    <p class="hero-sub">
+      The OpenRouter for AI Agent Tools. Connect your agent to 2,800+ endpoints across 60+ providers — no API keys, no signups, no markup.
+    </p>
 
-  <div class="search-wrapper">
-    <div class="search-glass">
-      <textarea class="search-input" placeholder="Describe the tool integration you need..." rows="1"></textarea>
+    <!-- CTA -->
+    <div class="hero-cta">
+      <a href="/app" class="btn-lime">
+        Start building free
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      </a>
+      <a href="/catalog" class="btn-outline">Browse catalog →</a>
     </div>
-  </div>
-  <div class="search-btn-container">
-    <button class="btn-accent">
-      Connect a tool
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
-    </button>
-  </div>
 
-  <div class="fan-container">
-    <div class="fan-card c1">
-      <div>
-        <h3>2K+</h3>
-        <p>Tools connected</p>
+    <!-- Fan cards -->
+    <div class="fan-wrap">
+      <div class="fan-card">
+        <div class="fan-icon">🔧</div>
+        <div class="fan-num">2K+</div>
+        <div class="fan-label">Tools ready</div>
       </div>
-    </div>
-    <div class="fan-card c2">
-      <div>
-        <h3>100+</h3>
-        <p>Active agents</p>
+      <div class="fan-card">
+        <div class="fan-icon">⚡</div>
+        <div class="fan-num">60+</div>
+        <div class="fan-label">Providers</div>
       </div>
-    </div>
-    <div class="fan-card c3">
-      <div>
-        <h3>$30K+</h3>
-        <p>Verified API savings</p>
+      <div class="fan-card">
+        <div class="fan-icon">💸</div>
+        <div class="fan-num">$0</div>
+        <div class="fan-label">Markup</div>
       </div>
-    </div>
-    <div class="fan-card c4">
-      <div>
-        <h3>99.9%</h3>
-        <p>Uptime without errors</p>
+      <div class="fan-card">
+        <div class="fan-icon">🛡️</div>
+        <div class="fan-num">99.9%</div>
+        <div class="fan-label">Uptime SLA</div>
       </div>
     </div>
   </div>
 </section>
 
-<style>
-.logo-ticker { padding: 60px 0; overflow: hidden; width: 100%; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); background: var(--bg); }
-.logo-row { display: flex; width: max-content; animation: ticker 60s linear infinite; gap: 40px; align-items: center; }
-.logo-item { display: flex; align-items: center; justify-content: center; width: 64px; height: 64px; background: var(--surface); border-radius: 16px; border: 1px solid var(--border); padding: 12px; }
-.logo-item img { width: 100%; height: 100%; object-fit: contain; }
-</style>
-<div class="ow-ticker" style="padding:32px 0;margin:0;">
-  <div class="ow-ticker-row">
-<div class="ow-ticker-logo" title="Dewu"><img src="/logos/platforms/dewu.svg" alt="Dewu" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Imdb"><img src="/logos/platforms/imdb.svg" alt="Imdb" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Gemini"><img src="/logos/platforms/gemini.svg" alt="Gemini" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Claude"><img src="/logos/platforms/claude.svg" alt="Claude" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Linkinbio"><img src="/logos/platforms/linkinbio.svg" alt="Linkinbio" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Tripadvisor"><img src="/logos/platforms/tripadvisor.svg" alt="Tripadvisor" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Ai Search"><img src="/logos/platforms/ai-search.svg" alt="Ai Search" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Lemon8"><img src="/logos/platforms/lemon8.svg" alt="Lemon8" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Yelp"><img src="/logos/platforms/yelp.svg" alt="Yelp" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Bilibili"><img src="/logos/platforms/bilibili.svg" alt="Bilibili" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Google Ads"><img src="/logos/platforms/google-ads.svg" alt="Google Ads" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Jd"><img src="/logos/platforms/jd.svg" alt="Jd" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Search Console"><img src="/logos/platforms/search-console.svg" alt="Search Console" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Naver"><img src="/logos/platforms/naver.svg" alt="Naver" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Weibo"><img src="/logos/platforms/weibo.svg" alt="Weibo" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Github"><img src="/logos/platforms/github.svg" alt="Github" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Seznam"><img src="/logos/platforms/seznam.svg" alt="Seznam" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Google Analytics"><img src="/logos/platforms/google-analytics.svg" alt="Google Analytics" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Google Play"><img src="/logos/platforms/google-play.svg" alt="Google Play" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Douyin"><img src="/logos/platforms/douyin.svg" alt="Douyin" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Meta Ads"><img src="/logos/platforms/meta-ads.svg" alt="Meta Ads" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Google Business"><img src="/logos/platforms/google-business.svg" alt="Google Business" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Truthsocial"><img src="/logos/platforms/truthsocial.svg" alt="Truthsocial" loading="lazy"></div>
-<div class="ow-ticker-logo" title="X"><img src="/logos/platforms/x.svg" alt="X" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Wechat Channels"><img src="/logos/platforms/wechat-channels.svg" alt="Wechat Channels" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Beike"><img src="/logos/platforms/beike.svg" alt="Beike" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Apple Music"><img src="/logos/platforms/apple-music.svg" alt="Apple Music" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Instagram"><img src="/logos/platforms/instagram.svg" alt="Instagram" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Douyin Shop"><img src="/logos/platforms/douyin-shop.svg" alt="Douyin Shop" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Threads"><img src="/logos/platforms/threads.svg" alt="Threads" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Xigua"><img src="/logos/platforms/xigua.svg" alt="Xigua" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Netease Music"><img src="/logos/platforms/netease-music.svg" alt="Netease Music" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Wechat Mp"><img src="/logos/platforms/wechat-mp.svg" alt="Wechat Mp" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Bluesky"><img src="/logos/platforms/bluesky.svg" alt="Bluesky" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Telegram"><img src="/logos/platforms/telegram.svg" alt="Telegram" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Rumble"><img src="/logos/platforms/rumble.svg" alt="Rumble" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Xiaohongshu"><img src="/logos/platforms/xiaohongshu.svg" alt="Xiaohongshu" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Microsoft Ads"><img src="/logos/platforms/microsoft-ads.svg" alt="Microsoft Ads" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Spotify"><img src="/logos/platforms/spotify.svg" alt="Spotify" loading="lazy"></div>
-<div class="ow-ticker-logo" title="People"><img src="/logos/platforms/people.svg" alt="People" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Snapchat"><img src="/logos/platforms/snapchat.svg" alt="Snapchat" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Bing"><img src="/logos/platforms/bing.svg" alt="Bing" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Dewu"><img src="/logos/platforms/dewu.svg" alt="Dewu" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Imdb"><img src="/logos/platforms/imdb.svg" alt="Imdb" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Gemini"><img src="/logos/platforms/gemini.svg" alt="Gemini" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Claude"><img src="/logos/platforms/claude.svg" alt="Claude" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Linkinbio"><img src="/logos/platforms/linkinbio.svg" alt="Linkinbio" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Tripadvisor"><img src="/logos/platforms/tripadvisor.svg" alt="Tripadvisor" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Ai Search"><img src="/logos/platforms/ai-search.svg" alt="Ai Search" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Lemon8"><img src="/logos/platforms/lemon8.svg" alt="Lemon8" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Yelp"><img src="/logos/platforms/yelp.svg" alt="Yelp" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Bilibili"><img src="/logos/platforms/bilibili.svg" alt="Bilibili" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Google Ads"><img src="/logos/platforms/google-ads.svg" alt="Google Ads" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Jd"><img src="/logos/platforms/jd.svg" alt="Jd" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Search Console"><img src="/logos/platforms/search-console.svg" alt="Search Console" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Naver"><img src="/logos/platforms/naver.svg" alt="Naver" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Weibo"><img src="/logos/platforms/weibo.svg" alt="Weibo" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Github"><img src="/logos/platforms/github.svg" alt="Github" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Seznam"><img src="/logos/platforms/seznam.svg" alt="Seznam" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Google Analytics"><img src="/logos/platforms/google-analytics.svg" alt="Google Analytics" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Google Play"><img src="/logos/platforms/google-play.svg" alt="Google Play" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Douyin"><img src="/logos/platforms/douyin.svg" alt="Douyin" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Meta Ads"><img src="/logos/platforms/meta-ads.svg" alt="Meta Ads" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Google Business"><img src="/logos/platforms/google-business.svg" alt="Google Business" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Truthsocial"><img src="/logos/platforms/truthsocial.svg" alt="Truthsocial" loading="lazy"></div>
-<div class="ow-ticker-logo" title="X"><img src="/logos/platforms/x.svg" alt="X" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Wechat Channels"><img src="/logos/platforms/wechat-channels.svg" alt="Wechat Channels" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Beike"><img src="/logos/platforms/beike.svg" alt="Beike" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Apple Music"><img src="/logos/platforms/apple-music.svg" alt="Apple Music" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Instagram"><img src="/logos/platforms/instagram.svg" alt="Instagram" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Douyin Shop"><img src="/logos/platforms/douyin-shop.svg" alt="Douyin Shop" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Threads"><img src="/logos/platforms/threads.svg" alt="Threads" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Xigua"><img src="/logos/platforms/xigua.svg" alt="Xigua" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Netease Music"><img src="/logos/platforms/netease-music.svg" alt="Netease Music" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Wechat Mp"><img src="/logos/platforms/wechat-mp.svg" alt="Wechat Mp" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Bluesky"><img src="/logos/platforms/bluesky.svg" alt="Bluesky" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Telegram"><img src="/logos/platforms/telegram.svg" alt="Telegram" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Rumble"><img src="/logos/platforms/rumble.svg" alt="Rumble" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Xiaohongshu"><img src="/logos/platforms/xiaohongshu.svg" alt="Xiaohongshu" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Microsoft Ads"><img src="/logos/platforms/microsoft-ads.svg" alt="Microsoft Ads" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Spotify"><img src="/logos/platforms/spotify.svg" alt="Spotify" loading="lazy"></div>
-<div class="ow-ticker-logo" title="People"><img src="/logos/platforms/people.svg" alt="People" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Snapchat"><img src="/logos/platforms/snapchat.svg" alt="Snapchat" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Bing"><img src="/logos/platforms/bing.svg" alt="Bing" loading="lazy"></div>
+<!-- ─── TOOL TICKER (pill style) ─────────────────────────────────────── -->
+<div class="ticker-section">
+  <div class="ticker-track" id="ticker-r1"></div>
+  <div class="ticker-track rev" id="ticker-r2"></div>
+</div>
 
-  </div>
-  <div class="ow-ticker-row rev">
-<div class="ow-ticker-logo" title="Qq Huxuan"><img src="/logos/platforms/qq-huxuan.svg" alt="Qq Huxuan" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Pipixia"><img src="/logos/platforms/pipixia.svg" alt="Pipixia" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Wechat Search"><img src="/logos/platforms/wechat-search.svg" alt="Wechat Search" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Tiktok Ads"><img src="/logos/platforms/tiktok-ads.svg" alt="Tiktok Ads" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Facebook"><img src="/logos/platforms/facebook.svg" alt="Facebook" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Amazon"><img src="/logos/platforms/amazon.svg" alt="Amazon" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Pinterest Ads"><img src="/logos/platforms/pinterest-ads.svg" alt="Pinterest Ads" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Pinterest"><img src="/logos/platforms/pinterest.svg" alt="Pinterest" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Chatgpt"><img src="/logos/platforms/chatgpt.svg" alt="Chatgpt" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Yandex"><img src="/logos/platforms/yandex.svg" alt="Yandex" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Google"><img src="/logos/platforms/google.svg" alt="Google" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Kick"><img src="/logos/platforms/kick.svg" alt="Kick" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Google Tag Manager"><img src="/logos/platforms/google-tag-manager.svg" alt="Google Tag Manager" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Douyin Xingtu"><img src="/logos/platforms/douyin-xingtu.svg" alt="Douyin Xingtu" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Twitch"><img src="/logos/platforms/twitch.svg" alt="Twitch" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Douban"><img src="/logos/platforms/douban.svg" alt="Douban" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Xianyu"><img src="/logos/platforms/xianyu.svg" alt="Xianyu" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Youtube"><img src="/logos/platforms/youtube.svg" alt="Youtube" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Doubao"><img src="/logos/platforms/doubao.svg" alt="Doubao" loading="lazy"></div>
-<div class="ow-ticker-logo" title="App Store"><img src="/logos/platforms/app-store.svg" alt="App Store" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Yahoo"><img src="/logos/platforms/yahoo.svg" alt="Yahoo" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Tiktok Shop"><img src="/logos/platforms/tiktok-shop.svg" alt="Tiktok Shop" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Reddit"><img src="/logos/platforms/reddit.svg" alt="Reddit" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Trustpilot"><img src="/logos/platforms/trustpilot.svg" alt="Trustpilot" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Web"><img src="/logos/platforms/web.svg" alt="Web" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Youku"><img src="/logos/platforms/youku.svg" alt="Youku" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Linkedin"><img src="/logos/platforms/linkedin.svg" alt="Linkedin" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Kuaishou"><img src="/logos/platforms/kuaishou.svg" alt="Kuaishou" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Duckduckgo"><img src="/logos/platforms/duckduckgo.svg" alt="Duckduckgo" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Slack"><img src="/logos/platforms/slack.svg" alt="Slack" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Zhihu"><img src="/logos/platforms/zhihu.svg" alt="Zhihu" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Soundcloud"><img src="/logos/platforms/soundcloud.svg" alt="Soundcloud" loading="lazy"></div>
-<div class="ow-ticker-logo" title="1688"><img src="/logos/platforms/1688.svg" alt="1688" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Baidu"><img src="/logos/platforms/baidu.svg" alt="Baidu" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Ebay"><img src="/logos/platforms/ebay.svg" alt="Ebay" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Walmart"><img src="/logos/platforms/walmart.svg" alt="Walmart" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Snapchat Ads"><img src="/logos/platforms/snapchat-ads.svg" alt="Snapchat Ads" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Taobao"><img src="/logos/platforms/taobao.svg" alt="Taobao" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Toutiao"><img src="/logos/platforms/toutiao.svg" alt="Toutiao" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Tiktok"><img src="/logos/platforms/tiktok.svg" alt="Tiktok" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Perplexity"><img src="/logos/platforms/perplexity.svg" alt="Perplexity" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Xiaohongshu Pugongying"><img src="/logos/platforms/xiaohongshu-pugongying.svg" alt="Xiaohongshu Pugongying" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Qq Huxuan"><img src="/logos/platforms/qq-huxuan.svg" alt="Qq Huxuan" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Pipixia"><img src="/logos/platforms/pipixia.svg" alt="Pipixia" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Wechat Search"><img src="/logos/platforms/wechat-search.svg" alt="Wechat Search" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Tiktok Ads"><img src="/logos/platforms/tiktok-ads.svg" alt="Tiktok Ads" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Facebook"><img src="/logos/platforms/facebook.svg" alt="Facebook" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Amazon"><img src="/logos/platforms/amazon.svg" alt="Amazon" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Pinterest Ads"><img src="/logos/platforms/pinterest-ads.svg" alt="Pinterest Ads" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Pinterest"><img src="/logos/platforms/pinterest.svg" alt="Pinterest" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Chatgpt"><img src="/logos/platforms/chatgpt.svg" alt="Chatgpt" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Yandex"><img src="/logos/platforms/yandex.svg" alt="Yandex" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Google"><img src="/logos/platforms/google.svg" alt="Google" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Kick"><img src="/logos/platforms/kick.svg" alt="Kick" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Google Tag Manager"><img src="/logos/platforms/google-tag-manager.svg" alt="Google Tag Manager" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Douyin Xingtu"><img src="/logos/platforms/douyin-xingtu.svg" alt="Douyin Xingtu" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Twitch"><img src="/logos/platforms/twitch.svg" alt="Twitch" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Douban"><img src="/logos/platforms/douban.svg" alt="Douban" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Xianyu"><img src="/logos/platforms/xianyu.svg" alt="Xianyu" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Youtube"><img src="/logos/platforms/youtube.svg" alt="Youtube" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Doubao"><img src="/logos/platforms/doubao.svg" alt="Doubao" loading="lazy"></div>
-<div class="ow-ticker-logo" title="App Store"><img src="/logos/platforms/app-store.svg" alt="App Store" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Yahoo"><img src="/logos/platforms/yahoo.svg" alt="Yahoo" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Tiktok Shop"><img src="/logos/platforms/tiktok-shop.svg" alt="Tiktok Shop" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Reddit"><img src="/logos/platforms/reddit.svg" alt="Reddit" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Trustpilot"><img src="/logos/platforms/trustpilot.svg" alt="Trustpilot" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Web"><img src="/logos/platforms/web.svg" alt="Web" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Youku"><img src="/logos/platforms/youku.svg" alt="Youku" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Linkedin"><img src="/logos/platforms/linkedin.svg" alt="Linkedin" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Kuaishou"><img src="/logos/platforms/kuaishou.svg" alt="Kuaishou" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Duckduckgo"><img src="/logos/platforms/duckduckgo.svg" alt="Duckduckgo" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Slack"><img src="/logos/platforms/slack.svg" alt="Slack" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Zhihu"><img src="/logos/platforms/zhihu.svg" alt="Zhihu" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Soundcloud"><img src="/logos/platforms/soundcloud.svg" alt="Soundcloud" loading="lazy"></div>
-<div class="ow-ticker-logo" title="1688"><img src="/logos/platforms/1688.svg" alt="1688" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Baidu"><img src="/logos/platforms/baidu.svg" alt="Baidu" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Ebay"><img src="/logos/platforms/ebay.svg" alt="Ebay" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Walmart"><img src="/logos/platforms/walmart.svg" alt="Walmart" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Snapchat Ads"><img src="/logos/platforms/snapchat-ads.svg" alt="Snapchat Ads" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Taobao"><img src="/logos/platforms/taobao.svg" alt="Taobao" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Toutiao"><img src="/logos/platforms/toutiao.svg" alt="Toutiao" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Tiktok"><img src="/logos/platforms/tiktok.svg" alt="Tiktok" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Perplexity"><img src="/logos/platforms/perplexity.svg" alt="Perplexity" loading="lazy"></div>
-<div class="ow-ticker-logo" title="Xiaohongshu Pugongying"><img src="/logos/platforms/xiaohongshu-pugongying.svg" alt="Xiaohongshu Pugongying" loading="lazy"></div>
+<!-- ─── GLOBE / KEY VISUAL ───────────────────────────────────────────── -->
+<div class="globe-section">
+  <span class="eyebrow">Global connectivity</span>
+  <h2 class="sec-title" style="text-align:center;">Your agent, everywhere</h2>
+  <p class="sec-sub" style="text-align:center;margin:0 auto;">One endpoint routes to every provider worldwide. Olywork injects the right credential for each call, invisibly.</p>
 
+  <div class="globe-wrap">
+    <div class="globe-ring"></div>
+    <div class="globe-ring ring-2"></div>
+    <div class="globe-ring ring-3"></div>
+    <div class="globe-center">
+      <div class="globe-center-n">60+</div>
+      <div class="globe-center-l">providers</div>
+    </div>
+    <div class="globe-badges">
+      <div class="globe-badge"><img src="/logos/platforms/google.svg" alt="Google">Google</div>
+      <div class="globe-badge"><img src="/logos/platforms/twitter.svg" alt="Twitter">Twitter / X</div>
+      <div class="globe-badge"><img src="/logos/platforms/linkedin.svg" alt="LinkedIn">LinkedIn</div>
+      <div class="globe-badge"><img src="/logos/platforms/github.svg" alt="GitHub">GitHub</div>
+      <div class="globe-badge"><img src="/logos/platforms/facebook.svg" alt="Meta">Meta Ads</div>
+      <div class="globe-badge"><img src="/logos/platforms/amazon.svg" alt="Amazon">Amazon</div>
+    </div>
   </div>
 </div>
 
-<section class="ticker-section">
-  <div class="ticker-row">
-    <!-- Duplicate for infinite scroll -->
-    <div class="ticker-item"><span class="ticker-tag">Marketing</span><span class="ticker-text">Post to 5 social channels</span></div>
-    <div class="ticker-item"><span class="ticker-tag">Scraping</span><span class="ticker-text">Extract top 20 competitors</span></div>
-    <div class="ticker-item"><span class="ticker-tag">SEO</span><span class="ticker-text">Audit my landing page</span></div>
-    <div class="ticker-item"><span class="ticker-tag">Video</span><span class="ticker-text">Generate a product demo</span></div>
-    <div class="ticker-item"><span class="ticker-tag">Marketing</span><span class="ticker-text">Post to 5 social channels</span></div>
-    <div class="ticker-item"><span class="ticker-tag">Scraping</span><span class="ticker-text">Extract top 20 competitors</span></div>
-    <div class="ticker-item"><span class="ticker-tag">SEO</span><span class="ticker-text">Audit my landing page</span></div>
-    <div class="ticker-item"><span class="ticker-tag">Video</span><span class="ticker-text">Generate a product demo</span></div>
+<!-- ─── FEATURES BENTO ────────────────────────────────────────────────── -->
+<section class="section">
+  <div style="margin-bottom:64px;">
+    <span class="eyebrow">Why Olywork</span>
+    <h2 class="sec-title">Everything your agent needs.<br><span style="opacity:.4">Nothing it doesn't.</span></h2>
   </div>
-  <div class="ticker-row reverse">
-    <div class="ticker-item"><span class="ticker-tag">Ads</span><span class="ticker-text">Create 10 ad creatives</span></div>
-    <div class="ticker-item"><span class="ticker-tag">Email</span><span class="ticker-text">Find 100 qualified leads</span></div>
-    <div class="ticker-item"><span class="ticker-tag">Code</span><span class="ticker-text">Review my latest PR</span></div>
-    <div class="ticker-item"><span class="ticker-tag">Design</span><span class="ticker-text">Fix UI alignment issues</span></div>
-    <div class="ticker-item"><span class="ticker-tag">Ads</span><span class="ticker-text">Create 10 ad creatives</span></div>
-    <div class="ticker-item"><span class="ticker-tag">Email</span><span class="ticker-text">Find 100 qualified leads</span></div>
-    <div class="ticker-item"><span class="ticker-tag">Code</span><span class="ticker-text">Review my latest PR</span></div>
-    <div class="ticker-item"><span class="ticker-tag">Design</span><span class="ticker-text">Fix UI alignment issues</span></div>
+
+  <div class="bento">
+    <!-- Cell 1: large dark — "one endpoint" -->
+    <div class="bento-cell dark c8">
+      <div class="bento-icon">🔑</div>
+      <div class="bento-h">One token, every tool</div>
+      <div class="bento-p">Your agent holds exactly one credential. Olywork routes each call to the right provider, injects the real API key server-side, and relays the response verbatim. Zero credential sprawl.</div>
+      <div class="bento-code"><span class="c-k">olywork.call</span>(<span class="c-s">"google.search"</span>, q=<span class="c-s">"AI agent tools"</span>)<br><span class="c-cell"># → relayed to Google, answer back in &lt;200ms</span></div>
+    </div>
+
+    <!-- Cell 2: lime — "pay per call" -->
+    <div class="bento-cell lime c4">
+      <div class="bento-icon">💰</div>
+      <div class="bento-n">$0</div>
+      <div class="bento-h">Markup</div>
+      <div class="bento-p">Charged at cost in integer micro-USD. Failed calls are never billed.</div>
+    </div>
+
+    <!-- Cell 3: surface — "MCP native" -->
+    <div class="bento-cell c4">
+      <div class="bento-icon">🔌</div>
+      <div class="bento-h">MCP native</div>
+      <div class="bento-p">One command registers Olywork into Claude Code, Cursor, and opencode. Any MCP-compatible agent connects immediately.</div>
+    </div>
+
+    <!-- Cell 4: surface — "BYOK" -->
+    <div class="bento-cell c4">
+      <div class="bento-icon">🗝️</div>
+      <div class="bento-h">Bring your own keys</div>
+      <div class="bento-p">Already have a provider key? Register it once. Your key always wins — those calls are never metered or routed through us.</div>
+    </div>
+
+    <!-- Cell 5: surface — "OAuth" -->
+    <div class="bento-cell c4">
+      <div class="bento-icon">🔐</div>
+      <div class="bento-h">OAuth for your users</div>
+      <div class="bento-p">Connect Twitter, LinkedIn, Google Drive and more on behalf of your users. Olywork handles the consent flow and injects tokens invisibly.</div>
+    </div>
+
+    <!-- Cell 6: dark — endpoints count -->
+    <div class="bento-cell dark c6">
+      <div class="bento-n">2,896</div>
+      <div class="bento-h">Endpoints</div>
+      <div class="bento-p">Search, post, read, write — across social, ads, analytics, enrichment, e-commerce, and developer platforms.</div>
+    </div>
+
+    <!-- Cell 7: surface — "idempotency" -->
+    <div class="bento-cell c6">
+      <div class="bento-icon">🔄</div>
+      <div class="bento-h">Idempotency built in</div>
+      <div class="bento-p">Pass an <code style="font-family:var(--font-m);font-size:12px;background:var(--panel2);border-radius:4px;padding:1px 5px;">Idempotency-Key</code> header and a repeated call returns the stored result without paying twice or executing a side-effect twice.</div>
+    </div>
   </div>
 </section>
 
-<section class="sphere-section">
-  <div class="sphere-wrapper">
-    <svg class="sphere-text" viewBox="0 0 500 500">
-      <path id="curve" d="M 50, 250 a 200, 200 0 1, 1 400, 0 a 200, 200 0 1, 1 -400, 0" fill="transparent" />
-      <text font-family="Plus Jakarta Sans" font-weight="700" font-size="28" letter-spacing="4" fill="var(--ink)">
-        <textPath href="#curve">
-          IF YOU CAN SAY WHAT DONE LOOKS LIKE, YOU CAN CONNECT IT.
-        </textPath>
-      </text>
-    </svg>
-    <div class="sphere-center">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" width="120" height="120" color="var(--ink)">
-        <circle cx="12" cy="12" r="10"></circle>
-        <line x1="2" y1="12" x2="22" y2="12"></line>
-        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
-      </svg>
+<!-- ─── HOW IT WORKS ───────────────────────────────────────────────────── -->
+<section class="hiw-section">
+  <div class="hiw-header">
+    <span class="eyebrow">How it works</span>
+    <h2 class="sec-title">One call.<br><span style="opacity:.35">Unlimited reach.</span></h2>
+    <p class="sec-sub" style="margin:0 auto;text-align:center;">Your agent makes a single request. Olywork handles credentials, routing, metering, and returns the provider's answer verbatim.</p>
+  </div>
+
+  <div class="hiw-grid">
+    <div class="hiw-card" data-n="1">
+      <div class="hiw-icon">🤖</div>
+      <div class="hiw-h">Your agent calls</div>
+      <p class="hiw-p">One POST to <code style="font-family:var(--font-m);font-size:12px;background:var(--panel2);border-radius:4px;padding:1px 5px;">olywork.com/call/</code> with your token and the tool ID. Works over REST or MCP — no SDK required.</p>
+      <div class="hiw-code">POST /call/<br>Authorization: Bearer $TOKEN<br>{ "id": "google.search", "q": "…" }</div>
+    </div>
+
+    <div class="hiw-card dark" data-n="2">
+      <div class="hiw-icon">⚙️</div>
+      <div class="hiw-h">We route &amp; inject</div>
+      <p class="hiw-p">Olywork identifies the provider, holds your micro-USD balance, injects the real API credential server-side, and forwards the request faithfully. No body rewriting.</p>
+      <div class="hiw-code">← credential injected<br>← balance reserved<br>→ relayed upstream</div>
+    </div>
+
+    <div class="hiw-card lime" data-n="3">
+      <div class="hiw-icon">✅</div>
+      <div class="hiw-h">Result straight back</div>
+      <p class="hiw-p">The provider executes, the response arrives verbatim. Your balance is settled only on success. No success = no charge.</p>
+      <div class="hiw-code">200 OK — result here<br>Balance settled ✓<br>Receipt stored ✓</div>
     </div>
   </div>
-  <button class="btn-accent" style="margin-top: 48px;">
-    Explore Catalog
-  </button>
 </section>
 
-<script>
-// Hero Canvas Animation (Rotating Grid/Particles)
-const canvas = document.getElementById('heroCanvas');
-const ctx = canvas.getContext('2d');
-let width, height;
-
-function resize() {
-  width = window.innerWidth;
-  height = window.innerHeight;
-  canvas.width = width;
-  canvas.height = height;
-}
-window.addEventListener('resize', resize);
-resize();
-
-const points = [];
-const gridSize = 40;
-for(let x = -10; x <= 10; x++) {
-  for(let z = -10; z <= 10; z++) {
-    points.push({x: x * gridSize, y: 0, z: z * gridSize});
-  }
-}
-
-let angle = 0;
-function draw() {
-  ctx.clearRect(0, 0, width, height);
-  ctx.fillStyle = '#F4F2EC';
-  ctx.fillRect(0, 0, width, height);
-
-  angle += 0.002;
-  const cx = width / 2;
-  const cy = height / 2 + 100;
-  
-  ctx.beginPath();
-  ctx.strokeStyle = 'rgba(0, 0, 0, 0.08)';
-  ctx.lineWidth = 1;
-
-  points.forEach((p, i) => {
-    // Rotate around Y
-    const x = p.x * Math.cos(angle) - p.z * Math.sin(angle);
-    const z = p.z * Math.cos(angle) + p.x * Math.sin(angle);
-    
-    // Simple projection
-    const scale = 800 / (800 + z + 200);
-    const px = cx + x * scale;
-    const py = cy + (p.y + 150) * scale - 200;
-
-    if (i % 21 !== 20) {
-      const nextX = points[i+1].x * Math.cos(angle) - points[i+1].z * Math.sin(angle);
-      const nextZ = points[i+1].z * Math.cos(angle) + points[i+1].x * Math.sin(angle);
-      const nextScale = 800 / (800 + nextZ + 200);
-      const npx = cx + nextX * nextScale;
-      const npy = cy + (points[i+1].y + 150) * nextScale - 200;
-      
-      ctx.moveTo(px, py);
-      ctx.lineTo(npx, npy);
-    }
-    
-    if (i + 21 < points.length) {
-      const nextX = points[i+21].x * Math.cos(angle) - points[i+21].z * Math.sin(angle);
-      const nextZ = points[i+21].z * Math.cos(angle) + points[i+21].x * Math.sin(angle);
-      const nextScale = 800 / (800 + nextZ + 200);
-      const npx = cx + nextX * nextScale;
-      const npy = cy + (points[i+21].y + 150) * nextScale - 200;
-      
-      ctx.moveTo(px, py);
-      ctx.lineTo(npx, npy);
-    }
-  });
-  ctx.stroke();
-  requestAnimationFrame(draw);
-}
-draw();
-</script>
-
-
-<style>
-/* BENTO GRID */
-.bento-section { padding: 100px 24px; max-width: 1200px; margin: 0 auto; }
-.bento-header { text-align: center; margin-bottom: 64px; }
-.bento-tag { font-size: 12px; font-weight: 700; color: var(--ink-muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 16px; display: block; }
-.bento-title { font-family: var(--font-heading); font-size: 48px; font-weight: 800; color: var(--ink); letter-spacing: -0.03em; margin-bottom: 24px; line-height: 1.1; }
-.bento-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 24px; }
-.bento-card { background: var(--surface); border-radius: 24px; padding: 40px; border: 1px solid rgba(0,0,0,0.05); display: flex; flex-direction: column; }
-.bento-card h3 { font-family: var(--font-heading); font-size: 28px; font-weight: 700; margin-bottom: 12px; letter-spacing: -0.02em; }
-.bento-card p { font-size: 16px; color: var(--ink-secondary); line-height: 1.5; }
-.bento-card.col-7 { grid-column: span 7; }
-.bento-card.col-5 { grid-column: span 5; }
-.bento-card.col-12 { grid-column: span 12; display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center; }
-
-/* TERMINAL MOCKUP */
-.terminal { background: #1A1A1A; border-radius: 16px; padding: 24px; color: #E8E5DA; font-family: monospace; font-size: 14px; margin-top: 32px; overflow-x: auto; border: 1px solid #333; }
-.terminal-header { display: flex; gap: 8px; margin-bottom: 16px; }
-.dot { width: 12px; height: 12px; border-radius: 50%; background: #444; }
-
-/* FOOTER */
-.footer { padding: 64px 48px; background: var(--surface); border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; font-size: 14px; color: var(--ink-muted); font-weight: 500; }
-.footer-links { display: flex; gap: 24px; }
-.footer-link { transition: color 0.2s; }
-.footer-link:hover { color: var(--ink); }
-</style>
-
-<section class="bento-section">
-  <div class="bento-header">
-    <span class="bento-tag">Designed for Agents</span>
-    <h2 class="bento-title">Every tool your agent needs.<br>Zero headaches.</h2>
+<!-- ─── PROVIDER LOGO TICKER ──────────────────────────────────────────── -->
+<div class="section-full" style="padding:60px 0 80px;">
+  <div style="text-align:center;max-width:1200px;margin:0 auto 40px;padding:0 40px;">
+    <span class="eyebrow">60+ providers</span>
+    <h2 class="sec-title">Every platform your agent needs</h2>
   </div>
-  
-  <div class="bento-grid">
-    <div class="bento-card col-7">
-      <h3>One Token, 2,896 Tools</h3>
-      <p>Forget managing API keys across 60+ providers. Give your agent a single Olywork token, and let it access everything from web scraping to video generation instantly.</p>
-      
-      <div class="terminal">
-        <div class="terminal-header">
-          <div class="dot" style="background:#FF5F56;"></div>
-          <div class="dot" style="background:#FFBD2E;"></div>
-          <div class="dot" style="background:#27C93F;"></div>
-        </div>
-        <div>$ curl -X POST https://olywork.com/api/v1/tools/search_web \</div>
-        <div style="color: #9FF25F;">  -H "Authorization: Bearer oly_..." \</div>
-        <div>  -d '{"query": "Latest AI agents"}'</div>
-      </div>
+  <div class="logo-ticker">
+    <div class="logo-row" id="logo-r1"></div>
+    <div class="logo-row r2" id="logo-r2"></div>
+  </div>
+</div>
+
+<!-- ─── QUOTE / SOCIAL PROOF ──────────────────────────────────────────── -->
+<div style="padding:0 40px 80px;max-width:1200px;margin:0 auto;">
+  <div class="quote-section">
+    <div class="quote-text">
+      "We replaced 17 different API integrations with <em>a single Olywork token</em>. Our agent build time dropped from 3 weeks to 2 days."
     </div>
-    
-    <div class="bento-card col-5" style="background: var(--primary-deep); color: white;">
-      <h3 style="color: var(--accent);">Micro-USD Pricing</h3>
-      <p style="color: #A09E96; margin-bottom: 24px;">No subscriptions. No massive prepays. You pay per successful API call in fractions of a cent.</p>
-      
-      <div style="background: rgba(255,255,255,0.05); border-radius: 12px; padding: 24px; border: 1px solid rgba(255,255,255,0.1);">
-        <div style="display: flex; justify-content: space-between; margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px;">
-          <span style="font-weight: 600;">Google Search</span>
-          <span style="font-family: monospace; color: var(--accent);">$0.001 / call</span>
-        </div>
-        <div style="display: flex; justify-content: space-between; margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px;">
-          <span style="font-weight: 600;">Browser Automate</span>
-          <span style="font-family: monospace; color: var(--accent);">$0.005 / min</span>
-        </div>
-        <div style="display: flex; justify-content: space-between;">
-          <span style="font-weight: 600;">Twitter Post</span>
-          <span style="font-family: monospace; color: var(--accent);">$0.002 / call</span>
-        </div>
-      </div>
-    </div>
-    
-    <div class="bento-card col-12">
+    <div class="quote-stats">
       <div>
-        <h3>BYO OAuth & Connections</h3>
-        <p>If your agent needs to act on your behalf, we handle the OAuth flows. Your users just click "Connect Twitter" and the agent can immediately post, read, and reply securely.</p>
-        <button class="btn-primary" style="margin-top: 24px;">View Documentation</button>
+        <div class="q-stat-n">17x</div>
+        <div class="q-stat-l">Fewer integrations</div>
       </div>
-      <div style="background: var(--bg); border-radius: 16px; padding: 32px; display: flex; flex-direction: column; gap: 16px; border: 1px solid rgba(0,0,0,0.05);">
-        <div style="display: flex; align-items: center; justify-content: space-between; background: var(--surface); padding: 16px 24px; border-radius: 12px; border: 1px solid rgba(0,0,0,0.05);">
-          <div style="display: flex; align-items: center; gap: 12px; font-weight: 600; color: var(--ink);">
-            <div style="width: 32px; height: 32px; background: #000; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">X</div>
-            X (Twitter)
-          </div>
-          <span style="background: #E8E5DA; color: var(--ink-secondary); padding: 4px 12px; border-radius: 99px; font-size: 12px; font-weight: 600;">Connected</span>
-        </div>
-        <div style="display: flex; align-items: center; justify-content: space-between; background: var(--surface); padding: 16px 24px; border-radius: 12px; border: 1px solid rgba(0,0,0,0.05);">
-          <div style="display: flex; align-items: center; gap: 12px; font-weight: 600; color: var(--ink);">
-            <div style="width: 32px; height: 32px; background: #0A66C2; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">in</div>
-            LinkedIn
-          </div>
-          <span style="background: var(--ink); color: #FFF; padding: 4px 12px; border-radius: 99px; font-size: 12px; font-weight: 600;">Connect</span>
-        </div>
+      <div>
+        <div class="q-stat-n">91%</div>
+        <div class="q-stat-l">Less setup time</div>
+      </div>
+      <div>
+        <div class="q-stat-n">$30K+</div>
+        <div class="q-stat-l">Engineering saved</div>
       </div>
     </div>
   </div>
-</section>
+</div>
 
-
-<style>
-/* FAQ SECTION */
-.faq-section { padding: 100px 24px; max-width: 800px; margin: 0 auto; }
-.faq-title { font-family: var(--font-heading); font-size: 40px; font-weight: 800; text-align: center; margin-bottom: 48px; letter-spacing: -0.03em; }
-.faq-item { border-bottom: 1px solid var(--border); padding: 24px 0; }
-.faq-q { font-size: 18px; font-weight: 600; color: var(--ink); cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
-.faq-a { font-size: 15px; color: var(--ink-secondary); margin-top: 16px; line-height: 1.6; display: none; }
-.faq-item.active .faq-a { display: block; }
-.faq-icon { font-size: 24px; font-weight: 300; transition: transform 0.3s; }
-.faq-item.active .faq-icon { transform: rotate(45deg); }
-</style>
-
-
-<style>
-.how-section { padding: 120px 24px; max-width: 1000px; margin: 0 auto; text-align: center; }
-.how-title { font-family: var(--font-heading); font-size: 48px; font-weight: 800; margin-bottom: 24px; letter-spacing: -0.03em; }
-.how-sub { font-size: 18px; color: var(--ink-secondary); margin-bottom: 80px; max-width: 600px; margin-left: auto; margin-right: auto; line-height: 1.5; }
-.how-diagram { display: flex; align-items: center; justify-content: center; gap: 24px; }
-.how-box { background: var(--surface); border: 1px solid var(--border); border-radius: 24px; padding: 40px; flex: 1; position: relative; }
-.how-box-icon { width: 48px; height: 48px; background: var(--bg); border: 1px solid var(--border); border-radius: 12px; display: flex; align-items: center; justify-content: center; margin: 0 auto 24px; font-weight: bold; }
-.how-box h4 { font-family: var(--font-heading); font-size: 24px; margin-bottom: 12px; font-weight: 700; }
-.how-box p { font-size: 15px; color: var(--ink-secondary); line-height: 1.5; }
-.how-arrow { color: var(--ink-muted); font-size: 24px; }
-@media (max-width: 768px) {
-  .how-diagram { flex-direction: column; }
-  .how-arrow { transform: rotate(90deg); }
-}
-</style>
-
-
-
-
-<!-- HOW IT WORKS -->
-<style>
-/* Override/extend any existing styles for the "how it works" section */
-.ow-hiw-section { padding:120px 32px; max-width:1200px; margin:0 auto; }
-.ow-hiw-header { text-align:center; margin-bottom:80px; }
-.ow-hiw-header .ow-eyebrow { display:inline-block; font-family:var(--mono,monospace); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.14em; color:var(--ink-muted,#7E7C74); margin-bottom:16px; }
-.ow-hiw-header h2 { font-family:var(--font-heading,"Plus Jakarta Sans",sans-serif); font-size:clamp(36px,4.5vw,56px); font-weight:800; letter-spacing:-0.04em; line-height:1.06; margin:0 0 16px; }
-.ow-hiw-header p { font-size:18px; color:var(--ink-secondary,#7E7C74); max-width:52ch; margin:0 auto; line-height:1.5; }
-
-.ow-hiw-steps { display:grid; grid-template-columns:repeat(3,1fr); gap:20px; }
-.ow-hiw-step {
-  background:var(--surface,#FCFBFA);
-  border:1px solid var(--border,#E8E5DA);
-  border-radius:24px;
-  padding:44px 36px;
-  position:relative;
-  overflow:hidden;
-  transition:transform 0.35s cubic-bezier(.2,.72,.25,1), border-color 0.35s;
-  cursor:default;
-}
-.ow-hiw-step::before {
-  content:attr(data-num);
-  position:absolute; top:20px; right:28px;
-  font-family:var(--font-heading,"Plus Jakarta Sans",sans-serif);
-  font-size:96px; font-weight:800; line-height:1;
-  color:rgba(32,32,32,0.05);
-  letter-spacing:-0.06em;
-  pointer-events:none;
-  transition:transform 0.35s;
-}
-.ow-hiw-step:hover { transform:translateY(-6px); border-color:var(--border-strong,#D5D1C3); }
-.ow-hiw-step:hover::before { transform:scale(1.05) translateY(-4px); }
-.ow-hiw-step-icon {
-  width:56px; height:56px; border-radius:16px;
-  border:1px solid var(--border,#E8E5DA);
-  display:grid; place-items:center;
-  font-size:26px; margin-bottom:28px;
-  background:var(--bg,#F4F2EC);
-  transition:transform 0.3s;
-}
-.ow-hiw-step:hover .ow-hiw-step-icon { transform:scale(1.08); }
-.ow-hiw-step h3 {
-  font-family:var(--font-heading,"Plus Jakarta Sans",sans-serif);
-  font-size:22px; font-weight:800; letter-spacing:-0.03em;
-  margin:0 0 12px;
-}
-.ow-hiw-step p { font-size:14.5px; color:var(--ink-secondary,#7E7C74); line-height:1.65; margin:0; }
-
-/* Accent card: lime green */
-.ow-hiw-step.s-accent { background:var(--accent,#9FF25F); border-color:transparent; }
-.ow-hiw-step.s-accent::before { color:rgba(32,32,32,0.07); }
-.ow-hiw-step.s-accent .ow-hiw-step-icon { background:rgba(32,32,32,0.08); border-color:rgba(32,32,32,0.1); }
-.ow-hiw-step.s-accent h3, .ow-hiw-step.s-accent p { color:#202020; }
-
-/* Dark card */
-.ow-hiw-step.s-dark { background:#1A1A1A; border-color:transparent; }
-.ow-hiw-step.s-dark::before { color:rgba(255,255,255,0.05); }
-.ow-hiw-step.s-dark .ow-hiw-step-icon { background:rgba(255,255,255,0.07); border-color:rgba(255,255,255,0.1); filter:invert(1); }
-.ow-hiw-step.s-dark h3 { color:#9FF25F; }
-.ow-hiw-step.s-dark p { color:rgba(252,251,250,0.58); }
-
-/* Flow connector */
-.ow-hiw-flow {
-  display:flex; align-items:center; justify-content:center;
-  gap:0; margin:40px 0;
-}
-.ow-hiw-flow-item { flex:1; text-align:center; padding:0 16px; }
-.ow-hiw-flow-arrow { color:var(--border-strong,#D5D1C3); font-size:28px; flex-shrink:0; }
-
-/* FAQ styles */
-.ow-faq-section { padding:100px 32px; max-width:800px; margin:0 auto; }
-.ow-faq-section .ow-eyebrow { display:block; text-align:center; margin-bottom:12px; font-family:var(--mono,monospace); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.14em; color:var(--ink-muted,#7E7C74); }
-.ow-faq-section h2 { font-family:var(--font-heading,"Plus Jakarta Sans",sans-serif); font-size:clamp(32px,4vw,48px); font-weight:800; letter-spacing:-0.04em; text-align:center; margin:0 0 56px; }
-
-.faq-item { border-bottom:1px solid var(--border,#E8E5DA); overflow:hidden; }
-.faq-item:first-of-type { border-top:1px solid var(--border,#E8E5DA); }
-.faq-q {
-  display:flex; align-items:center; justify-content:space-between;
-  gap:16px; padding:22px 4px;
-  font-weight:600; font-size:16px;
-  cursor:pointer; user-select:none;
-  background:none; border:none; width:100%; text-align:left;
-  color:var(--ink,#202020);
-  font-family:var(--font-body,"Inter",sans-serif);
-}
-.faq-icon {
-  flex-shrink:0; width:30px; height:30px; border-radius:50%;
-  border:1.5px solid var(--border,#E8E5DA);
-  display:grid; place-items:center;
-  font-size:18px; color:var(--ink-muted,#7E7C74);
-  transition:transform 0.3s cubic-bezier(.2,.72,.25,1), border-color 0.3s, background 0.3s;
-}
-.faq-item.open .faq-icon { transform:rotate(45deg); border-color:var(--ink,#202020); background:var(--ink,#202020); color:#fff; }
-.faq-a { max-height:0; overflow:hidden; transition:max-height 0.4s cubic-bezier(.2,.72,.25,1); }
-.faq-item.open .faq-a { max-height:500px; }
-.faq-a p { padding:0 4px 24px; font-size:14.5px; color:var(--ink-secondary,#7E7C74); line-height:1.75; margin:0; }
-.faq-a code { font-family:var(--mono,monospace); font-size:12.5px; background:var(--panel2,#EDEAE0); border:1px solid var(--border,#E8E5DA); border-radius:5px; padding:1px 6px; color:var(--ink,#202020); }
-
-@media(max-width:900px) {
-  .ow-hiw-steps { grid-template-columns:1fr; gap:12px; }
-  .ow-hiw-section { padding:72px 20px; }
-  .ow-faq-section { padding:64px 20px; }
-}
-</style>
-
-<section class="ow-hiw-section">
-  <div class="ow-hiw-header">
-    <span class="ow-eyebrow">How it works</span>
-    <h2>One call.<br><span style="opacity:0.35">Unlimited tools.</span></h2>
-    <p>Your agent makes a single REST or MCP call to Olywork. We handle credentials, routing, and billing. The result comes back directly — no buffering, no transformation.</p>
+<!-- ─── FAQ ───────────────────────────────────────────────────────────── -->
+<section class="faq-section">
+  <div class="faq-header">
+    <span class="eyebrow">FAQ</span>
+    <h2 class="sec-title">Common questions</h2>
   </div>
 
-  <div class="ow-hiw-steps">
-    <div class="ow-hiw-step" data-num="1">
-      <div class="ow-hiw-step-icon">🤖</div>
-      <h3>Your Agent Calls Us</h3>
-      <p>Your AI agent makes one standard REST or MCP call to <code>olywork.com/call/</code> using a single API token. No per-provider setup needed.</p>
-    </div>
-    <div class="ow-hiw-step s-dark" data-num="2">
-      <div class="ow-hiw-step-icon" style="font-size:20px;">▚</div>
-      <h3>We Route &amp; Inject</h3>
-      <p>Olywork identifies the right provider, injects their credential server-side, meters the micro-USD cost, and relays your request faithfully — no body rewriting.</p>
-    </div>
-    <div class="ow-hiw-step s-accent" data-num="3">
-      <div class="ow-hiw-step-icon">🌐</div>
-      <h3>Tool Executes &amp; Returns</h3>
-      <p>The upstream provider executes the task. The response comes back verbatim to your agent. You get billed only on success — failed calls cost nothing.</p>
-    </div>
+  <div class="faq-item">
+    <button class="faq-q">What exactly is Olywork?<span class="faq-q-icon">+</span></button>
+    <div class="faq-body"><p class="faq-p">Olywork is the OpenRouter for AI agent tools. One API endpoint, one token, and your agent can call 2,896+ tools across 60+ providers — Google, Twitter, LinkedIn, GitHub, and more. We relay your request faithfully with injected credentials and never transform the upstream response.</p></div>
+  </div>
+
+  <div class="faq-item">
+    <button class="faq-q">How does pricing work?<span class="faq-q-icon">+</span></button>
+    <div class="faq-body"><p class="faq-p">You pay in micro-USD per call, at cost with zero markup. A Google Search call is ~$0.004. A Twitter post is ~$0.002. Failed calls are never billed. New accounts start with $1.00 free credit — no credit card required. Top up any time from your dashboard.</p></div>
+  </div>
+
+  <div class="faq-item">
+    <button class="faq-q">Do I need to sign up to each provider?<span class="faq-q-icon">+</span></button>
+    <div class="faq-body"><p class="faq-p">No. Your single Olywork token authenticates your agent across every provider in the catalog. If you already have your own key for a provider, register it once with <code>olywork keys set &lt;provider&gt; &lt;key&gt;</code> — your key always wins and those calls are never metered through us.</p></div>
+  </div>
+
+  <div class="faq-item">
+    <button class="faq-q">Can my agent act on behalf of my users?<span class="faq-q-icon">+</span></button>
+    <div class="faq-body"><p class="faq-p">Yes. Olywork handles OAuth flows natively for supported providers. Your users authorize once, and your agent is immediately able to act on their behalf. The raw token is never exposed to your code — Olywork injects it server-side and relays responses verbatim.</p></div>
+  </div>
+
+  <div class="faq-item">
+    <button class="faq-q">What AI agents and frameworks are supported?<span class="faq-q-icon">+</span></button>
+    <div class="faq-body"><p class="faq-p"><code>olywork install</code> registers the MCP server into Claude Code, Cursor, and opencode automatically. Any system that can make an HTTP request — LangChain, AutoGen, CrewAI, raw <code>curl</code> — can use the REST endpoint directly.</p></div>
+  </div>
+
+  <div class="faq-item">
+    <button class="faq-q">Is there a rate limit?<span class="faq-q-icon">+</span></button>
+    <div class="faq-body"><p class="faq-p">Olywork does not add rate limits beyond the upstream provider's own. If the provider throttles, the call returns the provider's error verbatim — and that call is not billed. You can set daily spend caps per tag or per team from your dashboard.</p></div>
   </div>
 </section>
 
-<!-- FAQ -->
-<section class="ow-faq-section">
-  <span class="ow-eyebrow">FAQ</span>
-  <h2>Common questions</h2>
-
-  <div class="faq-item">
-    <button class="faq-q" onclick="this.parentElement.classList.toggle('open')">
-      What exactly is Olywork?
-      <span class="faq-icon">+</span>
-    </button>
-    <div class="faq-a"><p>Olywork is the OpenRouter for AI agent tools. One API endpoint, one token, and your agent can call 2,896+ tools across 60+ providers — Google, Twitter, LinkedIn, GitHub, and many more. We never model the upstream APIs; we faithfully relay your request with injected credentials.</p></div>
-  </div>
-
-  <div class="faq-item">
-    <button class="faq-q" onclick="this.parentElement.classList.toggle('open')">
-      How does pricing work?
-      <span class="faq-icon">+</span>
-    </button>
-    <div class="faq-a"><p>You pay in micro-USD per call, at cost with no markup. A Google Search is ~$0.004. A Twitter post is ~$0.002. Failed calls are never billed. New accounts start with $1.00 free credit — no credit card required. Top up any time.</p></div>
-  </div>
-
-  <div class="faq-item">
-    <button class="faq-q" onclick="this.parentElement.classList.toggle('open')">
-      Do I need my own API keys?
-      <span class="faq-icon">+</span>
-    </button>
-    <div class="faq-a"><p>No. Your single Olywork token authenticates your agent across every provider in the catalog. If you <em>do</em> have a key for a specific provider, register it once with <code>olywork keys set &lt;provider&gt; &lt;key&gt;</code> — your key always takes precedence and those calls are never metered.</p></div>
-  </div>
-
-  <div class="faq-item">
-    <button class="faq-q" onclick="this.parentElement.classList.toggle('open')">
-      Can my agent act on behalf of my users?
-      <span class="faq-icon">+</span>
-    </button>
-    <div class="faq-a"><p>Yes. Olywork handles OAuth flows natively. Your users click "Connect Twitter" (or any supported provider), and your agent is immediately authorized to act on their behalf. The raw token is never exposed — Olywork injects it server-side and relays responses verbatim.</p></div>
-  </div>
-
-  <div class="faq-item">
-    <button class="faq-q" onclick="this.parentElement.classList.toggle('open')">
-      What agents and frameworks does it support?
-      <span class="faq-icon">+</span>
-    </button>
-    <div class="faq-a"><p><code>olywork install</code> registers the MCP server into Claude Code, Cursor, and opencode automatically. Any MCP client that supports the authorization spec can connect with OAuth. Any system that can make an HTTP request — including LangChain, AutoGen, CrewAI, and raw <code>curl</code> — can use the REST endpoint directly.</p></div>
-  </div>
-
-  <div class="faq-item">
-    <button class="faq-q" onclick="this.parentElement.classList.toggle('open')">
-      Is there a rate limit?
-      <span class="faq-icon">+</span>
-    </button>
-    <div class="faq-a"><p>Olywork itself does not add rate limits beyond the upstream provider's own limits. If the provider throttles, the call returns the provider's error — Olywork relays it verbatim and does not bill the call. You can set daily spend caps per tag or per team to prevent runaway costs.</p></div>
-  </div>
-</section>
-
-<footer style="padding:80px 48px;background:var(--surface);border-top:1px solid var(--border);display:flex;justify-content:space-between;max-width:1200px;margin:0 auto;width:100%;">
-  <div class="foot-brand" style="max-width:300px;">
-    <div class="brand" style="display:flex;align-items:center;gap:8px;font-family:var(--font-heading);font-weight:800;font-size:24px;letter-spacing:-0.04em;margin-bottom:16px;">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:24px;height:24px;"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-      Olywork
+<!-- ─── CTA ────────────────────────────────────────────────────────────── -->
+<div style="padding:0 40px 80px;max-width:1200px;margin:0 auto;">
+  <div class="cta-strip">
+    <h2>Your agent deserves better tools.</h2>
+    <p>Start with $1 free. No credit card needed. Cancel any time.</p>
+    <div class="cta-btns">
+      <a href="/app" class="btn-lime" style="font-size:16px;padding:14px 36px;">Create free account →</a>
+      <a href="/catalog" style="display:inline-flex;align-items:center;gap:8px;color:rgba(252,251,250,.6);font-weight:600;font-size:15px;padding:14px 24px;border-radius:99px;border:1.5px solid rgba(255,255,255,.15);transition:border-color .2s,color .2s;" onmouseover="this.style.borderColor='rgba(255,255,255,.4)';this.style.color='rgba(252,251,250,.9)'" onmouseout="this.style.borderColor='rgba(255,255,255,.15)';this.style.color='rgba(252,251,250,.6)'">Browse catalog</a>
     </div>
-    <div style="color:var(--ink-secondary);font-size:14px;line-height:1.5;">The OpenRouter for AI Agent Tools. One unified token for 2,800+ endpoints.</div>
   </div>
-  <nav class="foot-cols" style="display:flex;gap:64px;">
-    <div class="foot-col" style="display:flex;flex-direction:column;gap:12px;">
-      <div style="font-weight:700;color:var(--ink);margin-bottom:8px;">Explore</div>
-      <a href="/catalog" style="color:var(--ink-secondary);transition:color 0.2s;">Catalog</a>
+</div>
+
+<!-- ─── FOOTER ────────────────────────────────────────────────────────── -->
+<footer class="footer">
+  <div class="footer-inner">
+    <div>
+      <div class="footer-brand">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:22px;height:22px;"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+        Olywork
+      </div>
+      <div class="footer-tag">The OpenRouter for AI Agent Tools.<br>One token. 2,800+ endpoints. Zero markup.</div>
+      <a href="/app" class="btn-lime" style="font-size:13.5px;padding:10px 22px;">Start free →</a>
     </div>
-    <div class="foot-col" style="display:flex;flex-direction:column;gap:12px;">
-      <div style="font-weight:700;color:var(--ink);margin-bottom:8px;">Build</div>
-      <a href="/docs" style="color:var(--ink-secondary);transition:color 0.2s;">API Docs</a>
-      <a href="/tutorial" style="color:var(--ink-secondary);transition:color 0.2s;">Tutorial</a>
-    </div>
-    <div class="foot-col" style="display:flex;flex-direction:column;gap:12px;">
-      <div style="font-weight:700;color:var(--ink);margin-bottom:8px;">Company</div>
-      <a href="/support" style="color:var(--ink-secondary);transition:color 0.2s;">Support</a>
-      <a href="/terms" style="color:var(--ink-secondary);transition:color 0.2s;">Terms</a>
-      <a href="/privacy" style="color:var(--ink-secondary);transition:color 0.2s;">Privacy</a>
-    </div>
-  </nav>
+    <nav class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-h">Explore</div>
+        <a href="/catalog">Catalog</a>
+        <a href="/use-cases">Use cases</a>
+        <a href="/workflows">Workflows</a>
+        <a href="/agents">Agents</a>
+        <a href="/pricing">Pricing</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-h">Build</div>
+        <a href="/tutorial">Tutorial</a>
+        <a href="/docs">API Reference</a>
+        <a href="/llms.txt">llms.txt</a>
+        <a href="https://github.com/meettaqi/olywork-new" target="_blank" rel="noopener">GitHub ↗</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-h">Company</div>
+        <a href="/resources">Resources</a>
+        <a href="/support">Support</a>
+        <a href="/terms">Terms</a>
+        <a href="/privacy">Privacy</a>
+      </div>
+    </nav>
+  </div>
+  <div class="footer-bottom">
+    <span>© 2025 Olywork. All rights reserved.</span>
+    <span>Open source · Pay-per-call · No markup</span>
+  </div>
 </footer>
 
+<script>
+/* ─── 3D GRID CANVAS ──────────────────────────────────────────────────── */
+(function(){
+  const canvas = document.getElementById('hero-canvas');
+  const ctx = canvas.getContext('2d');
+  let W, H, RAF;
+  const COLS = 24, ROWS = 14;
+  let ox = 0, oy = 0;
+
+  function resize(){
+    W = canvas.width = canvas.offsetWidth;
+    H = canvas.height = canvas.offsetHeight;
+  }
+
+  function draw(t){
+    ctx.clearRect(0,0,W,H);
+    const dx = W/COLS, dy = H/ROWS;
+    const shiftX = (t * .012) % dx;
+    const shiftY = (t * .008) % dy;
+
+    ctx.strokeStyle = 'rgba(32,32,32,.13)';
+    ctx.lineWidth = 1;
+
+    // Vertical lines with perspective
+    for(let i = -1; i <= COLS+1; i++){
+      const x = i * dx - shiftX;
+      const vanX = W * .5;
+      const vanY = H * .3;
+      ctx.beginPath();
+      ctx.moveTo(vanX + (x - vanX) * .15, vanY);
+      ctx.lineTo(x, H);
+      ctx.stroke();
+    }
+    // Horizontal lines
+    for(let j = -1; j <= ROWS+1; j++){
+      const y = j * dy - shiftY;
+      if(y < H * .28) continue;
+      const prog = (y - H*.28) / (H * .72);
+      const lx = W * .5 * (1 - prog);
+      ctx.beginPath();
+      ctx.moveTo(lx, y);
+      ctx.lineTo(W - lx, y);
+      ctx.stroke();
+    }
+
+    // Glowing dots at intersections
+    for(let i = 0; i <= COLS; i++){
+      for(let j = 0; j <= ROWS; j++){
+        const x = i * dx - shiftX;
+        const y = j * dy - shiftY;
+        if(y < H*.3 || x < 0 || x > W) continue;
+        const prog = (y - H*.3) / (H * .7);
+        const glow = Math.sin(t*.002 + i*.4 + j*.6) * .5 + .5;
+        if(glow > .65){
+          ctx.beginPath();
+          ctx.arc(x, y, 2.5 * prog, 0, Math.PI*2);
+          ctx.fillStyle = `rgba(159,242,95,${glow * prog * .5})`;
+          ctx.fill();
+        }
+      }
+    }
+
+    RAF = requestAnimationFrame(draw);
+  }
+
+  window.addEventListener('resize', resize);
+  resize();
+  RAF = requestAnimationFrame(draw);
+})();
+
+/* ─── TICKER PILLS ───────────────────────────────────────────────────── */
+(function(){
+  const tools = [
+    {logo:'google',       tag:'Search',    name:'Google Search'},
+    {logo:'twitter',      tag:'Social',    name:'X / Twitter'},
+    {logo:'linkedin',     tag:'B2B',       name:'LinkedIn'},
+    {logo:'github',       tag:'Dev',       name:'GitHub'},
+    {logo:'facebook',     tag:'Ads',       name:'Meta Ads'},
+    {logo:'google-ads',   tag:'Ads',       name:'Google Ads'},
+    {logo:'amazon',       tag:'Commerce',  name:'Amazon'},
+    {logo:'instagram',    tag:'Social',    name:'Instagram'},
+    {logo:'youtube',      tag:'Video',     name:'YouTube'},
+    {logo:'bing',         tag:'Search',    name:'Bing Search'},
+    {logo:'reddit',       tag:'Social',    name:'Reddit'},
+    {logo:'tiktok',       tag:'Video',     name:'TikTok'},
+    {logo:'slack',        tag:'Comms',     name:'Slack'},
+    {logo:'notion',       tag:'Docs',      name:'Notion'},
+    {logo:'gemini',       tag:'AI',        name:'Gemini'},
+    {logo:'claude',       tag:'AI',        name:'Claude'},
+    {logo:'spotify',      tag:'Music',     name:'Spotify'},
+    {logo:'stripe',       tag:'Payments',  name:'Stripe'},
+    {logo:'duckduckgo',   tag:'Search',    name:'DuckDuckGo'},
+    {logo:'bluesky',      tag:'Social',    name:'Bluesky'},
+    {logo:'ebay',         tag:'Commerce',  name:'eBay'},
+    {logo:'microsoft-ads',tag:'Ads',       name:'Microsoft Ads'},
+    {logo:'google-analytics',tag:'Analytics',name:'GA4'},
+    {logo:'google-business',tag:'Local',   name:'Google Business'},
+  ];
+
+  function makePill(t){
+    const div = document.createElement('div');
+    div.className = 'ticker-pill';
+    div.innerHTML = `
+      <div class="ticker-pill-ico"><img src="/logos/platforms/${t.logo}.svg" alt="${t.name}" loading="lazy"></div>
+      <span class="ticker-pill-tag">${t.tag}</span>
+      <span class="ticker-pill-name">${t.name}</span>`;
+    return div;
+  }
+  function makeSep(){
+    const s = document.createElement('span');
+    s.className = 'ticker-sep'; s.textContent = '·';
+    return s;
+  }
+
+  const r1 = document.getElementById('ticker-r1');
+  const r2 = document.getElementById('ticker-r2');
+  const half = Math.ceil(tools.length/2);
+  const row1 = tools.slice(0, half);
+  const row2 = tools.slice(half);
+
+  // Duplicate for seamless loop
+  for(let pass=0; pass<3; pass++){
+    row1.forEach((t,i) => { r1.appendChild(makePill(t)); if(i < row1.length-1) r1.appendChild(makeSep()); });
+    row2.forEach((t,i) => { r2.appendChild(makePill(t)); if(i < row2.length-1) r2.appendChild(makeSep()); });
+  }
+})();
+
+/* ─── LOGO TICKER (provider icons) ──────────────────────────────────── */
+(function(){
+  const logos = [
+    'google','twitter','linkedin','github','facebook','amazon','instagram',
+    'youtube','bing','reddit','tiktok','slack','notion','gemini','claude',
+    'spotify','stripe','duckduckgo','bluesky','ebay','microsoft-ads',
+    'google-ads','google-analytics','google-business','douyin','bilibili',
+    'chatgpt','baidu','jd','lemon8','kuaishou','doubao'
+  ];
+
+  const r1 = document.getElementById('logo-r1');
+  const r2 = document.getElementById('logo-r2');
+  const half = Math.ceil(logos.length/2);
+
+  function makeTile(logo){
+    const d = document.createElement('div');
+    d.className = 'logo-tile';
+    d.innerHTML = `<img src="/logos/platforms/${logo}.svg" alt="${logo}" loading="lazy">`;
+    return d;
+  }
+
+  for(let pass=0;pass<3;pass++){
+    logos.slice(0,half).forEach(l => r1.appendChild(makeTile(l)));
+    logos.slice(half).forEach(l => r2.appendChild(makeTile(l)));
+  }
+})();
+
+/* ─── FAQ ACCORDION ──────────────────────────────────────────────────── */
+document.querySelectorAll('.faq-q').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const item = btn.closest('.faq-item');
+    const wasOpen = item.classList.contains('open');
+    document.querySelectorAll('.faq-item').forEach(i => i.classList.remove('open'));
+    if(!wasOpen) item.classList.add('open');
+  });
+});
+
+/* ─── SCROLL-DRIVEN FAN CARD ENTRANCE ───────────────────────────────── */
+(function(){
+  const cards = document.querySelectorAll('.fan-card');
+  const wrap  = document.querySelector('.fan-wrap');
+  if(!wrap || !cards.length) return;
+
+  const baseTransforms = [
+    'rotate(-10deg) translateY(48px)',
+    'rotate(-4deg)  translateY(18px)',
+    'rotate(2deg)   translateY(10px)',
+    'rotate(9deg)   translateY(36px)',
+  ];
+
+  let ticking = false;
+  function onScroll(){
+    if(ticking) return;
+    ticking = true;
+    requestAnimationFrame(() => {
+      const rect = wrap.getBoundingClientRect();
+      const vh   = window.innerHeight;
+      const prog = Math.max(0, Math.min(1, 1 - (rect.top - vh * .5) / (vh * .8)));
+      cards.forEach((c, i) => {
+        const deg  = [-10,-4,2,9][i] * (1 - prog * .15);
+        const ty   = [48,18,10,36][i] * (1 - prog);
+        c.style.transform = `rotate(${deg}deg) translateY(${ty}px)`;
+        c.style.opacity   = .15 + prog * .85;
+      });
+      ticking = false;
+    });
+  }
+  window.addEventListener('scroll', onScroll, {passive:true});
+  onScroll();
+})();
+</script>
+<script src="/adtrack.js"></script>
+<script src="/gtag.js"></script>
+<script src="/sitetrack.js"></script>
 </body>
 </html>

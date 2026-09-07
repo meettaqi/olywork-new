@@ -329,23 +329,92 @@ def _spa_catalog_page(title: str, description: str, path: str, ld: list[dict],
     return HTMLResponse(html, headers={"Cache-Control": "public, max-age=600"})
 
 
-# The fallback's own skin. Scoped to #prerender and written against the dashboard's OWN tokens
-# (already defined in index.html), so it reads as the same product for the moment it is on screen.
+# The no-JS fallback for the catalog page.  This is what search engines and users without JS see.
+# Styled with the Olywork design system tokens matching the new landing page aesthetic.
 _PRERENDER_CSS = """<style>
-#prerender{max-width:1100px;margin:0 auto;padding:38px 26px 60px;font-family:var(--sans,system-ui);
-  color:var(--ink,#1a1a1a)}
-#prerender h1{font-size:30px;letter-spacing:-.01em;margin:0 0 8px}
-#prerender .lede{color:var(--muted,#7c7c7c);margin:0 0 20px;max-width:64ch}
-#prerender h2{font-size:13px;text-transform:uppercase;letter-spacing:.05em;
-  color:var(--muted2,#989898);margin:26px 0 10px;padding-bottom:8px;
-  border-bottom:1px solid var(--line,#26262322)}
-#prerender ul{list-style:none;margin:0;padding:0}
-#prerender li{padding:9px 0;border-bottom:1px solid var(--line,#26262322)}
-#prerender li b{font-weight:600}
-#prerender li i{font-style:normal;color:var(--muted,#7c7c7c);display:block;font-size:13.5px}
-#prerender .m{font-family:var(--mono,ui-monospace);font-size:11.5px;
-  color:var(--muted2,#989898);margin-top:3px;display:block}
-#prerender a{color:var(--teal,#1a7da6);text-decoration:none}
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700;800&family=Inter:wght@400;500;600&display=swap');
+#prerender{
+  font-family:"Inter",system-ui,sans-serif; color:#202020;
+  --bg:#F4F2EC; --surface:#FCFBFA; --panel2:#EDEAE0;
+  --ink:#202020; --muted:#7E7C74; --muted2:#A09E96;
+  --line:#E8E5DA; --line2:#D5D1C3; --accent:#9FF25F;
+  --inv:#1A1A1A; --font-h:"Plus Jakarta Sans",sans-serif;
+  --font-m:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  background:var(--bg);
+}
+/* Hero */
+#prerender .cat-hero{
+  padding:80px 40px 64px; text-align:center; max-width:1200px; margin:0 auto;
+}
+#prerender .cat-eyebrow{
+  display:inline-block; font-family:var(--font-m);
+  font-size:11px; font-weight:700; text-transform:uppercase;
+  letter-spacing:.14em; color:var(--muted); margin-bottom:16px;
+}
+#prerender h1{
+  font-family:var(--font-h); font-size:clamp(36px,5vw,64px);
+  font-weight:800; letter-spacing:-.04em; line-height:1.06;
+  margin:0 0 16px;
+}
+#prerender .lede{
+  font-size:17px; color:var(--muted); max-width:56ch;
+  line-height:1.55; margin:0 auto 40px;
+}
+/* Stats strip */
+#prerender .stats-strip{
+  display:flex; border-top:1px solid var(--line); border-bottom:1px solid var(--line);
+  background:var(--surface); max-width:100%;
+}
+#prerender .stat-item{
+  flex:1; padding:28px 0; text-align:center;
+  border-right:1px solid var(--line);
+}
+#prerender .stat-item:last-child{border-right:none}
+#prerender .stat-n{
+  font-family:var(--font-h); font-size:40px; font-weight:800;
+  letter-spacing:-.04em; color:var(--ink); line-height:1;
+}
+#prerender .stat-l{font-size:12.5px;color:var(--muted);margin-top:4px;}
+/* Category label */
+#prerender h2{
+  font-family:var(--font-m); font-size:11px; font-weight:700;
+  text-transform:uppercase; letter-spacing:.12em;
+  color:var(--muted2); margin:48px 0 16px;
+  padding-bottom:12px; border-bottom:1px solid var(--line);
+}
+/* Card grid */
+#prerender .cat-wrap{max-width:1200px;margin:0 auto;padding:0 40px 80px;}
+#prerender ul{list-style:none;margin:0;padding:0;
+  display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr));
+  gap:12px;}
+#prerender li{
+  background:var(--surface); border:1px solid var(--line);
+  border-radius:20px; padding:24px;
+  display:flex; flex-direction:column; gap:8px;
+  transition:transform .25s,border-color .25s;
+}
+#prerender li:hover{transform:translateY(-3px);border-color:var(--line2)}
+#prerender li b{font-weight:700;font-size:15px;color:var(--ink)}
+#prerender li b a{color:var(--ink);text-decoration:none}
+#prerender li b a:hover{text-decoration:underline}
+#prerender li i{font-style:normal;font-size:13px;color:var(--muted);line-height:1.5}
+#prerender .m{
+  font-family:var(--font-m);font-size:11.5px;
+  color:var(--muted2);margin-top:4px;display:block;
+}
+/* Providers section */
+#prerender .prov-h{font-family:var(--font-h);font-size:22px;font-weight:700;
+  letter-spacing:-.02em;margin:56px 0 16px;}
+#prerender .prov-p{font-size:14px;color:var(--muted);line-height:1.7;max-width:80ch}
+#prerender .prov-p a{color:var(--ink);font-weight:600;text-decoration:underline;text-underline-offset:3px}
+/* Search hint */
+#prerender .search-hint{
+  display:inline-flex;align-items:center;gap:10px;
+  background:var(--surface);border:1.5px solid var(--line);
+  border-radius:99px;padding:12px 24px;font-size:14px;font-weight:500;
+  color:var(--muted);margin:0 auto 32px;
+  cursor:text;
+}
 </style>"""
 
 
@@ -366,41 +435,73 @@ async def catalog_index():
         cats.setdefault(row["category"], []).append(row)
     sections = []
     for name, items in cats.items():
-        lis = []
+        cards = []
         for r in items:
             price = _price_label(r["price_from"])
-            vendors = ", ".join(_provider_display(p) for p in r["providers"])
-            lis.append(
-                f'<li><b><a href="/catalog/{_esc_html(r["slug"])}">{_esc_html(r["label"])}</a></b>'
-                f'<i>{_esc_html(r["summary"])}</i>'
-                f'<span class="m">{r["endpoints"]} endpoints · {r["capabilities"]} capabilities'
-                + (f" · from {_esc_html(price)}" if price else "")
-                + f" · {_esc_html(vendors)}</span></li>")
-        sections.append(f"<h2>{_esc_html(name)}</h2><ul>{''.join(lis)}</ul>")
+            slug = _esc_html(r["slug"])
+            label = _esc_html(r["label"])
+            summary = _esc_html(r["summary"])
+            logo_url = f'/logos/platforms/{slug}.svg'
+            price_badge = f'<span class="pcard-price">from {_esc_html(price)}</span>' if price else ""
+            # Use first provider slug as logo fallback
+            first_prov = r["providers"][0] if r["providers"] else slug
+            logo_url2 = f'/logos/platforms/{_esc_html(first_prov)}.svg'
+            cards.append(
+                f'<a href="/catalog/{slug}" class="pcard">'
+                f'<div class="pcard-head">'
+                f'<div class="pcard-logo"><img src="{logo_url}" onerror="this.src=\'{logo_url2}\';this.onerror=null" alt="{label}" loading="lazy"></div>'
+                f'<div><div class="pcard-name">{label}</div>'
+                f'<div class="pcard-cat">{_esc_html(name)}</div></div>'
+                f'</div>'
+                f'<div class="pcard-desc">{summary}</div>'
+                f'<div class="pcard-meta">'
+                f'<span class="pcard-badge">{r["endpoints"]} endpoints</span>'
+                f'<span class="pcard-badge">{r["capabilities"]} caps</span>'
+                f'{price_badge}'
+                f'<span class="pcard-cta">View →</span>'
+                f'</div>'
+                f'</a>')
+        sections.append(f'<div class="cat">{_esc_html(name)}</div><div class="grid">{"".join(cards)}</div>')
+
 
     # The provider links live HERE, in the crawlable prerender, rather than on an index page of
     # their own: /providers earned no searches and made a second "browse everything" URL beside
     # this one. The /tools pages still get their internal links; there is just one index.
     prov_rows = _provider_rows()
-    prov_links = " · ".join(
+    prov_links = " &middot; ".join(
         f'<a href="/tools/{_esc_html(r["service"])}">{_esc_html(r["display"])}</a>'
         for r in prov_rows)
-    prerender = (_PRERENDER_CSS
-                 + "<h1>The tool catalog</h1>"
-                 + f'<p class="lede">{total_eps:,} endpoints across {len(rows)} platforms and '
-                   f"{len(providers)} providers — every tool your agent can call through one key, "
-                   "priced up front and billed per call, with no provider signup.</p>"
-                 # The two hubs are linked from HERE as well as the nav: this prerender is the page
-                 # Google crawls most, and before this line the job and workflow pages were reachable
-                 # only from the sitemap — "URL is unknown to Google" on every one of them.
-                 + ('<p>Looking for a job rather than a platform? <a href="/use-cases">The use cases</a> '
-                    'compare the providers that do one job, <a href="/workflows">the workflows</a> '
-                    'chain several jobs into one prompt with the price of each step, and '
-                    '<a href="/agents">the agent pages</a> show the whole menu for one '
-                    'agent.</p>' if _hosted() else "")
-                 + "".join(sections)
-                 + f"<h2>The providers</h2><p>{len(prov_rows)} vendors serve this catalog, each "
-                   f"with its own page: {prov_links}</p>")
+    # Cross-links to the other hubs — keeps Google from losing these URLs
+    hub_links = (
+        '<p class="lede" style="margin-top:-16px;">'
+        'Looking for a job rather than a platform? '
+        '<a href="/use-cases" style="color:var(--ink);font-weight:600;text-decoration:underline;text-underline-offset:3px">Use cases</a> compare providers by job, '
+        '<a href="/workflows" style="color:var(--ink);font-weight:600;text-decoration:underline;text-underline-offset:3px">Workflows</a> '
+        'chain steps into one prompt, and '
+        '<a href="/agents" style="color:var(--ink);font-weight:600;text-decoration:underline;text-underline-offset:3px">Agent pages</a> show the full menu for one agent.</p>'
+        if _hosted() else ""
+    )
+    prerender = (
+        _PRERENDER_CSS
+        + f"""<div class="cat-hero">
+  <div class="cat-eyebrow">Tool catalog</div>
+  <h1>{total_eps:,} endpoints.<br><span style="opacity:.4">One key.</span></h1>
+  <p class="lede">{total_eps:,} endpoints across {len(rows)} platforms and {len(providers)} providers — every tool your agent can call through one key, priced per call with no provider signup.</p>
+  {hub_links}
+  <div class="search-hint">🔍 &nbsp; Search tools, providers, categories…</div>
+</div>
+<div class="stats-strip">
+  <div class="stat-item"><div class="stat-n">{total_eps:,}</div><div class="stat-l">Endpoints</div></div>
+  <div class="stat-item"><div class="stat-n">{len(providers)}</div><div class="stat-l">Providers</div></div>
+  <div class="stat-item"><div class="stat-n">{len(rows)}</div><div class="stat-l">Platforms</div></div>
+  <div class="stat-item"><div class="stat-n">$0</div><div class="stat-l">Markup</div></div>
+</div>
+<div class="cat-wrap">
+{"".join(sections)}
+<h2 class="prov-h">The providers</h2>
+<p class="prov-p">{len(prov_rows)} vendors serve this catalog, each with its own page: {prov_links}</p>
+</div>"""
+    )
 
     ld = [
         {"@context": "https://schema.org", "@type": "ItemList",
