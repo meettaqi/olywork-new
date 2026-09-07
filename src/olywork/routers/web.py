@@ -257,76 +257,10 @@ def _page(title: str, description: str, path: str, body: str, ld: list[dict],
 
 def _spa_catalog_page(title: str, description: str, path: str, ld: list[dict],
                       prerender: str) -> HTMLResponse:
-    """Serve the dashboard SPA at a PUBLIC catalog URL, with the head a crawler needs.
-
-    The public catalog is not a second implementation of the marketplace — it IS the marketplace.
-    `/catalog` and `/catalog/<slug>` hand back `index.html`, and the Vue app renders the same
-    platform views a member sees (its catalog API is unauthenticated, so it works signed out; see
-    `publicCatalog` in index.html). That is the whole point: one UI, so the two can never drift
-    apart visually the way a hand-built copy would.
-
-    Two things have to be added on the way out:
-
-    1. **The head.** The SPA ships one bare `<title>olywork</title>`. Every catalog URL needs its own
-       title, description, canonical, og/twitter card and JSON-LD, so they are substituted in here —
-       the same trick `_spa_with_og` uses for shared skill/tool links.
-    2. **A no-JS fallback.** Vue compiles `#app`'s own innerHTML as its template, so prerendered
-       markup cannot go inside it. `#prerender` is therefore a SIBLING, removed by the app on boot.
-       It is deliberately plainer than the Vue view — the ledger's row-merging is a chain of
-       client-side computeds, and reproducing it server-side would recreate exactly the duplicate
-       implementation this design avoids. It carries the TEXT (names, summaries, providers, prices),
-       which is what a crawler that does not run scripts is here for.
+    """The public catalog is now a purely SSR rendered page matching the marketing site's 
+    design system (olywork.css + catalog.css), completely decoupled from the dashboard SPA.
     """
-    index = _WEB_DIR / "index.html"
-    if not index.exists():
-        return HTMLResponse("<h3>tools-registry API. Dashboard not bundled.</h3>")
-    base = get_settings().public_url.rstrip("/")
-    t, d = _esc_html(title), _esc_html(description)
-    # `path` carries the {slug} from the URL. Today an unknown slug 404s in catalog_platform before
-    # it reaches here, so a quote can't get this far — but that is an upstream lookup's side effect,
-    # not a guarantee this function makes. Escape it where it is used, so a future "slug not found →
-    # suggestions" page cannot turn a canonical tag into a reflected XSS.
-    url = _esc_html(base + path)
-    blocks = "\n".join(
-        '<script type="application/ld+json">'
-        + json.dumps(b, separators=(",", ":")).replace("<", "\\u003c") + "</script>"
-        for b in ld)
-    meta = (
-        f"<title>{t}</title>\n"
-        f'<meta name="description" content="{d}"/>\n'
-        f'<link rel="canonical" href="{url}"/>\n'
-        f'<meta name="robots" content="index, follow"/>\n'   # index.html defaults to noindex
-        f'<meta property="og:type" content="website"/>\n'
-        f'<meta property="og:site_name" content="olywork"/>\n'
-        f'<meta property="og:url" content="{url}"/>\n'
-        f'<meta property="og:title" content="{t}"/>\n'
-        f'<meta property="og:description" content="{d}"/>\n'
-        f'<meta property="og:image" content="{base}/media/og.png"/>\n'
-        f'<meta property="og:image:width" content="1200"/>\n'
-        f'<meta property="og:image:height" content="630"/>\n'
-        f'<meta name="twitter:card" content="summary_large_image"/>\n'
-        f'<meta name="twitter:title" content="{t}"/>\n'
-        f'<meta name="twitter:description" content="{d}"/>\n'
-        f'<meta name="twitter:image" content="{base}/media/og.png"/>\n'
-        + blocks
-    )
-    html = index.read_text(encoding="utf-8")
-    # index.html carries `robots: noindex` for the authenticated app; these URLs are public, and the
-    # `index, follow` in `meta` only wins if the noindex is gone. Stripped BEFORE `meta` is spliced
-    # in, so this scan only ever runs over the static bundle — never over a string carrying a
-    # caller-supplied title, which is what made it a ReDoS candidate rather than a fixed-cost pass.
-    html = re.sub(r'<meta name="robots" content="noindex[^>]*>\s*', "", html, count=1)
-    # Match whatever title the page carries, not one exact string — a rename in the dashboard must
-    # not be able to switch every catalog page's head off without a word (the same failure
-    # `_spa_with_og` was written to survive).
-    html, hits = re.subn(r"<title>.*?</title>", lambda _m: meta, html, count=1,
-                         flags=re.IGNORECASE | re.DOTALL)
-    if not hits:
-        html = html.replace("<head>", "<head>\n" + meta, 1)
-    marker = '<div id="app"'
-    if marker in html:
-        html = html.replace(marker, f'<div id="prerender">{prerender}</div>\n{marker}', 1)
-    return HTMLResponse(html, headers={"Cache-Control": "public, max-age=600"})
+    return _page(title, description, path, prerender, ld, nav_current="Catalog", css="catalog.css")
 
 
 # The no-JS fallback for the catalog page.  This is what search engines and users without JS see.
@@ -545,31 +479,49 @@ async def catalog_page(slug: str):
 
     blocks = []
     for cap in caps:
-        lis = []
+        trs = []
         for e in cap["endpoints"]:
             price = _price_label(e.get("cost"))
-            bits = [_esc_html(e["provider_display"])]
+            bits = []
             if e.get("verified"):
-                bits.append("live-verified")
-            if price:
-                bits.append(_esc_html(price))
-            bits.append(_esc_html(e["id"]))
-            lis.append(f'<li><b>{_esc_html(e["name"])}</b>'
-                       f'<i>{_esc_html(e.get("summary") or "")}</i>'
-                       f'<span class="m">{" · ".join(bits)}</span></li>')
-        blocks.append(f'<h2>{_esc_html(cap["description"] or cap["id"])}</h2><ul>{"".join(lis)}</ul>')
+                bits.append('<span class="ep-prov">live-verified</span>')
+            bits.append(f'<span class="ep-prov">{_esc_html(e["provider_display"])}</span>')
+            prov_html = "".join(bits)
+            ep_price_html = f'<span class="ep-price">{_esc_html(price)}</span>' if price else ''
+            
+            trs.append(f'<tr>'
+                       f'<td><div class="ep-name">{_esc_html(e["name"])}<code>{_esc_html(e["id"])}</code></div></td>'
+                       f'<td><div class="pcard-desc" style="margin:0;font-size:13.5px">{_esc_html(e.get("summary") or "")}</div></td>'
+                       f'<td><div class="ep-providers">{prov_html}</div></td>'
+                       f'<td style="text-align:right">{ep_price_html}</td>'
+                       f'</tr>')
+        
+        blocks.append(f'<div class="cap-label">{_esc_html(cap["description"] or cap["id"])}</div>'
+                      f'<table class="ep-table">'
+                      f'<thead><tr><th style="width:25%">Endpoint</th><th style="width:40%">Description</th><th style="width:20%">Provider</th><th style="text-align:right;width:15%">Price</th></tr></thead>'
+                      f'<tbody>{"".join(trs)}</tbody>'
+                      f'</table>')
 
     provs = ", ".join(p["display_name"] for p in detail["providers"].values())
-    prerender = (_PRERENDER_CSS
-                 + f'<p class="m"><a href="/catalog">← Catalog</a> · {_esc_html(category)}</p>'
-                 + f"<h1>{_esc_html(label)}</h1>"
-                 + f'<p class="lede">{_esc_html(summary)} {len(eps)} endpoints from '
-                   f"{_esc_html(provs)}"
-                 + (f", from {_esc_html(cheapest)} per call" if cheapest else "")
-                 + ". Jobs that several providers do sit on one row, so you can compare price and "
-                   "coverage before you spend a call — <b>choosing is yours</b>; olywork does not route "
-                   "between providers automatically.</p>"
-                 + "".join(blocks))
+    logo_url = f'/logos/platforms/{slug}.svg'
+    fallback_logo = f'/logos/platforms/{_esc_html(list(detail["providers"].keys())[0])}.svg' if detail["providers"] else logo_url
+    
+    prerender = (
+        _PRERENDER_CSS
+        + f'<div class="phead"><div class="phead-inner">'
+        + f'<div class="phead-logo-wrap"><img src="{logo_url}" onerror="this.src=\'{fallback_logo}\';this.onerror=null" alt="{_esc_html(label)}"></div>'
+        + f'<div class="phead-text">'
+        + f'<div class="kicker"><a href="/catalog" style="color:var(--muted);text-decoration:none">Catalog</a> <span style="margin:0 6px">/</span> {_esc_html(category)}</div>'
+        + f'<h1 class="phead-h">{_esc_html(label)}</h1>'
+        + f'<div class="phead-desc">{_esc_html(summary)} {len(eps)} endpoints from {_esc_html(provs)}'
+        + (f", from {_esc_html(cheapest)} per call" if cheapest else "")
+        + '. Jobs that several providers do sit on one row, so you can compare price and coverage before you spend a call.</div>'
+        + f'<div class="phead-pills"><div class="phead-pill">{len(eps)} Endpoints</div><div class="phead-pill">{len(caps)} Capabilities</div></div>'
+        + f'</div></div></div>'
+        + f'<div class="wrap" style="padding-top:20px;">'
+        + "".join(blocks)
+        + f'</div>'
+    )
 
     desc = (f"{len(eps)} {label.lower()} API endpoints from "
             f"{', '.join(p['display_name'] for p in list(detail['providers'].values())[:3])}"
