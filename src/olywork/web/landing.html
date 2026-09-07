@@ -252,77 +252,457 @@ img, svg { display: block; }
   line-height: 1.55;
 }
 
-/* ─── KEY-VISUAL / GLOBE ─────────────────────────────────────────────────── */
-.globe-section {
-  display: flex; align-items: center; justify-content: center;
-  padding: 80px 40px 0; flex-direction: column; text-align: center;
-  max-width: 1200px; margin: 0 auto;
+/* ─── INTERACTIVE AGENT PIPELINE ────────────────────────────────────────── */
+.pipeline-section {
+  padding: 80px 40px 40px;
+  max-width: 1240px;
+  margin: 0 auto;
+  text-align: center;
 }
-.globe-wrap {
-  position: relative; width: 520px; height: 520px;
-  display: flex; align-items: center; justify-content: center;
-  margin: 40px auto;
+.pipeline-hl {
+  color: var(--ink);
+  position: relative;
+  display: inline-block;
+  border-bottom: 2.5px solid var(--accent);
+  padding-bottom: 2px;
 }
-.globe-ring {
-  position: absolute; inset: 0;
+.pipeline-tabs {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  padding: 4px;
+  border-radius: 999px;
+  margin: 32px auto 40px;
+}
+.pipeline-tab {
+  background: transparent;
+  border: none;
+  border-radius: 999px;
+  padding: 8px 18px;
+  font-family: var(--font-b);
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.pipeline-tab:hover {
+  color: var(--ink);
+}
+.pipeline-tab.active {
+  background: #FFFFFF;
+  color: var(--ink);
+  font-weight: 600;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+.pipeline-container {
+  display: grid;
+  grid-template-columns: 1fr 48px 1.15fr 48px 1fr;
+  align-items: center;
+  gap: 0;
+  margin: 0 auto;
+  text-align: left;
+}
+.pipeline-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 24px;
+  min-height: 310px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-sizing: border-box;
+  transition: border-color 0.2s, transform 0.2s;
+}
+.pipeline-card:hover {
+  border-color: var(--line2);
+}
+.pipeline-card-h {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 16px;
+}
+.pipeline-card-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-h);
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--ink);
+}
+.pipeline-card-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 99px;
+  background: rgba(0,0,0,0.05);
+  color: var(--muted);
+}
+.pipeline-card-badge.live {
+  background: rgba(159, 242, 95, 0.25);
+  color: #2b6c0b;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.pipeline-dot-pulse {
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
-  border: 1px dashed var(--line2);
-  animation: ring-spin 22s linear infinite;
+  background: #2b6c0b;
+  animation: pulse-dot 1.5s infinite;
 }
-@keyframes ring-spin { to { transform: rotate(360deg); } }
-.globe-ring::before {
-  content: '';
-  position: absolute; top: -6px; left: 50%; transform: translateX(-50%);
-  width: 12px; height: 12px; border-radius: 50%;
+@keyframes pulse-dot {
+  0% { transform: scale(0.9); opacity: 0.7; }
+  50% { transform: scale(1.3); opacity: 1; }
+  100% { transform: scale(0.9); opacity: 0.7; }
+}
+.agent-task-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.agent-task-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13.5px;
+  color: var(--ink);
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(0,0,0,0.02);
+  border: 1px solid rgba(0,0,0,0.03);
+}
+.agent-check {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
   background: var(--accent);
+  color: #143405;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 800;
+  flex-shrink: 0;
 }
-.globe-ring.ring-2 { inset: 40px; animation-duration: 18s; animation-direction: reverse; }
-.globe-ring.ring-2::before { background: var(--line2); }
-.globe-ring.ring-3 { inset: 80px; animation-duration: 30s; }
-.globe-ring.ring-3::before { width: 8px; height: 8px; background: var(--muted2); }
-.globe-center {
-  width: 200px; height: 200px; border-radius: 50%;
-  background: var(--inv); border: 1px solid var(--line2);
-  display: flex; flex-direction: column;
-  align-items: center; justify-content: center; gap: 4px;
+.pipeline-card-foot {
+  font-size: 11.5px;
+  color: var(--muted2);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
 }
-.globe-center-n {
-  font-family: var(--font-h); font-size: 48px; font-weight: 800;
-  color: var(--accent); letter-spacing: -0.05em; line-height: 1;
+.pipeline-connector {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted2);
+  position: relative;
 }
-.globe-center-l { font-size: 13px; color: rgba(252,251,250,.55); }
+.pipeline-connector svg {
+  width: 24px;
+  height: 24px;
+}
+.proxy-card {
+  background: #141414;
+  border: 1px solid #282828;
+  color: #ECEAE4;
+}
+.proxy-card:hover {
+  border-color: #383838;
+}
+.proxy-card .pipeline-card-h {
+  border-bottom: 1px solid #282828;
+}
+.proxy-card .pipeline-card-title {
+  color: #FFFFFF;
+}
+.proxy-dots {
+  display: flex;
+  gap: 6px;
+}
+.proxy-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #333;
+}
+.proxy-dot.r { background: #FF5F56; }
+.proxy-dot.y { background: #FFBD2E; }
+.proxy-dot.g { background: #27C93F; }
+.proxy-terminal-lines {
+  font-family: var(--font-m);
+  font-size: 12px;
+  line-height: 1.7;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+.term-cmd { color: #A09E96; }
+.term-cmd strong { color: #FFFFFF; }
+.term-res { color: #9FF25F; font-size: 11px; }
+.term-note { color: #6E6C64; font-size: 10.5px; }
+.proxy-card .pipeline-card-foot {
+  border-top: 1px solid #282828;
+  color: #7E7C74;
+}
+.toolbelt-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.toolbelt-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #FFFFFF;
+  border: 1px solid var(--line);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink);
+}
+.toolbelt-item img {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+}
+.toolbelt-item-ms {
+  margin-left: auto;
+  font-family: var(--font-m);
+  font-size: 10.5px;
+  color: var(--muted);
+}
+.pipeline-install-strip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 36px;
+  flex-wrap: wrap;
+}
+.pipeline-install-label {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.pipeline-install-box {
+  display: inline-flex;
+  align-items: center;
+  background: #FFFFFF;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 6px 8px 6px 18px;
+  gap: 12px;
+}
+.pipeline-install-cmd {
+  font-family: var(--font-m);
+  font-size: 13px;
+  color: var(--ink);
+}
+.pipeline-install-btn {
+  background: var(--ink);
+  color: #FFFFFF;
+  border: none;
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-family: var(--font-b);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.pipeline-install-btn:hover {
+  background: #333;
+}
 
-/* Floating provider badges */
-.globe-badges {
-  position: absolute; inset: 0; pointer-events: none;
+/* ─── LIVE CATALOG SHOWCASE ────────────────────────────────────────────── */
+.cat-showcase-section {
+  padding: 80px 40px;
+  max-width: 1240px;
+  margin: 0 auto;
+  text-align: center;
 }
-.globe-badge {
-  position: absolute;
-  display: flex; align-items: center; gap: 6px;
-  background: var(--surface); border: 1px solid var(--line);
-  border-radius: 99px; padding: 6px 12px 6px 8px;
-  font-size: 12px; font-weight: 600; color: var(--ink);
+.cat-filters {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin: 32px 0 40px;
+}
+.cat-filter-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 7px 16px;
+  font-family: var(--font-b);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.cat-filter-btn:hover {
+  border-color: var(--ink);
+  color: var(--ink);
+}
+.cat-filter-btn.active {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #FFFFFF;
+  font-weight: 600;
+}
+.cat-filter-btn .cat-count {
+  font-family: var(--font-m);
+  font-size: 11px;
+  background: rgba(0,0,0,0.06);
+  padding: 1px 6px;
+  border-radius: 99px;
+}
+.cat-filter-btn.active .cat-count {
+  background: rgba(255,255,255,0.2);
+  color: #FFFFFF;
+}
+.cat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  text-align: left;
+}
+.cat-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+  transition: all 0.2s var(--ease);
+  position: relative;
+  text-decoration: none;
+  color: inherit;
+}
+.cat-card:hover {
+  border-color: var(--line2);
+  transform: translateY(-2px);
+  text-decoration: none;
+}
+.cat-card-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.cat-card-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: #FFFFFF;
+  border: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.cat-card-icon img {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+}
+.cat-card-meta {
+  overflow: hidden;
+}
+.cat-card-name {
+  font-family: var(--font-h);
+  font-weight: 700;
+  font-size: 13.5px;
+  color: var(--ink);
   white-space: nowrap;
-  animation: badge-float 4s ease-in-out infinite;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.globe-badge img { width: 18px; height: 18px; object-fit: contain; }
-.globe-badge:nth-child(1) { top: 8%;   left: 4%;  animation-delay: 0s; }
-.globe-badge:nth-child(2) { top: 8%;   right: 4%; animation-delay: .7s; }
-.globe-badge:nth-child(3) { bottom: 18%; left: 2%; animation-delay: 1.4s; }
-.globe-badge:nth-child(4) { bottom: 18%; right: 2%; animation-delay: 2.1s; }
-.globe-badge:nth-child(5) { top: 50%;  left: -4%; transform: translateY(-50%); animation-delay: .35s; }
-.globe-badge:nth-child(6) { top: 50%;  right: -4%; transform: translateY(-50%); animation-delay: 1.05s; }
-@keyframes badge-float {
-  0%, 100% { transform: translateY(0); }
-  50%       { transform: translateY(-8px); }
+.cat-card-provider {
+  font-size: 11.5px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.globe-badge:nth-child(5),
-.globe-badge:nth-child(6) {
-  animation: badge-float-h 4s ease-in-out infinite;
+.cat-card-pricing {
+  background: rgba(0,0,0,0.025);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
-@keyframes badge-float-h {
-  0%, 100% { transform: translateY(-50%) translateX(0); }
-  50%       { transform: translateY(-50%) translateX(-6px); }
+.cat-orig-cost {
+  color: var(--muted2);
+  text-decoration: line-through;
+  font-size: 11.5px;
+}
+.cat-ow-cost {
+  color: #1a6b0c;
+  font-weight: 600;
+  font-family: var(--font-m);
+}
+.cat-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+}
+.cat-badge-auth {
+  background: rgba(0,0,0,0.04);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-weight: 500;
+  color: var(--muted);
+}
+.cat-badge-auth.oauth {
+  background: rgba(74, 144, 226, 0.1);
+  color: #1f64b3;
+}
+.cat-badge-lat {
+  font-family: var(--font-m);
+  color: var(--muted2);
+}
+.cat-fade-wrap {
+  position: relative;
+  margin-top: -60px;
+  padding-top: 80px;
+  background: linear-gradient(to bottom, transparent, var(--bg) 60%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+.cat-fade-sub {
+  font-size: 14px;
+  color: var(--muted);
+  font-weight: 500;
 }
 
 /* ─── BENTO FEATURES ─────────────────────────────────────────────────────── */
@@ -650,7 +1030,9 @@ img, svg { display: block; }
   .bento-cell.c8,.bento-cell.c7,.bento-cell.c5 { grid-column: span 2; }
   .bento-cell.c4,.bento-cell.c6 { grid-column: span 1; }
   .hiw-grid { grid-template-columns: 1fr; gap: 12px; }
-  .globe-wrap { width: 380px; height: 380px; }
+  .cat-grid { grid-template-columns: repeat(2, 1fr); }
+  .pipeline-container { grid-template-columns: 1fr; gap: 16px; }
+  .pipeline-connector { transform: rotate(90deg); height: 24px; margin: 4px auto; }
 }
 @media (max-width: 768px) {
   .nav { padding: 0 20px; }
@@ -665,12 +1047,12 @@ img, svg { display: block; }
   .fan-card:nth-child(2) { left: 22%; }
   .fan-card:nth-child(3) { left: 44%; }
   .fan-card:nth-child(4) { left: 66%; }
-  .section, .hiw-section { padding: 64px 20px; }
+  .section, .hiw-section, .pipeline-section, .cat-showcase-section { padding: 64px 20px; }
   .bento { grid-template-columns: 1fr; }
   .bento-cell.c8,.bento-cell.c4,.bento-cell.c6,.bento-cell.c5,.bento-cell.c7 { grid-column: span 1; }
   .quote-section,.cta-strip { padding: 48px 28px; margin: 0 16px; border-radius: 20px; }
-  .globe-wrap { width: 280px; height: 280px; }
-  .glob-badge { display: none; }
+  .cat-grid { grid-template-columns: 1fr; }
+  .toolbelt-grid { grid-template-columns: 1fr; }
   .faq-section { padding: 64px 20px; }
 }
 </style>
@@ -755,30 +1137,438 @@ img, svg { display: block; }
   <div class="ticker-track rev" id="ticker-r2"></div>
 </div>
 
-<!-- ─── GLOBE / KEY VISUAL ───────────────────────────────────────────── -->
-<div class="globe-section">
-  <span class="eyebrow">Global connectivity</span>
-  <h2 class="sec-title" style="text-align:center;">Your agent, everywhere</h2>
-  <p class="sec-sub" style="text-align:center;margin:0 auto;">One endpoint routes to every provider worldwide. Olywork injects the right credential for each call, invisibly.</p>
+<!-- ─── AGENT SUPERCHARGER PIPELINE ─────────────────────────────────── -->
+<section class="pipeline-section">
+  <span class="eyebrow">Agent Supercharger</span>
+  <h2 class="sec-title">Turn any AI agent into an expert <span id="pipeline-role-title" class="pipeline-hl">Social Media Manager</span></h2>
+  <p class="sec-sub" style="margin:0 auto;">Give Claude, Cursor, OpenAI or your custom agent real-world execution power. One single token injects every credential server-side.</p>
 
-  <div class="globe-wrap">
-    <div class="globe-ring"></div>
-    <div class="globe-ring ring-2"></div>
-    <div class="globe-ring ring-3"></div>
-    <div class="globe-center">
-      <div class="globe-center-n">60+</div>
-      <div class="globe-center-l">providers</div>
+  <!-- Role Tabs -->
+  <div class="pipeline-tabs" role="tablist">
+    <button type="button" class="pipeline-tab active" data-role="social">📱 Social Media Lead</button>
+    <button type="button" class="pipeline-tab" data-role="seo">🔍 SEO &amp; Market Intel</button>
+    <button type="button" class="pipeline-tab" data-role="b2b">💼 B2B Lead Pipeline</button>
+    <button type="button" class="pipeline-tab" data-role="ads">📊 Performance Ads</button>
+  </div>
+
+  <!-- 3-Card Interactive Flow -->
+  <div class="pipeline-container">
+    <!-- Card 1: The Agent -->
+    <div class="pipeline-card">
+      <div>
+        <div class="pipeline-card-h">
+          <div class="pipeline-card-title">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>
+            <span id="agent-runtime-name">Claude 3.7 / Cursor</span>
+          </div>
+          <span class="pipeline-card-badge live">
+            <span class="pipeline-dot-pulse"></span> agent:active
+          </span>
+        </div>
+        <div class="agent-task-list" id="agent-tasks">
+          <!-- Dynamic tasks inserted by JS -->
+        </div>
+      </div>
+      <div class="pipeline-card-foot">
+        <span>Autonomy: Full execution</span>
+        <span id="agent-tasks-count" style="color:#2b6c0b;font-weight:600;">4/4 completed ✓</span>
+      </div>
     </div>
-    <div class="globe-badges">
-      <div class="globe-badge"><img src="/logos/platforms/google.svg" alt="Google">Google</div>
-      <div class="globe-badge"><img src="/logos/platforms/twitter.svg" alt="Twitter">Twitter / X</div>
-      <div class="globe-badge"><img src="/logos/platforms/linkedin.svg" alt="LinkedIn">LinkedIn</div>
-      <div class="globe-badge"><img src="/logos/platforms/github.svg" alt="GitHub">GitHub</div>
-      <div class="globe-badge"><img src="/logos/platforms/facebook.svg" alt="Meta">Meta Ads</div>
-      <div class="globe-badge"><img src="/logos/platforms/amazon.svg" alt="Amazon">Amazon</div>
+
+    <!-- Connector 1 -->
+    <div class="pipeline-connector">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+    </div>
+
+    <!-- Card 2: The Olywork Proxy Relay -->
+    <div class="pipeline-card proxy-card">
+      <div>
+        <div class="pipeline-card-h">
+          <div class="pipeline-card-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+            <span>olywork.proxy</span>
+          </div>
+          <div class="proxy-dots">
+            <span class="proxy-dot r"></span>
+            <span class="proxy-dot y"></span>
+            <span class="proxy-dot g"></span>
+          </div>
+        </div>
+        <div class="proxy-terminal-lines" id="proxy-terminal">
+          <!-- Dynamic terminal lines inserted by JS -->
+        </div>
+      </div>
+      <div class="pipeline-card-foot">
+        <span>0 DB conns held in-flight</span>
+        <span style="color:#9FF25F;font-weight:600;">100% faithful relay</span>
+      </div>
+    </div>
+
+    <!-- Connector 2 -->
+    <div class="pipeline-connector">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+    </div>
+
+    <!-- Card 3: Unlocked Toolbelt -->
+    <div class="pipeline-card">
+      <div>
+        <div class="pipeline-card-h">
+          <div class="pipeline-card-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+            <span id="toolbelt-title">The Social Toolbelt</span>
+          </div>
+          <span class="pipeline-card-badge" style="background:rgba(159,242,95,.2);color:#2b6c0b;">No API keys stored</span>
+        </div>
+        <div class="toolbelt-grid" id="toolbelt-grid">
+          <!-- Dynamic toolbelt badges inserted by JS -->
+        </div>
+      </div>
+      <div class="pipeline-card-foot">
+        <span>Single unified token</span>
+        <span style="font-weight:600;">+2,896 more ready</span>
+      </div>
     </div>
   </div>
-</div>
+
+  <!-- Agent Integration Command Strip -->
+  <div class="pipeline-install-strip">
+    <span class="pipeline-install-label">Give this to your agent:</span>
+    <div class="pipeline-install-box">
+      <span class="pipeline-install-cmd" id="install-cmd-text">npx -y @olywork/mcp</span>
+      <button type="button" class="pipeline-install-btn" id="install-copy-btn">Copy</button>
+    </div>
+  </div>
+</section>
+
+<!-- ─── LIVE CATALOG SHOWCASE ─────────────────────────────────────────── -->
+<section class="cat-showcase-section">
+  <span class="eyebrow">The Catalog · 2,896 Endpoints · One Key</span>
+  <h2 class="sec-title">The entire web's APIs, packaged for agents</h2>
+  <p class="sec-sub" style="margin:0 auto;">No subscriptions. No API key waitlists. Call any endpoint with single-token access, billed at direct cost in micro-USD.</p>
+
+  <!-- Filter Pills -->
+  <div class="cat-filters" role="tablist">
+    <button type="button" class="cat-filter-btn active" data-cat="all">All Tools <span class="cat-count">2,896</span></button>
+    <button type="button" class="cat-filter-btn" data-cat="social">Social &amp; Trends <span class="cat-count">480</span></button>
+    <button type="button" class="cat-filter-btn" data-cat="seo">Search &amp; SEO <span class="cat-count">360</span></button>
+    <button type="button" class="cat-filter-btn" data-cat="b2b">B2B &amp; Enrichment <span class="cat-count">540</span></button>
+    <button type="button" class="cat-filter-btn" data-cat="ads">Ads &amp; Campaigns <span class="cat-count">320</span></button>
+    <button type="button" class="cat-filter-btn" data-cat="ai">AI &amp; Citations <span class="cat-count">210</span></button>
+  </div>
+
+  <!-- 16 Curated Cards Grid -->
+  <div class="cat-grid" id="cat-showcase-grid">
+    <!-- 1: TikTok -->
+    <a href="/catalog" class="cat-card" data-cat="social">
+      <div class="cat-card-top">
+        <div class="cat-card-icon"><img src="/logos/platforms/tiktok.svg" alt="TikTok"></div>
+        <div class="cat-card-meta">
+          <div class="cat-card-name">TikTok Trends &amp; Sounds</div>
+          <div class="cat-card-provider">TikHub / Official</div>
+        </div>
+      </div>
+      <div class="cat-card-pricing">
+        <span class="cat-orig-cost">Usually $199/mo</span>
+        <span class="cat-ow-cost">$0.001 / call</span>
+      </div>
+      <div class="cat-card-foot">
+        <span class="cat-badge-auth">Instant API</span>
+        <span class="cat-badge-lat">28ms</span>
+      </div>
+    </a>
+
+    <!-- 2: Instagram -->
+    <a href="/catalog" class="cat-card" data-cat="social">
+      <div class="cat-card-top">
+        <div class="cat-card-icon"><img src="/logos/instagram.svg" alt="Instagram"></div>
+        <div class="cat-card-meta">
+          <div class="cat-card-name">Instagram Posts &amp; Reels</div>
+          <div class="cat-card-provider">Apify / Meta Graph</div>
+        </div>
+      </div>
+      <div class="cat-card-pricing">
+        <span class="cat-orig-cost">Usually $49/mo</span>
+        <span class="cat-ow-cost">$0.0015 / call</span>
+      </div>
+      <div class="cat-card-foot">
+        <span class="cat-badge-auth oauth">OAuth Relay</span>
+        <span class="cat-badge-lat">44ms</span>
+      </div>
+    </a>
+
+    <!-- 3: X -->
+    <a href="/catalog" class="cat-card" data-cat="social">
+      <div class="cat-card-top">
+        <div class="cat-card-icon"><img src="/logos/platforms/twitter.svg" alt="X"></div>
+        <div class="cat-card-meta">
+          <div class="cat-card-name">X Posts &amp; Profiles</div>
+          <div class="cat-card-provider">X API v2</div>
+        </div>
+      </div>
+      <div class="cat-card-pricing">
+        <span class="cat-orig-cost">Usually $200/mo</span>
+        <span class="cat-ow-cost">$0.002 / call</span>
+      </div>
+      <div class="cat-card-foot">
+        <span class="cat-badge-auth">Pro Relay</span>
+        <span class="cat-badge-lat">35ms</span>
+      </div>
+    </a>
+
+    <!-- 4: YouTube -->
+    <a href="/catalog" class="cat-card" data-cat="social">
+      <div class="cat-card-top">
+        <div class="cat-card-icon"><img src="/logos/platforms/youtube.svg" alt="YouTube"></div>
+        <div class="cat-card-meta">
+          <div class="cat-card-name">YouTube Videos &amp; Stats</div>
+          <div class="cat-card-provider">Google Cloud</div>
+        </div>
+      </div>
+      <div class="cat-card-pricing">
+        <span class="cat-orig-cost">Quota-capped</span>
+        <span class="cat-ow-cost">$0.0008 / call</span>
+      </div>
+      <div class="cat-card-foot">
+        <span class="cat-badge-auth">High QPS</span>
+        <span class="cat-badge-lat">48ms</span>
+      </div>
+    </a>
+
+    <!-- 5: Keyword Volume -->
+    <a href="/catalog" class="cat-card" data-cat="seo">
+      <div class="cat-card-top">
+        <div class="cat-card-icon"><img src="/logos/dataforseo.svg" alt="Semrush"></div>
+        <div class="cat-card-meta">
+          <div class="cat-card-name">Keyword Volume &amp; Ideas</div>
+          <div class="cat-card-provider">Semrush / DataForSEO</div>
+        </div>
+      </div>
+      <div class="cat-card-pricing">
+        <span class="cat-orig-cost">Usually $139/mo</span>
+        <span class="cat-ow-cost">$0.002 / call</span>
+      </div>
+      <div class="cat-card-foot">
+        <span class="cat-badge-auth">Global DB</span>
+        <span class="cat-badge-lat">52ms</span>
+      </div>
+    </a>
+
+    <!-- 6: Live SERP -->
+    <a href="/catalog" class="cat-card" data-cat="seo">
+      <div class="cat-card-top">
+        <div class="cat-card-icon"><img src="/logos/platforms/google.svg" alt="Google"></div>
+        <div class="cat-card-meta">
+          <div class="cat-card-name">Live SERP Results</div>
+          <div class="cat-card-provider">SerpApi / Google</div>
+        </div>
+      </div>
+      <div class="cat-card-pricing">
+        <span class="cat-orig-cost">Usually $75/mo</span>
+        <span class="cat-ow-cost">$0.001 / call</span>
+      </div>
+      <div class="cat-card-foot">
+        <span class="cat-badge-auth">Real-time</span>
+        <span class="cat-badge-lat">32ms</span>
+      </div>
+    </a>
+
+    <!-- 7: Search Console -->
+    <a href="/catalog" class="cat-card" data-cat="seo">
+      <div class="cat-card-top">
+        <div class="cat-card-icon"><img src="/logos/google-search-console.svg" alt="GSC"></div>
+        <div class="cat-card-meta">
+          <div class="cat-card-name">Search Console Metrics</div>
+          <div class="cat-card-provider">Google OAuth</div>
+        </div>
+      </div>
+      <div class="cat-card-pricing">
+        <span class="cat-orig-cost">OAuth Managed</span>
+        <span class="cat-ow-cost">Free Relay</span>
+      </div>
+      <div class="cat-card-foot">
+        <span class="cat-badge-auth oauth">OAuth Relay</span>
+        <span class="cat-badge-lat">26ms</span>
+      </div>
+    </a>
+
+    <!-- 8: Moz Authority -->
+    <a href="/catalog" class="cat-card" data-cat="seo">
+      <div class="cat-card-top">
+        <div class="cat-card-icon"><img src="/logos/moz.svg" alt="Moz"></div>
+        <div class="cat-card-meta">
+          <div class="cat-card-name">Domain Authority &amp; Links</div>
+          <div class="cat-card-provider">Moz / Majestic</div>
+        </div>
+      </div>
+      <div class="cat-card-pricing">
+        <span class="cat-orig-cost">Usually $99/mo</span>
+        <span class="cat-ow-cost">$0.0018 / call</span>
+      </div>
+      <div class="cat-card-foot">
+        <span class="cat-badge-auth">Deep Index</span>
+        <span class="cat-badge-lat">64ms</span>
+      </div>
+    </a>
+
+    <!-- 9: Hunter Email -->
+    <a href="/catalog" class="cat-card" data-cat="b2b">
+      <div class="cat-card-top">
+        <div class="cat-card-icon"><img src="/logos/hunter.svg" alt="Hunter"></div>
+        <div class="cat-card-meta">
+          <div class="cat-card-name">Find &amp; Verify Work Email</div>
+          <div class="cat-card-provider">Hunter.io</div>
+        </div>
+      </div>
+      <div class="cat-card-pricing">
+        <span class="cat-orig-cost">Usually $34/mo</span>
+        <span class="cat-ow-cost">$0.0012 / call</span>
+      </div>
+      <div class="cat-card-foot">
+        <span class="cat-badge-auth">99% Delivery</span>
+        <span class="cat-badge-lat">38ms</span>
+      </div>
+    </a>
+
+    <!-- 10: Apollo Intel -->
+    <a href="/catalog" class="cat-card" data-cat="b2b">
+      <div class="cat-card-top">
+        <div class="cat-card-icon"><img src="/logos/apollo.svg" alt="Apollo"></div>
+        <div class="cat-card-meta">
+          <div class="cat-card-name">Person &amp; Role Enrichment</div>
+          <div class="cat-card-provider">Apollo / Lusha</div>
+        </div>
+      </div>
+      <div class="cat-card-pricing">
+        <span class="cat-orig-cost">Usually $59/seat</span>
+        <span class="cat-ow-cost">$0.0025 / call</span>
+      </div>
+      <div class="cat-card-foot">
+        <span class="cat-badge-auth">Verified Live</span>
+        <span class="cat-badge-lat">45ms</span>
+      </div>
+    </a>
+
+    <!-- 11: Crunchbase -->
+    <a href="/catalog" class="cat-card" data-cat="b2b">
+      <div class="cat-card-top">
+        <div class="cat-card-icon"><img src="/logos/crunchbase.svg" alt="Crunchbase"></div>
+        <div class="cat-card-meta">
+          <div class="cat-card-name">Funding &amp; Firmographics</div>
+          <div class="cat-card-provider">Crunchbase</div>
+        </div>
+      </div>
+      <div class="cat-card-pricing">
+        <span class="cat-orig-cost">Usually $99/mo</span>
+        <span class="cat-ow-cost">$0.002 / call</span>
+      </div>
+      <div class="cat-card-foot">
+        <span class="cat-badge-auth">Global DB</span>
+        <span class="cat-badge-lat">40ms</span>
+      </div>
+    </a>
+
+    <!-- 12: LinkedIn Talent -->
+    <a href="/catalog" class="cat-card" data-cat="b2b">
+      <div class="cat-card-top">
+        <div class="cat-card-icon"><img src="/logos/linkedin.svg" alt="LinkedIn"></div>
+        <div class="cat-card-meta">
+          <div class="cat-card-name">Hiring Signals &amp; Headcount</div>
+          <div class="cat-card-provider">LinkedIn Talent</div>
+        </div>
+      </div>
+      <div class="cat-card-pricing">
+        <span class="cat-orig-cost">Enterprise only</span>
+        <span class="cat-ow-cost">$0.003 / call</span>
+      </div>
+      <div class="cat-card-foot">
+        <span class="cat-badge-auth">Live Signals</span>
+        <span class="cat-badge-lat">42ms</span>
+      </div>
+    </a>
+
+    <!-- 13: Google Ads -->
+    <a href="/catalog" class="cat-card" data-cat="ads">
+      <div class="cat-card-top">
+        <div class="cat-card-icon"><img src="/logos/google-ads.svg" alt="Google Ads"></div>
+        <div class="cat-card-meta">
+          <div class="cat-card-name">Google Ads Campaigns</div>
+          <div class="cat-card-provider">Google Ads API</div>
+        </div>
+      </div>
+      <div class="cat-card-pricing">
+        <span class="cat-orig-cost">Complex OAuth</span>
+        <span class="cat-ow-cost">1-Token Relay</span>
+      </div>
+      <div class="cat-card-foot">
+        <span class="cat-badge-auth oauth">OAuth Relay</span>
+        <span class="cat-badge-lat">36ms</span>
+      </div>
+    </a>
+
+    <!-- 14: Meta Ads -->
+    <a href="/catalog" class="cat-card" data-cat="ads">
+      <div class="cat-card-top">
+        <div class="cat-card-icon"><img src="/logos/meta-ad-library.svg" alt="Meta Ad Library"></div>
+        <div class="cat-card-meta">
+          <div class="cat-card-name">Meta Ads &amp; Ad Library</div>
+          <div class="cat-card-provider">Meta Graph API</div>
+        </div>
+      </div>
+      <div class="cat-card-pricing">
+        <span class="cat-orig-cost">Manual research</span>
+        <span class="cat-ow-cost">$0.001 / call</span>
+      </div>
+      <div class="cat-card-foot">
+        <span class="cat-badge-auth">Full Creative</span>
+        <span class="cat-badge-lat">34ms</span>
+      </div>
+    </a>
+
+    <!-- 15: AI Citations -->
+    <a href="/catalog" class="cat-card" data-cat="ai">
+      <div class="cat-card-top">
+        <div class="cat-card-icon"><img src="/logos/exa.svg" alt="Exa / AI"></div>
+        <div class="cat-card-meta">
+          <div class="cat-card-name">AI Overview Citations</div>
+          <div class="cat-card-provider">Perplexity / Exa</div>
+        </div>
+      </div>
+      <div class="cat-card-pricing">
+        <span class="cat-orig-cost">Enterprise API</span>
+        <span class="cat-ow-cost">$0.0015 / call</span>
+      </div>
+      <div class="cat-card-foot">
+        <span class="cat-badge-auth">Real-time AI</span>
+        <span class="cat-badge-lat">58ms</span>
+      </div>
+    </a>
+
+    <!-- 16: Reddit Stream -->
+    <a href="/catalog" class="cat-card" data-cat="ai">
+      <div class="cat-card-top">
+        <div class="cat-card-icon"><img src="/logos/platforms/reddit.svg" alt="Reddit"></div>
+        <div class="cat-card-meta">
+          <div class="cat-card-name">Where LLMs Source Data</div>
+          <div class="cat-card-provider">Reddit Data API</div>
+        </div>
+      </div>
+      <div class="cat-card-pricing">
+        <span class="cat-orig-cost">Rate-limited</span>
+        <span class="cat-ow-cost">$0.0009 / call</span>
+      </div>
+      <div class="cat-card-foot">
+        <span class="cat-badge-auth">Stream API</span>
+        <span class="cat-badge-lat">29ms</span>
+      </div>
+    </a>
+  </div>
+
+  <!-- Subtle Fade-out & Link to Full Catalog -->
+  <div class="cat-fade-wrap">
+    <div class="cat-fade-sub">+2,500 more expert tools in the live catalog</div>
+    <a href="/catalog" class="btn-lime" style="font-size:15px;padding:12px 32px;">Browse all 2,896 tools →</a>
+  </div>
+</section>
 
 <!-- ─── FEATURES BENTO ────────────────────────────────────────────────── -->
 <section class="section">
@@ -1209,6 +1999,205 @@ document.querySelectorAll('.faq-q').forEach(btn => {
   }
   window.addEventListener('scroll', onScroll, {passive:true});
   onScroll();
+/* ─── INTERACTIVE AGENT PIPELINE & CATALOG SHOWCASE ────────────────── */
+(function(){
+  const roleData = {
+    social: {
+      title: "Social Media Manager",
+      agentName: "Claude 3.7 / Cursor",
+      tasks: [
+        "Scrape viral audio & hashtags on TikTok",
+        "Pull competitor reel transcripts & engagement",
+        "Generate cross-platform hooks & captions",
+        "Publish to X, LinkedIn & Instagram automatically"
+      ],
+      terminal: [
+        { cmd: 'olywork.call("tikhub.tiktok.trending", limit=20)', res: '↳ [200 OK] 38ms · Token injected · Zero API keys stored', note: '# Relayed to TikHub, response parsed' },
+        { cmd: 'olywork.call("apify.instagram.posts", tag="ai")', res: '↳ [200 OK] 52ms · Micro-metered: $0.0014', note: '# Verified creator analytics extracted' },
+        { cmd: 'olywork.call("twitter.post_tweet", text="…")', res: '↳ [200 OK] 41ms · OAuth credential relayed', note: '# Live on feed with zero rate limits' }
+      ],
+      toolbeltTitle: "The Social Toolbelt",
+      toolbelt: [
+        { name: "TikTok API", icon: "/logos/platforms/tiktok.svg", ms: "28ms" },
+        { name: "Instagram Graph", icon: "/logos/instagram.svg", ms: "44ms" },
+        { name: "X API v2", icon: "/logos/platforms/twitter.svg", ms: "35ms" },
+        { name: "YouTube Data", icon: "/logos/platforms/youtube.svg", ms: "48ms" },
+        { name: "Reddit Stream", icon: "/logos/platforms/reddit.svg", ms: "29ms" },
+        { name: "LinkedIn Post", icon: "/logos/linkedin.svg", ms: "41ms" }
+      ],
+      cmd: "npx -y @olywork/mcp"
+    },
+    seo: {
+      title: "SEO & Market Analyst",
+      agentName: "Codex / Custom Agent",
+      tasks: [
+        "Audit top 10 SERP competitor keyword gaps",
+        "Extract live search volume, CPC & difficulty",
+        "Query Perplexity & AI Overview citations",
+        "Map authoritative backlink outreach targets"
+      ],
+      terminal: [
+        { cmd: 'olywork.call("serpapi.google_search", q="agent tools")', res: '↳ [200 OK] 32ms · Real-time SERP parsed', note: '# 10 organic positions + AI summary extracted' },
+        { cmd: 'olywork.call("semrush.keyword_volume", kw="mcp")', res: '↳ [200 OK] 45ms · Cost: $0.0020 (no $139/mo sub)', note: '# Global search volume: 44.5k/mo' },
+        { cmd: 'olywork.call("moz.domain_authority", target="…")', res: '↳ [200 OK] 61ms · DA score: 84 / Spam: 1%', note: '# Referring domains: 1,420' }
+      ],
+      toolbeltTitle: "The SEO Toolbelt",
+      toolbelt: [
+        { name: "Google SERP", icon: "/logos/platforms/google.svg", ms: "32ms" },
+        { name: "Semrush DB", icon: "/logos/dataforseo.svg", ms: "45ms" },
+        { name: "Search Console", icon: "/logos/google-search-console.svg", ms: "26ms" },
+        { name: "Moz Authority", icon: "/logos/moz.svg", ms: "61ms" },
+        { name: "Ahrefs Links", icon: "/logos/dataforseo.svg", ms: "52ms" },
+        { name: "Perplexity AI", icon: "/logos/exa.svg", ms: "58ms" }
+      ],
+      cmd: "curl -fsSL https://olywork.com/skill.md"
+    },
+    b2b: {
+      title: "B2B Pipeline & Sales Lead",
+      agentName: "OpenAI Operator",
+      tasks: [
+        "Verify prospect corporate email & direct line",
+        "Enrich company firmographics & recent funding",
+        "Monitor live hiring velocity & tech stack",
+        "Sync qualified leads to CRM without rate limits"
+      ],
+      terminal: [
+        { cmd: 'olywork.call("apollo.people_match", domain="stripe.com")', res: '↳ [200 OK] 45ms · 8 decision makers resolved', note: '# Verified emails + LinkedIn profile URLs' },
+        { cmd: 'olywork.call("hunter.verify_email", email="ceo@…")', res: '↳ [200 OK] 38ms · 99% deliverability score', note: '# MX records & SMTP mailbox confirmed' },
+        { cmd: 'olywork.call("crunchbase.organization", q="ai")', res: '↳ [200 OK] 40ms · Series B: $32M raised', note: '# Lead firmographics stored' }
+      ],
+      toolbeltTitle: "The B2B Toolbelt",
+      toolbelt: [
+        { name: "Apollo Intel", icon: "/logos/apollo.svg", ms: "45ms" },
+        { name: "Hunter Verify", icon: "/logos/hunter.svg", ms: "38ms" },
+        { name: "Crunchbase", icon: "/logos/crunchbase.svg", ms: "40ms" },
+        { name: "LinkedIn Signals", icon: "/logos/linkedin.svg", ms: "42ms" },
+        { name: "Lusha Contacts", icon: "/logos/lusha.svg", ms: "50ms" },
+        { name: "Clearbit Firm", icon: "/logos/crustdata.svg", ms: "44ms" }
+      ],
+      cmd: "pip install olywork && olywork auth"
+    },
+    ads: {
+      title: "Performance Ads Lead",
+      agentName: "Autonomous Growth Bot",
+      tasks: [
+        "Audit competitor live creatives in Meta Ad Library",
+        "Inspect active Google Ads search copy & keywords",
+        "Track TikTok Ads top-performing video hooks",
+        "Adjust ROAS bid targets and budget pacing"
+      ],
+      terminal: [
+        { cmd: 'olywork.call("meta.ad_library_search", q="saas")', res: '↳ [200 OK] 34ms · 42 active creatives found', note: '# Video assets & copy variation extracted' },
+        { cmd: 'olywork.call("google_ads.campaign_metrics")', res: '↳ [200 OK] 36ms · ROAS: 3.84x · CTR: 4.2%', note: '# Converted at cost: $18.20 CPA' },
+        { cmd: 'olywork.call("tiktok_ads.trending_creatives")', res: '↳ [200 OK] 48ms · Top hook retention: 71%', note: '# Creative strategy report compiled' }
+      ],
+      toolbeltTitle: "The Ads Toolbelt",
+      toolbelt: [
+        { name: "Meta Ad Library", icon: "/logos/meta-ad-library.svg", ms: "34ms" },
+        { name: "Google Ads", icon: "/logos/google-ads.svg", ms: "36ms" },
+        { name: "Meta Ads Graph", icon: "/logos/meta-ads.svg", ms: "38ms" },
+        { name: "Microsoft Ads", icon: "/logos/microsoft-ads.svg", ms: "44ms" },
+        { name: "Google Analytics", icon: "/logos/google-analytics.svg", ms: "30ms" },
+        { name: "Pinterest Ads", icon: "/logos/pinterest-ads.svg", ms: "52ms" }
+      ],
+      cmd: "npx -y @olywork/mcp --tools=ads"
+    }
+  };
+
+  const roleTitleEl = document.getElementById('pipeline-role-title');
+  const agentNameEl = document.getElementById('agent-runtime-name');
+  const agentTasksEl = document.getElementById('agent-tasks');
+  const terminalEl = document.getElementById('proxy-terminal');
+  const toolbeltTitleEl = document.getElementById('toolbelt-title');
+  const toolbeltGridEl = document.getElementById('toolbelt-grid');
+  const installCmdEl = document.getElementById('install-cmd-text');
+  const tabs = document.querySelectorAll('.pipeline-tab');
+
+  function renderRole(key){
+    const d = roleData[key];
+    if(!d) return;
+
+    if(roleTitleEl) roleTitleEl.textContent = d.title;
+    if(agentNameEl) agentNameEl.textContent = d.agentName;
+    if(toolbeltTitleEl) toolbeltTitleEl.textContent = d.toolbeltTitle;
+    if(installCmdEl) installCmdEl.textContent = d.cmd;
+
+    if(agentTasksEl){
+      agentTasksEl.innerHTML = d.tasks.map(t => `
+        <div class="agent-task-item">
+          <span class="agent-check">✓</span>
+          <span>${t}</span>
+        </div>
+      `).join('');
+    }
+
+    if(terminalEl){
+      terminalEl.innerHTML = d.terminal.map(item => `
+        <div>
+          <div class="term-cmd"><strong>$</strong> ${item.cmd}</div>
+          <div class="term-res">${item.res}</div>
+          <div class="term-note">${item.note}</div>
+        </div>
+      `).join('');
+    }
+
+    if(toolbeltGridEl){
+      toolbeltGridEl.innerHTML = d.toolbelt.map(tool => `
+        <div class="toolbelt-item">
+          <img src="${tool.icon}" alt="${tool.name}" onerror="this.style.display='none'">
+          <span>${tool.name}</span>
+          <span class="toolbelt-item-ms">${tool.ms}</span>
+        </div>
+      `).join('');
+    }
+  }
+
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      tabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      renderRole(tab.dataset.role);
+    });
+  });
+
+  // Initial render
+  renderRole('social');
+
+  // Copy button handler
+  const copyBtn = document.getElementById('install-copy-btn');
+  if(copyBtn){
+    copyBtn.addEventListener('click', () => {
+      const text = installCmdEl ? installCmdEl.textContent : 'npx -y @olywork/mcp';
+      navigator.clipboard.writeText(text).then(() => {
+        const orig = copyBtn.textContent;
+        copyBtn.textContent = 'Copied!';
+        copyBtn.style.background = '#27C93F';
+        setTimeout(() => {
+          copyBtn.textContent = orig;
+          copyBtn.style.background = '';
+        }, 2000);
+      });
+    });
+  }
+
+  // Catalog category filtering
+  const filterBtns = document.querySelectorAll('.cat-filter-btn');
+  const catCards = document.querySelectorAll('#cat-showcase-grid .cat-card');
+
+  filterBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      filterBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const cat = btn.dataset.cat;
+      catCards.forEach(card => {
+        if(cat === 'all' || card.dataset.cat === cat){
+          card.style.display = 'flex';
+        } else {
+          card.style.display = 'none';
+        }
+      });
+    });
+  });
 })();
 </script>
 <script src="/adtrack.js"></script>
