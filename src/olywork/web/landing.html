@@ -4,7 +4,7 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Olywork — The OpenRouter for Agent Tools</title>
-<meta name="description" content="Every tool your agent needs. 2,896 catalogued endpoints across 60+ providers—SEO, enrichment, scrapers, social, ads. One token, pay per call in micro-USD."/>
+<meta name="description" content="Every tool your agent needs. 2,896 catalogued endpoints across 60+ providers. One token, pay per call in micro-USD."/>
 
 <!-- {BASE} placeholder is substituted at runtime by the registry engine -->
 <link rel="canonical" href="{BASE}/"/>
@@ -15,1608 +15,417 @@
 <meta property="og:site_name" content="Olywork"/>
 <meta property="og:url" content="{BASE}/"/>
 <meta property="og:title" content="Olywork — The OpenRouter for Agent Tools"/>
-<meta property="og:description" content="Every tool your agent needs with one token. 2,896+ endpoints across 60+ providers, priced per call from fractions of a cent."/>
+<meta property="og:description" content="Every tool your agent needs with one token. 2,896+ endpoints across 60+ providers."/>
 <meta property="og:image" content="{BASE}/media/og.png"/>
-<meta property="og:image:width" content="1200"/>
-<meta property="og:image:height" content="630"/>
-
-<meta name="twitter:card" content="summary_large_image"/>
-<meta name="twitter:title" content="Olywork — The OpenRouter for Agent Tools"/>
-<meta name="twitter:description" content="One unified token for 2,890+ agent tools. Pay per call, zero provider signups, transparent micro-USD billing."/>
-<meta name="twitter:image" content="{BASE}/media/og.png"/>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;450;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 
 <style>
-/* ==========================================================================
-   OLYWORK DESIGN SYSTEM (TryBounty Aesthetic)
-   - Warm paper background: #F4F2EC
-   - Surface cards: #FCFBFA
-   - Primary typography: #202020
-   - Accent button: Vibrant Lime Green #9FF25F (Hover #8EE250)
-   - Borders: 1px crisp #E8E5DA
-   - Strictly NO drop shadows anywhere.
-   ========================================================================== */
-
 :root {
   --bg: #F4F2EC;
   --surface: #FCFBFA;
-  --surface-subtle: #F0EEE6;
+  --surface-muted: #E8E5DA;
   --ink: #202020;
   --ink-secondary: #585750;
   --ink-muted: #7E7C74;
   --border: #E8E5DA;
-  --border-strong: #D5D1C3;
   --accent: #9FF25F;
   --accent-hover: #8EE250;
-  --accent-soft: rgba(159, 242, 95, 0.22);
-  --code-bg: #1B1B19;
-  --code-ink: #EBEAE5;
-  --code-border: #2C2C28;
+  --primary-deep: #1A1A1A;
+  --primary-soft: #D6E7EA;
   
-  --font-heading: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
-
-  --radius-card: 16px;
-  --radius-pill: 9999px;
-  --radius-sm: 8px;
-}
-
-*, *::before, *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-  /* Strictly enforce no box-shadows */
-  box-shadow: none !important;
-}
-
-html {
-  scroll-behavior: smooth;
-  background-color: var(--bg);
-  color: var(--ink);
-  font-family: var(--font-body);
-  font-size: 15px;
-  line-height: 1.55;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-body {
-  background-color: var(--bg);
-  color: var(--ink);
-  min-height: 100vh;
-  overflow-x: hidden;
-}
-
-a {
-  color: inherit;
-  text-decoration: none;
-}
-
-button {
-  font-family: inherit;
-  cursor: pointer;
-  border: none;
-  background: none;
-}
-
-.container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 24px;
-}
-
-@media (max-width: 640px) {
-  .container {
-    padding: 0 16px;
-  }
-}
-
-/* --------------------------------------------------------------------------
-   NAVBAR
-   -------------------------------------------------------------------------- */
-.navbar-wrap {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 100;
-  background: rgba(244, 242, 236, 0.88);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-bottom: 1px solid var(--border);
-  height: 72px;
-  display: flex;
-  align-items: center;
-}
-
-.navbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-}
-
-.brand-logo {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-family: var(--font-heading);
-  font-weight: 800;
-  font-size: 20px;
-  letter-spacing: -0.04em;
-  color: var(--ink);
-}
-
-.brand-badge {
-  width: 28px;
-  height: 28px;
-  background: var(--ink);
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #F4F2EC;
-}
-
-.nav-menu {
-  display: flex;
-  align-items: center;
-  gap: 32px;
-}
-
-.nav-link {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--ink-secondary);
-  transition: color 0.15s ease;
-}
-
-.nav-link:hover {
-  color: var(--ink);
-}
-
-.nav-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-/* --------------------------------------------------------------------------
-   BUTTONS (Pill-shaped, strictly 40-44px, no shadow)
-   -------------------------------------------------------------------------- */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  height: 42px;
-  padding: 0 20px;
-  border-radius: var(--radius-pill);
-  font-size: 14px;
-  font-weight: 600;
-  transition: transform 0.12s ease, background-color 0.15s ease, border-color 0.15s ease;
-  white-space: nowrap;
-  user-select: none;
-}
-
-.btn:hover {
-  transform: scale(1.02);
-}
-
-.btn:active {
-  transform: scale(0.98);
-}
-
-.btn-primary {
-  background-color: var(--accent);
-  color: var(--ink);
-  border: 1px solid rgba(0, 0, 0, 0.06);
-}
-
-.btn-primary:hover {
-  background-color: var(--accent-hover);
-}
-
-.btn-secondary {
-  background-color: var(--surface);
-  color: var(--ink);
-  border: 1px solid var(--border);
-}
-
-.btn-secondary:hover {
-  background-color: var(--surface-subtle);
-  border-color: var(--border-strong);
-}
-
-.btn-lg {
-  height: 48px;
-  padding: 0 26px;
-  font-size: 15px;
-}
-
-/* --------------------------------------------------------------------------
-   PILL BADGE / TAG
-   -------------------------------------------------------------------------- */
-.pill-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 14px;
-  border-radius: var(--radius-pill);
-  background-color: var(--surface);
-  border: 1px solid var(--border);
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--ink);
-}
-
-.status-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background-color: #22C55E;
-}
-
-/* --------------------------------------------------------------------------
-   HERO SECTION
-   -------------------------------------------------------------------------- */
-.hero-section {
-  padding: 130px 0 60px;
-  text-align: center;
-}
-
-.hero-headline {
-  font-family: var(--font-heading);
-  font-size: 58px;
-  line-height: 1.08;
-  font-weight: 800;
-  letter-spacing: -0.04em;
-  color: var(--ink);
-  margin-top: 20px;
-  margin-bottom: 18px;
-}
-
-.hero-headline span {
-  color: var(--ink-secondary);
-}
-
-.hero-subhead {
-  max-width: 680px;
-  margin: 0 auto 32px;
-  font-size: 17px;
-  line-height: 1.55;
-  color: var(--ink-secondary);
-  font-weight: 450;
-}
-
-.hero-cta-row {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-  margin-bottom: 48px;
-}
-
-/* --------------------------------------------------------------------------
-   HERO INTERACTIVE CARD (TryBounty Style)
-   -------------------------------------------------------------------------- */
-.hero-sandbox-card {
-  max-width: 940px;
-  margin: 0 auto;
-  background-color: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-card);
-  padding: 24px;
-  text-align: left;
-}
-
-.sandbox-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-bottom: 1px solid var(--border);
-  padding-bottom: 16px;
-  margin-bottom: 18px;
-}
-
-.sandbox-search-bar {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  background-color: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
-  padding: 10px 18px;
-  width: 100%;
-}
-
-.sandbox-search-bar input {
-  border: none;
-  background: transparent;
-  outline: none;
-  font-size: 14.5px;
-  font-family: var(--font-body);
-  color: var(--ink);
-  width: 100%;
-}
-
-.sandbox-search-bar input::placeholder {
-  color: var(--ink-muted);
-}
-
-.category-pills {
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  padding: 4px 0 16px;
-  scrollbar-width: none;
-}
-
-.category-pills::-webkit-scrollbar {
-  display: none;
-}
-
-.cat-pill {
-  padding: 6px 14px;
-  border-radius: var(--radius-pill);
-  font-size: 12.5px;
-  font-weight: 500;
-  background-color: var(--surface);
-  border: 1px solid var(--border);
-  color: var(--ink-secondary);
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all 0.15s ease;
-}
-
-.cat-pill.active, .cat-pill:hover {
-  background-color: var(--ink);
-  color: #FCFBFA;
-  border-color: var(--ink);
-}
-
-/* Tool Rows inside Hero Sandbox */
-.sandbox-tools-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.tool-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: #FFFFFF;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 12px 18px;
-  transition: border-color 0.15s ease, background-color 0.15s ease;
-}
-
-.tool-row:hover {
-  border-color: var(--border-strong);
-  background-color: #FAF9F5;
-}
-
-.tool-left {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-
-.tool-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  background-color: var(--bg);
-  border: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  font-size: 13px;
-  color: var(--ink);
-}
-
-.tool-info {
-  display: flex;
-  flex-direction: column;
-}
-
-.tool-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--ink);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.tool-desc {
-  font-size: 12.5px;
-  color: var(--ink-muted);
-}
-
-.tool-right {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.tool-price {
-  font-family: var(--font-mono);
-  font-size: 12.5px;
-  font-weight: 500;
-  background-color: var(--surface-subtle);
-  border: 1px solid var(--border);
-  padding: 4px 10px;
-  border-radius: var(--radius-pill);
-  color: var(--ink);
-}
-
-.tool-status {
-  font-size: 12px;
-  color: #16A34A;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-/* --------------------------------------------------------------------------
-   STATS BENTO GRID (4 Flat Cards, 16px radius, no shadow)
-   -------------------------------------------------------------------------- */
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-  margin: 60px auto;
-}
-
-.stat-card {
-  background-color: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-card);
-  padding: 24px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-}
-
-.stat-num {
-  font-family: var(--font-heading);
-  font-size: 40px;
-  font-weight: 800;
-  letter-spacing: -0.04em;
-  color: var(--ink);
-  line-height: 1;
-  margin-bottom: 8px;
-}
-
-.stat-label {
-  font-size: 14.5px;
-  font-weight: 600;
-  color: var(--ink);
-  margin-bottom: 4px;
-}
-
-.stat-sub {
-  font-size: 12.5px;
-  color: var(--ink-muted);
-}
-
-/* --------------------------------------------------------------------------
-   TICKER / MARQUEE
-   -------------------------------------------------------------------------- */
-.ticker-wrap {
-  width: 100vw;
-  position: relative;
-  left: 50%;
-  right: 50%;
-  margin-left: -50vw;
-  margin-right: -50vw;
-  overflow: hidden;
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-  background-color: var(--surface);
-  padding: 18px 0;
-  margin-bottom: 80px;
-}
-
-.ticker-track {
-  display: flex;
-  width: max-content;
-  animation: ticker-slide 38s linear infinite;
-  gap: 20px;
-}
-
-@keyframes ticker-slide {
-  0% { transform: translateX(0); }
-  100% { transform: translateX(-50%); }
-}
-
-.ticker-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  background-color: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
-  padding: 7px 18px;
-  font-size: 13.5px;
-  font-weight: 600;
-  color: var(--ink);
-  white-space: nowrap;
-}
-
-/* --------------------------------------------------------------------------
-   FEATURE BENTO GRID
-   -------------------------------------------------------------------------- */
-.section-header {
-  text-align: center;
-  max-width: 640px;
-  margin: 0 auto 48px;
-}
-
-.section-tag {
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--ink-muted);
-  margin-bottom: 10px;
-}
-
-.section-title {
-  font-family: var(--font-heading);
-  font-size: 38px;
-  font-weight: 800;
-  letter-spacing: -0.035em;
-  color: var(--ink);
-  line-height: 1.15;
-  margin-bottom: 14px;
-}
-
-.section-desc {
-  font-size: 16px;
-  color: var(--ink-secondary);
-}
-
-.bento-grid {
-  display: grid;
-  grid-template-columns: repeat(12, 1fr);
-  gap: 18px;
-  margin-bottom: 90px;
-}
-
-.bento-card {
-  background-color: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-card);
-  padding: 32px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-}
-
-.col-7 { grid-column: span 7; }
-.col-5 { grid-column: span 5; }
-.col-6 { grid-column: span 6; }
-.col-4 { grid-column: span 4; }
-
-.bento-icon {
-  width: 44px;
-  height: 44px;
-  background-color: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 20px;
-}
-
-.bento-title {
-  font-family: var(--font-heading);
-  font-size: 21px;
-  font-weight: 700;
-  letter-spacing: -0.025em;
-  color: var(--ink);
-  margin-bottom: 10px;
-}
-
-.bento-desc {
-  font-size: 14.5px;
-  color: var(--ink-secondary);
-  line-height: 1.6;
-  margin-bottom: 24px;
-}
-
-/* Visual Mockup Inside Bento */
-.bento-preview {
-  background-color: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 16px;
-  font-family: var(--font-mono);
-  font-size: 12.5px;
-}
-
-/* --------------------------------------------------------------------------
-   CODE INTEGRATION & TERMINAL
-   -------------------------------------------------------------------------- */
-.terminal-card {
-  background-color: var(--code-bg);
-  border: 1px solid var(--code-border);
-  border-radius: var(--radius-card);
-  overflow: hidden;
-  color: var(--code-ink);
-  margin-bottom: 90px;
-}
-
-.terminal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background-color: #141412;
-  border-bottom: 1px solid var(--code-border);
-  padding: 14px 22px;
-}
-
-.terminal-tabs {
-  display: flex;
-  gap: 8px;
-}
-
-.term-tab {
-  padding: 6px 14px;
-  border-radius: var(--radius-pill);
-  font-size: 12.5px;
-  font-weight: 500;
-  background-color: transparent;
-  color: #A09E96;
-  border: 1px solid transparent;
-  cursor: pointer;
-}
-
-.term-tab.active {
-  background-color: #272723;
-  color: #FFFFFF;
-  border-color: #383832;
-}
-
-.terminal-body {
-  padding: 24px;
-  font-family: var(--font-mono);
-  font-size: 13.5px;
-  line-height: 1.65;
-  overflow-x: auto;
-}
-
-.terminal-copy {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12.5px;
-  color: #A09E96;
-  padding: 5px 12px;
-  border-radius: var(--radius-pill);
-  border: 1px solid #383832;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.terminal-copy:hover {
-  background-color: #272723;
-  color: #FFFFFF;
-}
-
-/* --------------------------------------------------------------------------
-   PROVIDERS SHOWCASE GRID
-   -------------------------------------------------------------------------- */
-.providers-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-  margin-bottom: 90px;
-}
-
-.provider-item {
-  background-color: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-card);
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  transition: border-color 0.15s ease;
-}
-
-.provider-item:hover {
-  border-color: var(--border-strong);
-}
-
-.provider-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.provider-badge-icon {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  background-color: var(--bg);
-  border: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  font-size: 12px;
-}
-
-.provider-name {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--ink);
-}
-
-.provider-desc {
-  font-size: 13px;
-  color: var(--ink-secondary);
-  line-height: 1.45;
-}
-
-.provider-bottom {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-top: 1px solid var(--border);
-  padding-top: 10px;
-  font-size: 12px;
-  color: var(--ink-muted);
-}
-
-/* --------------------------------------------------------------------------
-   COMPARISON / PRICING CARD
-   -------------------------------------------------------------------------- */
-.compare-card {
-  background-color: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-card);
-  padding: 40px;
-  margin-bottom: 90px;
-}
-
-.compare-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 32px;
-}
-
-.compare-col {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-}
-
-.compare-col.highlight {
-  background-color: #FAF8F2;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 24px;
-}
-
-.compare-heading {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--ink);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.compare-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--border);
-  font-size: 14px;
-}
-
-/* --------------------------------------------------------------------------
-   BOTTOM CTA BANNER
-   -------------------------------------------------------------------------- */
-.cta-banner {
-  background-color: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-card);
-  padding: 64px 32px;
-  text-align: center;
-  margin-bottom: 90px;
-}
-
-.cta-banner h2 {
-  font-family: var(--font-heading);
-  font-size: 42px;
-  font-weight: 800;
-  letter-spacing: -0.035em;
-  color: var(--ink);
-  margin-bottom: 16px;
-}
-
-.cta-banner p {
-  font-size: 17px;
-  color: var(--ink-secondary);
-  max-width: 600px;
-  margin: 0 auto 32px;
-}
-
-/* --------------------------------------------------------------------------
-   FOOTER
-   -------------------------------------------------------------------------- */
-.footer {
-  border-top: 1px solid var(--border);
-  padding: 48px 0 60px;
-  font-size: 13.5px;
-  color: var(--ink-muted);
-}
-
-.footer-content {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 20px;
-}
-
-.footer-links {
-  display: flex;
-  align-items: center;
-  gap: 24px;
-}
-
-.footer-links a:hover {
-  color: var(--ink);
-}
-
-/* --------------------------------------------------------------------------
-   RESPONSIVE DESIGN
-   -------------------------------------------------------------------------- */
-@media (max-width: 960px) {
-  .hero-headline {
-    font-size: 42px;
-  }
-  .stats-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  .bento-grid {
-    grid-template-columns: 1fr;
-  }
-  .col-7, .col-5, .col-6, .col-4 {
-    grid-column: span 1;
-  }
-  .providers-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  .compare-grid {
-    grid-template-columns: 1fr;
-  }
-  .nav-menu {
-    display: none;
-  }
-}
-
-@media (max-width: 640px) {
-  .hero-headline {
-    font-size: 34px;
-  }
-  .hero-cta-row {
-    flex-direction: column;
-    width: 100%;
-  }
-  .hero-cta-row .btn {
-    width: 100%;
-  }
-  .stats-grid {
-    grid-template-columns: 1fr;
-  }
-  .providers-grid {
-    grid-template-columns: 1fr;
-  }
-  .cta-banner {
-    padding: 40px 20px;
-  }
-  .cta-banner h2 {
-    font-size: 30px;
-  }
+  --font-heading: 'Plus Jakarta Sans', sans-serif;
+  --font-body: 'Inter', sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { background-color: var(--bg); color: var(--ink); font-family: var(--font-body); overflow-x: hidden; -webkit-font-smoothing: antialiased; }
+a { text-decoration: none; color: inherit; }
+button { background: none; border: none; cursor: pointer; font-family: inherit; }
+
+/* NAVBAR */
+.navbar { position: fixed; top: 0; width: 100%; height: 80px; display: flex; align-items: center; justify-content: space-between; padding: 0 48px; background: rgba(244, 242, 236, 0.95); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(232, 229, 218, 0.6); z-index: 50; }
+.brand { font-family: var(--font-heading); font-size: 24px; font-weight: 800; display: flex; align-items: center; gap: 8px; letter-spacing: -0.04em; }
+.brand svg { height: 24px; width: auto; }
+.nav-links { display: flex; gap: 32px; align-items: center; }
+.nav-link { font-size: 15px; color: var(--ink-muted); font-weight: 500; transition: color 0.2s; }
+.nav-link:hover { color: var(--ink); }
+
+/* BUTTONS */
+.btn-primary { background: var(--ink); color: #FFF; padding: 0 24px; height: 40px; border-radius: 99px; font-weight: 600; font-size: 14px; display: inline-flex; align-items: center; justify-content: center; transition: all 0.2s ease; }
+.btn-primary:hover { transform: scale(1.03); background: #333; }
+.btn-accent { background: var(--accent); color: var(--ink); padding: 0 40px; height: 56px; border-radius: 99px; font-weight: 700; font-size: 18px; font-family: var(--font-heading); display: inline-flex; align-items: center; gap: 12px; transition: all 0.2s ease; border: 1px solid rgba(0,0,0,0.05); }
+.btn-accent:hover { transform: scale(1.03); background: var(--accent-hover); }
+
+/* HERO */
+.hero { position: relative; padding-top: 160px; min-height: 100vh; display: flex; flex-direction: column; align-items: center; z-index: 1; }
+.hero-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; opacity: 0.6; mask-image: linear-gradient(to bottom, #000 0%, #000 70%, transparent 100%); -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 70%, transparent 100%); }
+
+.trusted { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; font-size: 14px; font-weight: 500; color: var(--ink); }
+.avatars { display: flex; }
+.avatars img { width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--bg); margin-left: -12px; }
+.avatars img:first-child { margin-left: 0; }
+
+.headline { font-family: var(--font-heading); font-size: 72px; font-weight: 800; line-height: 1.05; text-align: center; letter-spacing: -0.04em; margin-bottom: 24px; max-width: 900px; }
+.headline span { color: var(--ink-muted); }
+.subhead { font-size: 20px; color: var(--ink-secondary); text-align: center; margin-bottom: 48px; max-width: 600px; line-height: 1.4; }
+
+/* SEARCH BAR */
+.search-wrapper { position: relative; width: 100%; max-width: 800px; margin-bottom: 64px; }
+.search-wrapper::before { content: ''; position: absolute; inset: -4px; border-radius: 20px; background: transparent; border: 3px solid rgba(0,0,0,0.05); z-index: 0; }
+.search-glass { position: relative; z-index: 1; background: rgba(255,255,255,0.4); backdrop-filter: blur(10px); border-radius: 16px; display: flex; flex-direction: column; padding: 8px; }
+.search-input { width: 100%; background: transparent; border: none; font-family: var(--font-heading); font-size: 24px; padding: 24px 32px; outline: none; color: var(--ink); font-weight: 600; resize: none; overflow: hidden; min-height: 80px; }
+.search-input::placeholder { color: var(--ink-muted); }
+.search-btn-container { display: flex; justify-content: center; margin-top: -28px; z-index: 2; position: relative; }
+
+/* FAN CARDS */
+.fan-container { position: relative; width: 100%; max-width: 1200px; height: 500px; margin: 0 auto; perspective: 1000px; }
+.fan-card { position: absolute; top: 0; width: 320px; height: 420px; border-radius: 24px; padding: 32px; display: flex; flex-direction: column; transition: transform 0.8s cubic-bezier(0.2, 0.8, 0.2, 1); transform-origin: bottom center; box-shadow: none; border: 1px solid rgba(0,0,0,0.04); }
+.fan-card.c1 { background: var(--accent); left: 5%; transform: rotate(-8deg) translateY(40px); z-index: 1; }
+.fan-card.c2 { background: var(--primary-deep); left: 30%; transform: rotate(-3deg) translateY(10px); z-index: 2; color: #FFF; }
+.fan-card.c3 { background: var(--surface); left: 55%; transform: rotate(3deg) translateY(10px); z-index: 3; }
+.fan-card.c4 { background: var(--primary-soft); left: 80%; transform: rotate(8deg) translateY(40px); z-index: 4; }
+
+.fan-card h3 { font-family: var(--font-heading); font-size: 56px; font-weight: 800; line-height: 1; margin-bottom: 8px; letter-spacing: -0.04em; }
+.fan-card p { font-size: 20px; font-weight: 600; }
+.fan-card.c2 h3 { color: var(--accent); }
+.fan-card.c2 p { color: #FFF; }
+
+.fan-container:hover .fan-card.c1 { transform: rotate(-12deg) translateY(20px) translateX(-20px); }
+.fan-container:hover .fan-card.c2 { transform: rotate(-5deg) translateY(-10px) translateX(-10px); }
+.fan-container:hover .fan-card.c3 { transform: rotate(5deg) translateY(-10px) translateX(10px); }
+.fan-container:hover .fan-card.c4 { transform: rotate(12deg) translateY(20px) translateX(20px); }
+
+
+/* TICKER */
+.ticker-section { padding: 40px 0; overflow: hidden; width: 100%; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); background: var(--surface); }
+.ticker-row { display: flex; width: max-content; animation: ticker 40s linear infinite; gap: 32px; margin-bottom: 24px; }
+.ticker-row.reverse { animation-direction: reverse; margin-bottom: 0; }
+@keyframes ticker { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+
+.ticker-item { display: flex; align-items: center; gap: 16px; background: var(--bg); padding: 12px 24px; border-radius: 99px; border: 1px solid var(--border); }
+.ticker-tag { font-size: 13px; font-weight: 600; color: var(--ink-secondary); text-transform: uppercase; letter-spacing: 0.05em; }
+.ticker-text { font-family: var(--font-heading); font-size: 18px; font-weight: 700; color: var(--ink); }
+
+/* SPHERE SECTION */
+.sphere-section { padding: 120px 0; display: flex; flex-direction: column; align-items: center; text-align: center; }
+.sphere-wrapper { position: relative; width: 600px; height: 600px; display: flex; align-items: center; justify-content: center; }
+.sphere-text { position: absolute; width: 100%; height: 100%; animation: spin 20s linear infinite; }
+@keyframes spin { 100% { transform: rotate(360deg); } }
+.sphere-center { width: 300px; height: 300px; border-radius: 50%; background: var(--surface); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; }
+
+@media (max-width: 1024px) {
+  .headline { font-size: 48px; }
+  .fan-container { height: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; padding: 0 24px; }
+  .fan-card { position: relative; left: 0 !important; top: 0 !important; transform: none !important; width: 100%; height: 300px; margin-bottom: 0; }
+  .fan-container:hover .fan-card { transform: none !important; }
 }
 </style>
 </head>
-
 <body>
 
-<!-- ========================================================================
-     NAVIGATION BAR
-     ======================================================================== -->
-<header class="navbar-wrap">
-  <div class="container navbar">
-    <a href="/" class="brand-logo" aria-label="Olywork Home">
-      <div class="brand-badge">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
-        </svg>
-      </div>
-      <span>olywork</span>
-    </a>
-
-    <nav class="nav-menu" aria-label="Primary Navigation">
-      <a href="#catalog" class="nav-link">Catalog</a>
-      <a href="#providers" class="nav-link">Providers</a>
-      <a href="#how-it-works" class="nav-link">How It Works</a>
-      <a href="#pricing" class="nav-link">Pricing</a>
-      <a href="/docs" class="nav-link">Docs</a>
-    </nav>
-
-    <div class="nav-actions">
-      <a href="/app" class="btn btn-secondary">Sign In</a>
-      <a href="/app" class="btn btn-primary">Start with $1.00 Free</a>
-    </div>
+<nav class="navbar">
+  <a href="/" class="brand">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+    Olywork
+  </a>
+  <div class="nav-links">
+    <a href="/catalog" class="nav-link">Catalog</a>
+    <a href="/docs" class="nav-link">Docs</a>
+    <a href="/login" class="nav-link">Sign In</a>
+    <a href="/post" class="btn-primary">Post a tool request</a>
   </div>
-</header>
+</nav>
 
-
-<!-- ========================================================================
-     HERO SECTION
-     ======================================================================== -->
-<main>
-<section class="hero-section">
-  <div class="container">
-    <div class="pill-badge">
-      <span class="status-dot"></span>
-      <span>The OpenRouter for Agent Tools &bull; 2,896 Endpoints Live</span>
-    </div>
-
-    <h1 class="hero-headline">
-      Every tool your agent needs.<br/>
-      <span>One token. Pay per call.</span>
-    </h1>
-
-    <p class="hero-subhead">
-      Connect 2,896+ external endpoints across 60+ providers—enrichment, SEO, deep web scrapers, social, and ads—or call your own team tools without managing API keys or paying $150/mo minimum subscriptions.
-    </p>
-
-    <div class="hero-cta-row">
-      <a href="/app" class="btn btn-primary btn-lg">
-        <span>Get Your Token ($1.00 Free)</span>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="5" y1="12" x2="19" y2="12"></line>
-          <polyline points="12 5 19 12 12 19"></polyline>
-        </svg>
-      </a>
-      <a href="#how-it-works" class="btn btn-secondary btn-lg">Explore 2,896 Endpoints</a>
-    </div>
-
-    <!-- Interactive Hero Tool Sandbox (TryBounty card aesthetic) -->
-    <div class="hero-sandbox-card" id="catalog">
-      <div class="sandbox-search-bar">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--ink-muted);">
-          <circle cx="11" cy="11" r="8"></circle>
-          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-        </svg>
-        <input type="text" id="tool-filter-input" placeholder="Search 2,896 endpoints: e.g. enrich email, scrape linkedin, seranking backlinks, exa search..." aria-label="Search catalog tools"/>
-      </div>
-
-      <div class="category-pills" role="tablist" style="margin-top: 14px;">
-        <button class="cat-pill active" onclick="filterCategory('all', this)">All (2,896)</button>
-        <button class="cat-pill" onclick="filterCategory('enrichment', this)">People &amp; Company</button>
-        <button class="cat-pill" onclick="filterCategory('seo', this)">SEO &amp; Backlinks</button>
-        <button class="cat-pill" onclick="filterCategory('scrapers', this)">AI Web Scrapers</button>
-        <button class="cat-pill" onclick="filterCategory('social', this)">Social &amp; Trends</button>
-        <button class="cat-pill" onclick="filterCategory('ads', this)">Ad Platforms</button>
-      </div>
-
-      <div class="sandbox-tools-list" id="tools-container">
-        <!-- Row 1 -->
-        <div class="tool-row" data-cat="enrichment">
-          <div class="tool-left">
-            <div class="tool-icon">AP</div>
-            <div class="tool-info">
-              <span class="tool-name">apollo.people.email.find <span style="font-size: 11px; font-weight: 500; color: var(--ink-muted);">by Apollo.io</span></span>
-              <span class="tool-desc">Find verified direct corporate work emails and job titles by person name + domain</span>
-            </div>
-          </div>
-          <div class="tool-right">
-            <span class="tool-price">$0.015 / call</span>
-            <span class="tool-status">&bull; 118ms</span>
-          </div>
-        </div>
-
-        <!-- Row 2 -->
-        <div class="tool-row" data-cat="scrapers">
-          <div class="tool-left">
-            <div class="tool-icon">EX</div>
-            <div class="tool-info">
-              <span class="tool-name">exa.search.neural <span style="font-size: 11px; font-weight: 500; color: var(--ink-muted);">by Exa AI</span></span>
-              <span class="tool-desc">Semantic search engine designed for autonomous AI agents with full clean markdown text</span>
-            </div>
-          </div>
-          <div class="tool-right">
-            <span class="tool-price">$0.005 / call</span>
-            <span class="tool-status">&bull; 182ms</span>
-          </div>
-        </div>
-
-        <!-- Row 3 -->
-        <div class="tool-row" data-cat="seo">
-          <div class="tool-left">
-            <div class="tool-icon">DF</div>
-            <div class="tool-info">
-              <span class="tool-name">dataforseo.serp.google.organic <span style="font-size: 11px; font-weight: 500; color: var(--ink-muted);">by DataForSEO</span></span>
-              <span class="tool-desc">Real-time localized Google SERP rankings, organic results, PAA, and rich snippets</span>
-            </div>
-          </div>
-          <div class="tool-right">
-            <span class="tool-price">$0.002 / call</span>
-            <span class="tool-status">&bull; 240ms</span>
-          </div>
-        </div>
-
-        <!-- Row 4 -->
-        <div class="tool-row" data-cat="social">
-          <div class="tool-left">
-            <div class="tool-icon">TK</div>
-            <div class="tool-info">
-              <span class="tool-name">tikhub.tiktok.hashtag.posts <span style="font-size: 11px; font-weight: 500; color: var(--ink-muted);">by TikHub</span></span>
-              <span class="tool-desc">Query viral trending videos, creator engagement metrics, audio track stats</span>
-            </div>
-          </div>
-          <div class="tool-right">
-            <span class="tool-price">$0.004 / call</span>
-            <span class="tool-status">&bull; 310ms</span>
-          </div>
-        </div>
-
-        <!-- Row 5 -->
-        <div class="tool-row" data-cat="enrichment">
-          <div class="tool-left">
-            <div class="tool-icon">CD</div>
-            <div class="tool-info">
-              <span class="tool-name">crustdata.company.growth_metrics <span style="font-size: 11px; font-weight: 500; color: var(--ink-muted);">by Crustdata</span></span>
-              <span class="tool-desc">Live headcount velocity, engineering hires, website traffic, and funding rounds</span>
-            </div>
-          </div>
-          <div class="tool-right">
-            <span class="tool-price">$0.025 / call</span>
-            <span class="tool-status">&bull; 190ms</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-
-<!-- ========================================================================
-     STATS BENTO GRID
-     ======================================================================== -->
-<section>
-  <div class="container">
-    <div class="stats-grid">
-      <div class="stat-card">
-        <div class="stat-num">2,896+</div>
-        <div class="stat-label">Unified Endpoints</div>
-        <div class="stat-sub">From 60+ verified API vendors in one catalog.</div>
-      </div>
-
-      <div class="stat-card">
-        <div class="stat-num">1 Token</div>
-        <div class="stat-label">Zero Secret Leaks</div>
-        <div class="stat-sub">Credentials stay on the proxy, never touching agent prompts.</div>
-      </div>
-
-      <div class="stat-card">
-        <div class="stat-num">$0.00</div>
-        <div class="stat-label">Minimum Commitments</div>
-        <div class="stat-sub">No monthly lock-ins. Pay per call in micro-USD ($0.001).</div>
-      </div>
-
-      <div class="stat-card">
-        <div class="stat-num">100%</div>
-        <div class="stat-label">Faithful Relay</div>
-        <div class="stat-sub">Zero payload tampering. Real upstream responses verbatim.</div>
-      </div>
-    </div>
-  </div>
-</section>
-
-
-<!-- ========================================================================
-     CONTINUOUS MARQUEE TICKER
-     ======================================================================== -->
-<div class="ticker-wrap" aria-hidden="true">
-  <div class="ticker-track">
-    <div class="ticker-item"><span>⚡ B2B Lead Enrichment</span></div>
-    <div class="ticker-item"><span>🔍 Live Google SERP Rankings</span></div>
-    <div class="ticker-item"><span>🌐 Neural Web Crawlers (Exa &amp; Firecrawl)</span></div>
-    <div class="ticker-item"><span>📈 Real-time Headcount &amp; Growth Signals</span></div>
-    <div class="ticker-item"><span>🎵 TikTok &amp; Instagram Creator Metrics</span></div>
-    <div class="ticker-item"><span>💼 LinkedIn Profiles &amp; Company Data</span></div>
-    <div class="ticker-item"><span>📊 Backlinks &amp; Domain Authority</span></div>
-    <div class="ticker-item"><span>💳 Stripe &amp; Ad Management Tools</span></div>
-    <!-- Duplicate for seamless loop -->
-    <div class="ticker-item"><span>⚡ B2B Lead Enrichment</span></div>
-    <div class="ticker-item"><span>🔍 Live Google SERP Rankings</span></div>
-    <div class="ticker-item"><span>🌐 Neural Web Crawlers (Exa &amp; Firecrawl)</span></div>
-    <div class="ticker-item"><span>📈 Real-time Headcount &amp; Growth Signals</span></div>
-    <div class="ticker-item"><span>🎵 TikTok &amp; Instagram Creator Metrics</span></div>
-    <div class="ticker-item"><span>💼 LinkedIn Profiles &amp; Company Data</span></div>
-    <div class="ticker-item"><span>📊 Backlinks &amp; Domain Authority</span></div>
-    <div class="ticker-item"><span>💳 Stripe &amp; Ad Management Tools</span></div>
-  </div>
-</div>
-
-
-<!-- ========================================================================
-     HOW IT WORKS (Bento Grid)
-     ======================================================================== -->
-<section id="how-it-works" style="padding: 40px 0;">
-  <div class="container">
-    <div class="section-header">
-      <div class="section-tag">Architecture</div>
-      <h2 class="section-title">Built specifically for autonomous coding agents</h2>
-      <p class="section-desc">
-        One base URL, one bearer token. Your agent asks for the task it wants accomplished, and Olywork handles credentials, metering, and delivery.
-      </p>
-    </div>
-
-    <div class="bento-grid">
-      <!-- Card 1 -->
-      <div class="bento-card col-7">
-        <div>
-          <div class="bento-icon">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg>
-          </div>
-          <h3 class="bento-title">Ask for the task, not the provider</h3>
-          <p class="bento-desc">
-            Your agent doesn't need to know which vendor sells backlink metrics, email discovery, or localized SERPs. Search by capability or let Olywork choose the fastest active provider automatically.
-          </p>
-        </div>
-        <div class="bento-preview">
-          <span style="color:#7E7C74;">// POST /call/olywork.people.email.find</span><br/>
-          {<br/>
-          &nbsp;&nbsp;<span style="color:#16A34A;">"full_name"</span>: "Satya Nadella",<br/>
-          &nbsp;&nbsp;<span style="color:#16A34A;">"domain"</span>: "microsoft.com"<br/>
-          }
-        </div>
-      </div>
-
-      <!-- Card 2 -->
-      <div class="bento-card col-5">
-        <div>
-          <div class="bento-icon">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-          </div>
-          <h3 class="bento-title">Zero API keys in agent memory</h3>
-          <p class="bento-desc">
-            Never paste raw vendor API keys into agent system prompts or configs where they can be leaked. The Olywork proxy securely injects credentials server-side and relays answers verbatim.
-          </p>
-        </div>
-        <div class="pill-badge" style="align-self: flex-start; background: #FAF9F5;">
-          <span>🔒 Server-side Secret Injection</span>
-        </div>
-      </div>
-
-      <!-- Card 3 -->
-      <div class="bento-card col-5">
-        <div>
-          <div class="bento-icon">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
-          </div>
-          <h3 class="bento-title">Micro-USD metering per call</h3>
-          <p class="bento-desc">
-            No agent run requires a $139/month Semrush plan or $99/month Apollo subscription. Every call is metered down to the exact micro-dollar ($0.001) from your prepaid balance.
-          </p>
-        </div>
-        <div class="pill-badge" style="align-self: flex-start; background: var(--accent-soft);">
-          <span>💳 $1.00 Free Trial on Signup</span>
-        </div>
-      </div>
-
-      <!-- Card 4 -->
-      <div class="bento-card col-7">
-        <div>
-          <div class="bento-icon">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-          </div>
-          <h3 class="bento-title">Bring Your Own Keys (BYOK) for free</h3>
-          <p class="bento-desc">
-            Have your own team accounts? Plug your Stripe, GitHub, or OpenAI keys into your private vault. Your own keys ALWAYS take priority over Olywork's and are 100% free with zero platform markup.
-          </p>
-        </div>
-        <div class="bento-preview">
-          <span style="color:#7E7C74;">$</span> olywork connect stripe --key sk_live_...<br/>
-          <span style="color:#16A34A;">✓ Connected team Stripe key. Priority: 1. Metered: $0.00</span>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-
-<!-- ========================================================================
-     TERMINAL INTEGRATION (Code Box)
-     ======================================================================== -->
-<section style="padding: 20px 0 60px;">
-  <div class="container">
-    <div class="terminal-card">
-      <div class="terminal-header">
-        <div class="terminal-tabs">
-          <button class="term-tab active" onclick="switchTab('curl', this)">cURL / Raw HTTP</button>
-          <button class="term-tab" onclick="switchTab('python', this)">Python</button>
-          <button class="term-tab" onclick="switchTab('mcp', this)">MCP (Claude / Cursor)</button>
-        </div>
-        <button class="terminal-copy" onclick="copyCode()">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-          <span id="copy-label">Copy Snippet</span>
-        </button>
-      </div>
-
-      <div class="terminal-body" id="code-content">
-<pre style="margin: 0; font-family: var(--font-mono);">
-curl -X POST https://olywork.com/call/apollo.people.email.find \
-  -H <span style="color:#9FF25F;">"Authorization: Bearer $OLYWORK_TOKEN"</span> \
-  -H "Content-Type: application/json" \
-  -d '{
-    "full_name": "Marc Benioff",
-    "domain": "salesforce.com"
-  }'
-</pre>
-      </div>
-    </div>
-  </div>
-</section>
-
-
-<!-- ========================================================================
-     POPULAR PROVIDERS GRID
-     ======================================================================== -->
-<section id="providers" style="padding: 40px 0 80px;">
-  <div class="container">
-    <div class="section-header">
-      <div class="section-tag">Catalog Directory</div>
-      <h2 class="section-title">60+ Top Providers. Zero Signup Required.</h2>
-      <p class="section-desc">
-        Olywork holds direct enterprise connections with industry-leading platforms so your agent can execute real-world workflows immediately.
-      </p>
-    </div>
-
-    <div class="providers-grid">
-      <div class="provider-item">
-        <div class="provider-top">
-          <div class="provider-badge-icon">AP</div>
-          <span class="tool-price">From $0.015</span>
-        </div>
-        <div class="provider-name">Apollo.io</div>
-        <div class="provider-desc">B2B email discovery, mobile phone numbers, company org charts, and verified leads.</div>
-        <div class="provider-bottom">
-          <span>8 endpoints</span>
-          <span style="color: #16A34A;">● Active</span>
-        </div>
-      </div>
-
-      <div class="provider-item">
-        <div class="provider-top">
-          <div class="provider-badge-icon">EX</div>
-          <span class="tool-price">From $0.005</span>
-        </div>
-        <div class="provider-name">Exa AI</div>
-        <div class="provider-desc">Neural search engine that retrieves filtered, structured web knowledge tailored for LLMs.</div>
-        <div class="provider-bottom">
-          <span>6 endpoints</span>
-          <span style="color: #16A34A;">● Active</span>
-        </div>
-      </div>
-
-      <div class="provider-item">
-        <div class="provider-top">
-          <div class="provider-badge-icon">DF</div>
-          <span class="tool-price">From $0.002</span>
-        </div>
-        <div class="provider-name">DataForSEO</div>
-        <div class="provider-desc">Live search engine results (Google, Bing, Yahoo), keyword volumes, and backlink graphs.</div>
-        <div class="provider-bottom">
-          <span>16 endpoints</span>
-          <span style="color: #16A34A;">● Active</span>
-        </div>
-      </div>
-
-      <div class="provider-item">
-        <div class="provider-top">
-          <div class="provider-badge-icon">FC</div>
-          <span class="tool-price">From $0.004</span>
-        </div>
-        <div class="provider-name">Firecrawl</div>
-        <div class="provider-desc">Turn any URL or website into clean LLM-ready markdown, handling JavaScript and captchas.</div>
-        <div class="provider-bottom">
-          <span>4 endpoints</span>
-          <span style="color: #16A34A;">● Active</span>
-        </div>
-      </div>
-
-      <div class="provider-item">
-        <div class="provider-top">
-          <div class="provider-badge-icon">CD</div>
-          <span class="tool-price">From $0.020</span>
-        </div>
-        <div class="provider-name">Crustdata</div>
-        <div class="provider-desc">Alternative firmographics, LinkedIn company velocity metrics, real-time employee counts.</div>
-        <div class="provider-bottom">
-          <span>11 endpoints</span>
-          <span style="color: #16A34A;">● Active</span>
-        </div>
-      </div>
-
-      <div class="provider-item">
-        <div class="provider-top">
-          <div class="provider-badge-icon">SS</div>
-          <span class="tool-price">From $0.006</span>
-        </div>
-        <div class="provider-name">Serpstat</div>
-        <div class="provider-desc">Domain organic ranking history, competitor search overlap, PPC advertising intelligence.</div>
-        <div class="provider-bottom">
-          <span>9 endpoints</span>
-          <span style="color: #16A34A;">● Active</span>
-        </div>
-      </div>
-
-      <div class="provider-item">
-        <div class="provider-top">
-          <div class="provider-badge-icon">TK</div>
-          <span class="tool-price">From $0.004</span>
-        </div>
-        <div class="provider-name">TikHub</div>
-        <div class="provider-desc">TikTok creator insights, trending hashtags, audio data, and post engagement scraping.</div>
-        <div class="provider-bottom">
-          <span>14 endpoints</span>
-          <span style="color: #16A34A;">● Active</span>
-        </div>
-      </div>
-
-      <div class="provider-item">
-        <div class="provider-top">
-          <div class="provider-badge-icon">HU</div>
-          <span class="tool-price">From $0.010</span>
-        </div>
-        <div class="provider-name">Hunter.io</div>
-        <div class="provider-desc">Domain search, pattern detection, and real-time deliverability email verification.</div>
-        <div class="provider-bottom">
-          <span>5 endpoints</span>
-          <span style="color: #16A34A;">● Active</span>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-
-<!-- ========================================================================
-     PRICING & COMPARISON
-     ======================================================================== -->
-<section id="pricing" style="padding: 20px 0 80px;">
-  <div class="container">
-    <div class="compare-card">
-      <div class="section-header" style="margin-bottom: 36px;">
-        <div class="section-tag">Economics</div>
-        <h2 class="section-title">Stop paying $400+/month in shelf-ware</h2>
-        <p class="section-desc">AI agents run intermittently. Subscriptions charge you 24/7 regardless of usage.</p>
-      </div>
-
-      <div class="compare-grid">
-        <!-- Old Way -->
-        <div class="compare-col">
-          <div class="compare-heading" style="color: var(--ink-muted);">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
-            <span>Traditional Subscriptions</span>
-          </div>
-          <div class="compare-row">
-            <span>Apollo.io Professional</span>
-            <strong>$99 / month</strong>
-          </div>
-          <div class="compare-row">
-            <span>Semrush Pro</span>
-            <strong>$139 / month</strong>
-          </div>
-          <div class="compare-row">
-            <span>Exa AI Standard Plan</span>
-            <strong>$100 / month</strong>
-          </div>
-          <div class="compare-row">
-            <span>Firecrawl Crawler Tier</span>
-            <strong>$50 / month</strong>
-          </div>
-          <div class="compare-row" style="border-bottom: none; padding-top: 10px;">
-            <span style="font-weight: 700;">Total Monthly Fixed Cost:</span>
-            <span style="font-size: 18px; font-weight: 800; color: #DC2626;">$388.00 / mo</span>
-          </div>
-        </div>
-
-        <!-- Olywork Way -->
-        <div class="compare-col highlight">
-          <div class="compare-heading">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-            <span>The Olywork Way</span>
-          </div>
-          <div class="compare-row">
-            <span>Monthly Base Fee</span>
-            <strong>$0.00 / month</strong>
-          </div>
-          <div class="compare-row">
-            <span>50 Apollo Email Lookups</span>
-            <strong>$0.75</strong>
-          </div>
-          <div class="compare-row">
-            <span>100 SERP Lookups</span>
-            <strong>$0.20</strong>
-          </div>
-          <div class="compare-row">
-            <span>150 Neural Web Searches</span>
-            <strong>$0.75</strong>
-          </div>
-          <div class="compare-row" style="border-bottom: none; padding-top: 10px;">
-            <span style="font-weight: 700;">Your Total Expense:</span>
-            <span style="font-size: 22px; font-weight: 800; color: #16A34A;">$1.70</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-
-<!-- ========================================================================
-     BOTTOM CTA BANNER
-     ======================================================================== -->
-<section style="padding-bottom: 80px;">
-  <div class="container">
-    <div class="cta-banner">
-      <h2>Give your agent real tools in 60 seconds</h2>
-      <p>
-        Sign up in one click, claim your complimentary $1.00 balance, and start calling 2,896+ endpoints with a single token.
-      </p>
-      <div style="display: flex; justify-content: center; gap: 14px; flex-wrap: wrap;">
-        <a href="/app" class="btn btn-primary btn-lg">
-          <span>Get Your Free Token</span>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="5" y1="12" x2="19" y2="12"></line>
-            <polyline points="12 5 19 12 12 19"></polyline>
-          </svg>
-        </a>
-        <a href="https://github.com/meettaqi/olywork-new" target="_blank" rel="noopener" class="btn btn-secondary btn-lg">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
-          <span>Star on GitHub</span>
-        </a>
-      </div>
-    </div>
-  </div>
-</section>
-</main>
-
-
-<!-- ========================================================================
-     FOOTER
-     ======================================================================== -->
-<footer class="footer">
-  <div class="container footer-content">
-    <div style="display: flex; align-items: center; gap: 10px;">
-      <span style="font-family: var(--font-heading); font-weight: 700; color: var(--ink);">Olywork</span>
-      <span>&bull;</span>
-      <span>The OpenRouter for Agent Tools</span>
-    </div>
-
-    <div class="footer-links">
-      <a href="/app">Dashboard</a>
-      <a href="/docs">API Docs</a>
-      <a href="/tutorial">Tutorial</a>
-      <a href="/llms.txt">llms.txt</a>
-      <a href="https://github.com/meettaqi/olywork-new" target="_blank" rel="noopener">GitHub ↗</a>
-      <a href="/terms">Terms</a>
-      <a href="/privacy">Privacy</a>
-    </div>
-  </div>
-</footer>
-
-
-<!-- ========================================================================
-     CLIENTSIDE SCRIPTS
-     ======================================================================== -->
-<script>
-// Filter tools by category inside the hero card
-function filterCategory(cat, btn) {
-  document.querySelectorAll('.cat-pill').forEach(el => el.classList.remove('active'));
-  btn.classList.add('active');
+<section class="hero">
+  <canvas class="hero-canvas" id="heroCanvas"></canvas>
   
-  const rows = document.querySelectorAll('.tool-row');
-  rows.forEach(row => {
-    if (cat === 'all' || row.getAttribute('data-cat') === cat) {
-      row.style.display = 'flex';
-    } else {
-      row.style.display = 'none';
-    }
-  });
+  <div class="trusted">
+    <span>Trusted by 10,000+ early users</span>
+    <div class="avatars">
+      <img src="https://i.pravatar.cc/100?img=1" alt="User">
+      <img src="https://i.pravatar.cc/100?img=2" alt="User">
+      <img src="https://i.pravatar.cc/100?img=3" alt="User">
+      <img src="https://i.pravatar.cc/100?img=4" alt="User">
+      <img src="https://i.pravatar.cc/100?img=5" alt="User">
+    </div>
+  </div>
+
+  <h1 class="headline">Get the tool you want connected.<br><span>Cheaper, faster, better.</span></h1>
+  <p class="subhead">The open marketplace where AI agents seamlessly call 2,896+ tools with zero API keys and micro-USD pricing.</p>
+
+  <div class="search-wrapper">
+    <div class="search-glass">
+      <textarea class="search-input" placeholder="Describe the tool integration you need..." rows="1"></textarea>
+    </div>
+  </div>
+  <div class="search-btn-container">
+    <button class="btn-accent">
+      Connect a tool
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+    </button>
+  </div>
+
+  <div class="fan-container">
+    <div class="fan-card c1">
+      <div>
+        <h3>2K+</h3>
+        <p>Tools connected</p>
+      </div>
+    </div>
+    <div class="fan-card c2">
+      <div>
+        <h3>100+</h3>
+        <p>Active agents</p>
+      </div>
+    </div>
+    <div class="fan-card c3">
+      <div>
+        <h3>$30K+</h3>
+        <p>Verified API savings</p>
+      </div>
+    </div>
+    <div class="fan-card c4">
+      <div>
+        <h3>99.9%</h3>
+        <p>Uptime without errors</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="ticker-section">
+  <div class="ticker-row">
+    <!-- Duplicate for infinite scroll -->
+    <div class="ticker-item"><span class="ticker-tag">Marketing</span><span class="ticker-text">Post to 5 social channels</span></div>
+    <div class="ticker-item"><span class="ticker-tag">Scraping</span><span class="ticker-text">Extract top 20 competitors</span></div>
+    <div class="ticker-item"><span class="ticker-tag">SEO</span><span class="ticker-text">Audit my landing page</span></div>
+    <div class="ticker-item"><span class="ticker-tag">Video</span><span class="ticker-text">Generate a product demo</span></div>
+    <div class="ticker-item"><span class="ticker-tag">Marketing</span><span class="ticker-text">Post to 5 social channels</span></div>
+    <div class="ticker-item"><span class="ticker-tag">Scraping</span><span class="ticker-text">Extract top 20 competitors</span></div>
+    <div class="ticker-item"><span class="ticker-tag">SEO</span><span class="ticker-text">Audit my landing page</span></div>
+    <div class="ticker-item"><span class="ticker-tag">Video</span><span class="ticker-text">Generate a product demo</span></div>
+  </div>
+  <div class="ticker-row reverse">
+    <div class="ticker-item"><span class="ticker-tag">Ads</span><span class="ticker-text">Create 10 ad creatives</span></div>
+    <div class="ticker-item"><span class="ticker-tag">Email</span><span class="ticker-text">Find 100 qualified leads</span></div>
+    <div class="ticker-item"><span class="ticker-tag">Code</span><span class="ticker-text">Review my latest PR</span></div>
+    <div class="ticker-item"><span class="ticker-tag">Design</span><span class="ticker-text">Fix UI alignment issues</span></div>
+    <div class="ticker-item"><span class="ticker-tag">Ads</span><span class="ticker-text">Create 10 ad creatives</span></div>
+    <div class="ticker-item"><span class="ticker-tag">Email</span><span class="ticker-text">Find 100 qualified leads</span></div>
+    <div class="ticker-item"><span class="ticker-tag">Code</span><span class="ticker-text">Review my latest PR</span></div>
+    <div class="ticker-item"><span class="ticker-tag">Design</span><span class="ticker-text">Fix UI alignment issues</span></div>
+  </div>
+</section>
+
+<section class="sphere-section">
+  <div class="sphere-wrapper">
+    <svg class="sphere-text" viewBox="0 0 500 500">
+      <path id="curve" d="M 50, 250 a 200, 200 0 1, 1 400, 0 a 200, 200 0 1, 1 -400, 0" fill="transparent" />
+      <text font-family="Plus Jakarta Sans" font-weight="700" font-size="28" letter-spacing="4" fill="var(--ink)">
+        <textPath href="#curve">
+          IF YOU CAN SAY WHAT DONE LOOKS LIKE, YOU CAN CONNECT IT.
+        </textPath>
+      </text>
+    </svg>
+    <div class="sphere-center">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" width="120" height="120" color="var(--ink)">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="2" y1="12" x2="22" y2="12"></line>
+        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+      </svg>
+    </div>
+  </div>
+  <button class="btn-accent" style="margin-top: 48px;">
+    Explore Catalog
+  </button>
+</section>
+
+<script>
+// Hero Canvas Animation (Rotating Grid/Particles)
+const canvas = document.getElementById('heroCanvas');
+const ctx = canvas.getContext('2d');
+let width, height;
+
+function resize() {
+  width = window.innerWidth;
+  height = window.innerHeight;
+  canvas.width = width;
+  canvas.height = height;
 }
+window.addEventListener('resize', resize);
+resize();
 
-// Interactive search input inside hero card
-document.getElementById('tool-filter-input').addEventListener('input', function(e) {
-  const query = e.target.value.toLowerCase();
-  const rows = document.querySelectorAll('.tool-row');
-  rows.forEach(row => {
-    const text = row.innerText.toLowerCase();
-    if (text.includes(query)) {
-      row.style.display = 'flex';
-    } else {
-      row.style.display = 'none';
-    }
-  });
-});
-
-// Terminal code tabs
-const codeSnippets = {
-  curl: `<pre style="margin: 0; font-family: var(--font-mono);">
-curl -X POST https://olywork.com/call/apollo.people.email.find \\
-  -H <span style="color:#9FF25F;">"Authorization: Bearer $OLYWORK_TOKEN"</span> \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "full_name": "Marc Benioff",
-    "domain": "salesforce.com"
-  }'
-</pre>`,
-  python: `<pre style="margin: 0; font-family: var(--font-mono);">
-<span style="color:#A09E96;"># Call any tool in 3 lines with standard httpx / requests</span>
-<span style="color:#EBEAE5;">import</span> httpx
-
-resp = httpx.post(
-    <span style="color:#9FF25F;">"https://olywork.com/call/apollo.people.email.find"</span>,
-    headers={<span style="color:#9FF25F;">"Authorization"</span>: f<span style="color:#9FF25F;">"Bearer {OLYWORK_TOKEN}"</span>},
-    json={<span style="color:#9FF25F;">"full_name"</span>: <span style="color:#9FF25F;">"Marc Benioff"</span>, <span style="color:#9FF25F;">"domain"</span>: <span style="color:#9FF25F;">"salesforce.com"</span>}
-)
-print(resp.json()[<span style="color:#9FF25F;">"email"</span>])
-</pre>`,
-  mcp: `<pre style="margin: 0; font-family: var(--font-mono);">
-<span style="color:#A09E96;">// Add to Claude Code or Cursor (~/.mcp.json)</span>
-{
-  <span style="color:#9FF25F;">"mcpServers"</span>: {
-    <span style="color:#9FF25F;">"olywork"</span>: {
-      <span style="color:#9FF25F;">"url"</span>: <span style="color:#9FF25F;">"https://olywork.com/mcp/"</span>,
-      <span style="color:#9FF25F;">"headers"</span>: {
-        <span style="color:#9FF25F;">"Authorization"</span>: <span style="color:#9FF25F;">"Bearer ${OLYWORK_TOKEN}"</span>
-      }
-    }
+const points = [];
+const gridSize = 40;
+for(let x = -10; x <= 10; x++) {
+  for(let z = -10; z <= 10; z++) {
+    points.push({x: x * gridSize, y: 0, z: z * gridSize});
   }
 }
-</pre>`
-};
 
-function switchTab(tab, btn) {
-  document.querySelectorAll('.term-tab').forEach(el => el.classList.remove('active'));
-  btn.classList.add('active');
-  document.getElementById('code-content').innerHTML = codeSnippets[tab];
-}
+let angle = 0;
+function draw() {
+  ctx.clearRect(0, 0, width, height);
+  ctx.fillStyle = '#F4F2EC';
+  ctx.fillRect(0, 0, width, height);
 
-function copyCode() {
-  const codeElem = document.getElementById('code-content');
-  navigator.clipboard.writeText(codeElem.innerText).then(() => {
-    const label = document.getElementById('copy-label');
-    label.innerText = "Copied!";
-    setTimeout(() => { label.innerText = "Copy Snippet"; }, 2000);
+  angle += 0.002;
+  const cx = width / 2;
+  const cy = height / 2 + 100;
+  
+  ctx.beginPath();
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.08)';
+  ctx.lineWidth = 1;
+
+  points.forEach((p, i) => {
+    // Rotate around Y
+    const x = p.x * Math.cos(angle) - p.z * Math.sin(angle);
+    const z = p.z * Math.cos(angle) + p.x * Math.sin(angle);
+    
+    // Simple projection
+    const scale = 800 / (800 + z + 200);
+    const px = cx + x * scale;
+    const py = cy + (p.y + 150) * scale - 200;
+
+    if (i % 21 !== 20) {
+      const nextX = points[i+1].x * Math.cos(angle) - points[i+1].z * Math.sin(angle);
+      const nextZ = points[i+1].z * Math.cos(angle) + points[i+1].x * Math.sin(angle);
+      const nextScale = 800 / (800 + nextZ + 200);
+      const npx = cx + nextX * nextScale;
+      const npy = cy + (points[i+1].y + 150) * nextScale - 200;
+      
+      ctx.moveTo(px, py);
+      ctx.lineTo(npx, npy);
+    }
+    
+    if (i + 21 < points.length) {
+      const nextX = points[i+21].x * Math.cos(angle) - points[i+21].z * Math.sin(angle);
+      const nextZ = points[i+21].z * Math.cos(angle) + points[i+21].x * Math.sin(angle);
+      const nextScale = 800 / (800 + nextZ + 200);
+      const npx = cx + nextX * nextScale;
+      const npy = cy + (points[i+21].y + 150) * nextScale - 200;
+      
+      ctx.moveTo(px, py);
+      ctx.lineTo(npx, npy);
+    }
   });
+  ctx.stroke();
+  requestAnimationFrame(draw);
 }
+draw();
 </script>
+
+
+<style>
+/* BENTO GRID */
+.bento-section { padding: 100px 24px; max-width: 1200px; margin: 0 auto; }
+.bento-header { text-align: center; margin-bottom: 64px; }
+.bento-tag { font-size: 12px; font-weight: 700; color: var(--ink-muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 16px; display: block; }
+.bento-title { font-family: var(--font-heading); font-size: 48px; font-weight: 800; color: var(--ink); letter-spacing: -0.03em; margin-bottom: 24px; line-height: 1.1; }
+.bento-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 24px; }
+.bento-card { background: var(--surface); border-radius: 24px; padding: 40px; border: 1px solid rgba(0,0,0,0.05); display: flex; flex-direction: column; }
+.bento-card h3 { font-family: var(--font-heading); font-size: 28px; font-weight: 700; margin-bottom: 12px; letter-spacing: -0.02em; }
+.bento-card p { font-size: 16px; color: var(--ink-secondary); line-height: 1.5; }
+.bento-card.col-7 { grid-column: span 7; }
+.bento-card.col-5 { grid-column: span 5; }
+.bento-card.col-12 { grid-column: span 12; display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center; }
+
+/* TERMINAL MOCKUP */
+.terminal { background: #1A1A1A; border-radius: 16px; padding: 24px; color: #E8E5DA; font-family: monospace; font-size: 14px; margin-top: 32px; overflow-x: auto; border: 1px solid #333; }
+.terminal-header { display: flex; gap: 8px; margin-bottom: 16px; }
+.dot { width: 12px; height: 12px; border-radius: 50%; background: #444; }
+
+/* FOOTER */
+.footer { padding: 64px 48px; background: var(--surface); border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; font-size: 14px; color: var(--ink-muted); font-weight: 500; }
+.footer-links { display: flex; gap: 24px; }
+.footer-link { transition: color 0.2s; }
+.footer-link:hover { color: var(--ink); }
+</style>
+
+<section class="bento-section">
+  <div class="bento-header">
+    <span class="bento-tag">Designed for Agents</span>
+    <h2 class="bento-title">Every tool your agent needs.<br>Zero headaches.</h2>
+  </div>
+  
+  <div class="bento-grid">
+    <div class="bento-card col-7">
+      <h3>One Token, 2,896 Tools</h3>
+      <p>Forget managing API keys across 60+ providers. Give your agent a single Olywork token, and let it access everything from web scraping to video generation instantly.</p>
+      
+      <div class="terminal">
+        <div class="terminal-header">
+          <div class="dot" style="background:#FF5F56;"></div>
+          <div class="dot" style="background:#FFBD2E;"></div>
+          <div class="dot" style="background:#27C93F;"></div>
+        </div>
+        <div>$ curl -X POST https://olywork.com/api/v1/tools/search_web \</div>
+        <div style="color: #9FF25F;">  -H "Authorization: Bearer oly_..." \</div>
+        <div>  -d '{"query": "Latest AI agents"}'</div>
+      </div>
+    </div>
+    
+    <div class="bento-card col-5" style="background: var(--primary-deep); color: white;">
+      <h3 style="color: var(--accent);">Micro-USD Pricing</h3>
+      <p style="color: #A09E96; margin-bottom: 24px;">No subscriptions. No massive prepays. You pay per successful API call in fractions of a cent.</p>
+      
+      <div style="background: rgba(255,255,255,0.05); border-radius: 12px; padding: 24px; border: 1px solid rgba(255,255,255,0.1);">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px;">
+          <span style="font-weight: 600;">Google Search</span>
+          <span style="font-family: monospace; color: var(--accent);">$0.001 / call</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px;">
+          <span style="font-weight: 600;">Browser Automate</span>
+          <span style="font-family: monospace; color: var(--accent);">$0.005 / min</span>
+        </div>
+        <div style="display: flex; justify-content: space-between;">
+          <span style="font-weight: 600;">Twitter Post</span>
+          <span style="font-family: monospace; color: var(--accent);">$0.002 / call</span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="bento-card col-12">
+      <div>
+        <h3>BYO OAuth & Connections</h3>
+        <p>If your agent needs to act on your behalf, we handle the OAuth flows. Your users just click "Connect Twitter" and the agent can immediately post, read, and reply securely.</p>
+        <button class="btn-primary" style="margin-top: 24px;">View Documentation</button>
+      </div>
+      <div style="background: var(--bg); border-radius: 16px; padding: 32px; display: flex; flex-direction: column; gap: 16px; border: 1px solid rgba(0,0,0,0.05);">
+        <div style="display: flex; align-items: center; justify-content: space-between; background: var(--surface); padding: 16px 24px; border-radius: 12px; border: 1px solid rgba(0,0,0,0.05);">
+          <div style="display: flex; align-items: center; gap: 12px; font-weight: 600; color: var(--ink);">
+            <div style="width: 32px; height: 32px; background: #000; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">X</div>
+            X (Twitter)
+          </div>
+          <span style="background: #E8E5DA; color: var(--ink-secondary); padding: 4px 12px; border-radius: 99px; font-size: 12px; font-weight: 600;">Connected</span>
+        </div>
+        <div style="display: flex; align-items: center; justify-content: space-between; background: var(--surface); padding: 16px 24px; border-radius: 12px; border: 1px solid rgba(0,0,0,0.05);">
+          <div style="display: flex; align-items: center; gap: 12px; font-weight: 600; color: var(--ink);">
+            <div style="width: 32px; height: 32px; background: #0A66C2; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">in</div>
+            LinkedIn
+          </div>
+          <span style="background: var(--ink); color: #FFF; padding: 4px 12px; border-radius: 99px; font-size: 12px; font-weight: 600;">Connect</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="brand">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+    Olywork
+  </div>
+  <div class="footer-links">
+    <a href="/catalog" class="footer-link">Catalog</a>
+    <a href="/docs" class="footer-link">Documentation</a>
+    <a href="/terms" class="footer-link">Terms</a>
+    <a href="/privacy" class="footer-link">Privacy</a>
+  </div>
+</footer>
 
 </body>
 </html>
