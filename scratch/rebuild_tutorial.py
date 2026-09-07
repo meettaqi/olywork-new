@@ -1,4 +1,11 @@
-<!doctype html>
+import os
+
+logos = [f.replace(".svg","") for f in os.listdir("src/olywork/web/logos/platforms") if f.endswith(".svg") and f not in ["companies.svg","README.md"]]
+logos_html = ""
+for l in logos[:30]:
+    logos_html += f'<div class="ow-ticker-logo"><img src="/logos/platforms/{l}.svg" alt="{l}" loading="lazy"></div>\n'
+
+html = '''<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
@@ -244,9 +251,9 @@ body { background:var(--bg); color:var(--ink); font-family:var(--sans); }
 
       <div class="code-block">
         <div class="code-block-head"><span>HTTP / curl</span></div>
-        <pre><span class="c-fn">curl</span> -X POST {BASE}/call/ \
-  -H <span class="c-str">"Authorization: Bearer $OLYWORK_TOKEN"</span> \
-  -H <span class="c-str">"Content-Type: application/json"</span> \
+        <pre><span class="c-fn">curl</span> -X POST {BASE}/call/ \\
+  -H <span class="c-str">"Authorization: Bearer $OLYWORK_TOKEN"</span> \\
+  -H <span class="c-str">"Content-Type: application/json"</span> \\
   -d <span class="c-str">&#39;{
     "id": "google.search",
     "q": "latest AI agent frameworks 2025"
@@ -407,4 +414,8 @@ const observer = new IntersectionObserver((entries) => {
 sections.forEach(s => observer.observe(s));
 </script>
 </body>
-</html>
+</html>'''
+
+with open("src/olywork/web/tutorial.html", "w") as f:
+    f.write(html)
+print("tutorial.html written")

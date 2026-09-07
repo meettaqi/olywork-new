@@ -63,6 +63,7 @@ _CONTROL_ROUTE_KEYS: frozenset[RouteKey] = frozenset({
     ('/workflows/{slug}.md', ('GET',), 'workflow_page'),
     ('/workflows', ('GET',), 'workflows_hub'),
     ('/catalog.css', ('GET',), 'catalog_css'),
+    ('/olywork.css', ('GET',), 'olywork_css'),
     ('/tools/{service}', ('GET',), 'tools_provider'),
     ('/pricing', ('GET',), 'pricing_page'),
     ('/sitetrack.js', ('GET',), 'sitetrack_js'),

@@ -1,0 +1,773 @@
+/* ================================================================
+   olywork.css — Global Design System v2
+   Tokens, nav, footer, components — all pages share this file.
+   Aesthetic: TryBounty-inspired warm paper + lime green accent.
+   ================================================================ */
+
+/* ---- 1. Design Tokens ---- */
+:root {
+  /* Palette */
+  --bg:        #F4F2EC;  /* warm paper */
+  --surface:   #FCFBFA;  /* clean card surface */
+  --panel:     #FFFFFF;
+  --panel2:    #EDEAE0;
+
+  /* Typography */
+  --ink:       #202020;
+  --muted:     #7E7C74;
+  --muted2:    #A09E96;
+
+  /* Borders */
+  --line:      #E8E5DA;
+  --line2:     #D5D1C3;
+
+  /* Brand accent */
+  --accent:    #9FF25F;
+  --accent-hover: #8EE250;
+  --accent-deep:  #202020; /* the dark card behind accent text */
+
+  /* Status */
+  --green:     #22C55E;
+  --amber:     #F59E0B;
+  --red:       #EF4444;
+
+  /* Inverse (dark button) */
+  --inverse:      #1A1A1A;
+  --inverse-surf: #282828;
+  --inverse-ink:  #FCFBFA;
+
+  /* Elevation — NO shadows, borders only */
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+
+  /* Motion */
+  --ease:      cubic-bezier(.2,.72,.25,1);
+  --ease-out:  cubic-bezier(.22,1,.36,1);
+
+  /* Radii */
+  --r:  20px;
+  --rb: 12px;
+
+  /* Type scales */
+  --display: "Plus Jakarta Sans", sans-serif;
+  --sans:    "Inter", sans-serif;
+  --mono:    ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+/* ---- 2. Reset & Base ---- */
+*, *::before, *::after { box-sizing: border-box; min-width: 0; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+html, body { overflow-x: clip; }
+body {
+  margin: 0;
+  padding-top: 80px; /* fixed nav height */
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--ink); text-decoration: none; }
+a:hover { text-decoration: underline; }
+img, svg { display: block; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+
+/* ---- 3. Fixed Navigation ---- */
+.ow-nav {
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 40px;
+  background: rgba(244,242,236,0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(232,229,218,0.7);
+  z-index: 100;
+}
+.ow-nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: 22px;
+  letter-spacing: -0.04em;
+  color: var(--ink);
+  text-decoration: none;
+}
+.ow-nav-brand:hover { text-decoration: none; }
+.ow-nav-brand svg { width: 26px; height: 26px; }
+.ow-nav-links {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  font-size: 14px;
+}
+.ow-nav-links a {
+  color: var(--muted);
+  font-weight: 500;
+  transition: color 0.2s var(--ease);
+}
+.ow-nav-links a:hover, .ow-nav-links a[aria-current] {
+  color: var(--ink);
+  text-decoration: none;
+}
+.ow-btn-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--ink);
+  color: var(--bg) !important;
+  font-weight: 700;
+  font-size: 14px;
+  padding: 9px 22px;
+  border-radius: 99px;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.2s var(--ease), background 0.2s;
+  text-decoration: none;
+}
+.ow-btn-nav:hover {
+  background: #333;
+  transform: scale(1.03);
+  text-decoration: none;
+}
+
+/* ---- 4. Shared Buttons ---- */
+.btn-accent {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--accent);
+  color: var(--ink);
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 16px;
+  padding: 14px 32px;
+  border-radius: 99px;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.2s var(--ease), background 0.2s;
+}
+.btn-accent:hover { background: var(--accent-hover); transform: scale(1.03); }
+.btn-ink {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--ink);
+  color: var(--bg);
+  font-weight: 700;
+  font-size: 15px;
+  padding: 12px 28px;
+  border-radius: 99px;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.2s var(--ease), background 0.2s;
+}
+.btn-ink:hover { background: #333; transform: scale(1.03); text-decoration: none; color: var(--bg); }
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  color: var(--ink);
+  font-weight: 600;
+  font-size: 15px;
+  padding: 11px 24px;
+  border-radius: 99px;
+  border: 1.5px solid var(--line);
+  cursor: pointer;
+  transition: transform 0.2s, border-color 0.2s;
+}
+.btn-ghost:hover { border-color: var(--ink); transform: scale(1.02); text-decoration: none; }
+
+/* ---- 5. Cards ---- */
+.ow-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  overflow: hidden;
+}
+
+/* ---- 6. Page Sections ---- */
+.ow-wrap { max-width: 1200px; margin: 0 auto; padding: 0 32px; }
+.ow-section { padding: 100px 32px; max-width: 1200px; margin: 0 auto; }
+.ow-section-full { padding: 100px 0; }
+.ow-eyebrow {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  margin-bottom: 16px;
+}
+.ow-title {
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: clamp(36px, 5vw, 64px);
+  line-height: 1.06;
+  letter-spacing: -0.04em;
+  margin: 0 0 20px;
+}
+.ow-title-sm {
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: clamp(28px, 3.5vw, 44px);
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  margin: 0 0 16px;
+}
+.ow-subtitle {
+  font-size: 18px;
+  color: var(--muted);
+  max-width: 56ch;
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* ---- 7. Footer ---- */
+.ow-footer {
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  padding: 72px 40px 40px;
+}
+.ow-footer-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 64px;
+  align-items: start;
+}
+.ow-footer-brand-name {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: 20px;
+  letter-spacing: -0.04em;
+  color: var(--ink);
+  margin-bottom: 12px;
+}
+.ow-footer-tagline {
+  font-size: 13.5px;
+  color: var(--muted);
+  line-height: 1.5;
+  max-width: 28ch;
+  margin-bottom: 24px;
+}
+.ow-footer-cols {
+  display: flex;
+  gap: 56px;
+}
+.ow-footer-col { display: flex; flex-direction: column; gap: 10px; min-width: 100px; }
+.ow-footer-col-label {
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--ink);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 4px;
+}
+.ow-footer-col a {
+  font-size: 13.5px;
+  color: var(--muted);
+  transition: color 0.2s;
+}
+.ow-footer-col a:hover { color: var(--ink); text-decoration: none; }
+.ow-footer-bottom {
+  max-width: 1200px;
+  margin: 40px auto 0;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12.5px;
+  color: var(--muted2);
+}
+
+/* ---- 8. Logo Marquee Ticker ---- */
+.ow-ticker {
+  overflow: hidden;
+  padding: 28px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+.ow-ticker-row {
+  display: flex;
+  width: max-content;
+  gap: 16px;
+  align-items: center;
+  animation: ow-ticker 50s linear infinite;
+}
+.ow-ticker-row.rev { animation-direction: reverse; margin-top: 16px; animation-duration: 60s; }
+@keyframes ow-ticker { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+.ow-ticker-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 60px;
+  height: 60px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px;
+  flex-shrink: 0;
+  transition: border-color 0.2s;
+}
+.ow-ticker-logo:hover { border-color: var(--line2); }
+.ow-ticker-logo img { width: 100%; height: 100%; object-fit: contain; }
+
+/* ---- 9. How It Works Steps ---- */
+.ow-steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  margin-top: 64px;
+}
+.ow-step {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  padding: 40px 36px;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.3s var(--ease), border-color 0.3s;
+}
+.ow-step:hover {
+  transform: translateY(-4px);
+  border-color: var(--line2);
+}
+.ow-step-num {
+  font-family: var(--display);
+  font-size: 80px;
+  font-weight: 800;
+  line-height: 1;
+  color: rgba(32,32,32,0.06);
+  position: absolute;
+  top: 16px;
+  right: 24px;
+  letter-spacing: -0.06em;
+  pointer-events: none;
+}
+.ow-step-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--panel2);
+  display: grid;
+  place-items: center;
+  margin-bottom: 24px;
+  font-size: 24px;
+}
+.ow-step h3 {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 20px;
+  margin: 0 0 10px;
+  letter-spacing: -0.02em;
+}
+.ow-step p {
+  font-size: 14.5px;
+  color: var(--muted);
+  line-height: 1.6;
+  margin: 0;
+}
+.ow-step.accent-card {
+  background: var(--accent);
+  border-color: transparent;
+}
+.ow-step.accent-card .ow-step-num { color: rgba(32,32,32,0.08); }
+.ow-step.accent-card .ow-step-icon { background: rgba(32,32,32,0.1); border-color: rgba(32,32,32,0.1); }
+.ow-step.accent-card h3, .ow-step.accent-card p { color: var(--ink); }
+.ow-step.dark-card {
+  background: var(--inverse);
+  border-color: transparent;
+}
+.ow-step.dark-card .ow-step-num { color: rgba(255,255,255,0.06); }
+.ow-step.dark-card .ow-step-icon { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.1); color: #fff; }
+.ow-step.dark-card h3 { color: var(--accent); }
+.ow-step.dark-card p { color: rgba(255,255,255,0.65); }
+
+/* ---- 10. FAQ Accordion ---- */
+.ow-faq { max-width: 760px; margin: 0 auto; }
+.ow-faq-item {
+  border-bottom: 1px solid var(--line);
+  overflow: hidden;
+}
+.ow-faq-item:first-child { border-top: 1px solid var(--line); }
+.ow-faq-q {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 22px 4px;
+  font-weight: 600;
+  font-size: 16px;
+  cursor: pointer;
+  user-select: none;
+  gap: 16px;
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+  color: var(--ink);
+  font-family: var(--sans);
+}
+.ow-faq-q:hover { color: var(--ink); }
+.ow-faq-icon {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1.5px solid var(--line);
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+  color: var(--muted);
+  transition: transform 0.3s var(--ease), border-color 0.3s;
+}
+.ow-faq-item.active .ow-faq-icon {
+  transform: rotate(45deg);
+  border-color: var(--ink);
+  color: var(--ink);
+}
+.ow-faq-a {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.4s var(--ease);
+}
+.ow-faq-item.active .ow-faq-a { max-height: 400px; }
+.ow-faq-a p {
+  padding: 0 4px 24px;
+  font-size: 14.5px;
+  color: var(--muted);
+  line-height: 1.7;
+  margin: 0;
+}
+
+/* ---- 11. Code Snippets ---- */
+.ow-code {
+  background: var(--inverse);
+  border-radius: 16px;
+  padding: 28px 32px;
+  font-family: var(--mono);
+  font-size: 13.5px;
+  line-height: 1.7;
+  color: #d4d0c8;
+  overflow-x: auto;
+}
+.ow-code .c-key   { color: #9FF25F; }
+.ow-code .c-str   { color: #7ec8e3; }
+.ow-code .c-cmt   { color: #6e6e6a; font-style: italic; }
+.ow-code .c-num   { color: #f5a623; }
+.ow-code .c-fn    { color: #e8c468; }
+
+/* ---- 12. Bento Grid ---- */
+.ow-bento {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 16px;
+  margin-top: 64px;
+}
+.ow-bento-cell {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  padding: 36px;
+  overflow: hidden;
+  transition: transform 0.3s var(--ease), border-color 0.3s;
+}
+.ow-bento-cell:hover { transform: translateY(-3px); border-color: var(--line2); }
+.ow-bento-cell.col-8  { grid-column: span 8; }
+.ow-bento-cell.col-4  { grid-column: span 4; }
+.ow-bento-cell.col-6  { grid-column: span 6; }
+.ow-bento-cell.col-5  { grid-column: span 5; }
+.ow-bento-cell.col-7  { grid-column: span 7; }
+.ow-bento-cell.col-12 { grid-column: span 12; }
+.ow-bento-cell.accent { background: var(--accent); border-color: transparent; }
+.ow-bento-cell.dark   { background: var(--inverse); border-color: transparent; }
+
+/* ---- 13. Page Hero ---- */
+.ow-page-hero {
+  padding: 80px 32px 64px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+.ow-page-hero .ow-title { font-size: clamp(32px, 4vw, 56px); }
+
+/* ---- 14. CTA Strip ---- */
+.ow-cta-strip {
+  background: var(--inverse);
+  border-radius: var(--r);
+  padding: 72px 56px;
+  text-align: center;
+  margin: 80px 32px;
+  max-width: 1136px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.ow-cta-strip h2 {
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: clamp(28px, 4vw, 52px);
+  letter-spacing: -0.04em;
+  color: var(--inverse-ink);
+  margin: 0 0 16px;
+}
+.ow-cta-strip p { color: rgba(252,251,250,0.6); font-size: 16px; margin: 0 0 36px; }
+
+/* ---- 15. Platform / Catalog Card ---- */
+.ow-platform-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: transform 0.25s var(--ease), border-color 0.25s;
+  cursor: pointer;
+}
+.ow-platform-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--line2);
+  text-decoration: none;
+}
+.ow-platform-logo {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--panel2);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+.ow-platform-logo img { width: 28px; height: 28px; object-fit: contain; }
+.ow-platform-name {
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--ink);
+}
+.ow-platform-summary { font-size: 13px; color: var(--muted); line-height: 1.5; }
+.ow-platform-meta { font-size: 12px; color: var(--muted2); font-family: var(--mono); }
+.ow-tag {
+  display: inline-block;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  padding: 3px 10px;
+}
+
+/* ---- 16. Docs/Tutorial Layout ---- */
+.ow-docs-layout {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 0;
+  max-width: 1200px;
+  margin: 0 auto;
+  min-height: calc(100vh - 80px);
+}
+.ow-docs-sidebar {
+  border-right: 1px solid var(--line);
+  padding: 32px 24px;
+  position: sticky;
+  top: 80px;
+  height: calc(100vh - 80px);
+  overflow-y: auto;
+}
+.ow-docs-sidebar-section { margin-bottom: 28px; }
+.ow-docs-sidebar-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted2);
+  margin-bottom: 8px;
+  padding: 0 8px;
+}
+.ow-docs-sidebar a {
+  display: block;
+  padding: 7px 10px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  color: var(--muted);
+  font-weight: 500;
+  transition: background 0.15s, color 0.15s;
+}
+.ow-docs-sidebar a:hover { background: var(--panel2); color: var(--ink); text-decoration: none; }
+.ow-docs-sidebar a.active { background: var(--panel2); color: var(--ink); font-weight: 600; }
+.ow-docs-content { padding: 48px 56px 96px; max-width: 820px; }
+.ow-docs-content h1 {
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: 36px;
+  letter-spacing: -0.03em;
+  margin: 0 0 16px;
+}
+.ow-docs-content h2 {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 22px;
+  letter-spacing: -0.02em;
+  margin: 48px 0 12px;
+  padding-top: 48px;
+  border-top: 1px solid var(--line);
+}
+.ow-docs-content h2:first-of-type { border-top: none; padding-top: 0; margin-top: 32px; }
+.ow-docs-content h3 {
+  font-weight: 700;
+  font-size: 16px;
+  margin: 28px 0 8px;
+}
+.ow-docs-content p, .ow-docs-content li {
+  font-size: 14.5px;
+  color: var(--muted);
+  line-height: 1.75;
+}
+.ow-docs-content code {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 1px 6px;
+  color: var(--ink);
+}
+.ow-docs-content pre {
+  background: var(--inverse);
+  border-radius: 14px;
+  padding: 24px;
+  overflow-x: auto;
+  margin: 16px 0;
+}
+.ow-docs-content pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 13px;
+  color: #d4d0c8;
+  border-radius: 0;
+}
+.ow-docs-content a { color: var(--ink); font-weight: 500; text-decoration: underline; text-underline-offset: 3px; }
+.ow-docs-content ul, .ow-docs-content ol { padding-left: 20px; }
+.ow-docs-content li { margin: 6px 0; }
+
+/* ---- 17. Category Chip Filter ---- */
+.ow-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 32px; }
+.ow-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  padding: 6px 14px;
+  cursor: pointer;
+  transition: all 0.2s var(--ease);
+  user-select: none;
+}
+.ow-chip:hover, .ow-chip.active {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--bg);
+}
+.ow-chip-count {
+  font-size: 11px;
+  background: rgba(0,0,0,0.08);
+  border-radius: 99px;
+  padding: 1px 6px;
+}
+.ow-chip.active .ow-chip-count { background: rgba(255,255,255,0.2); color: var(--bg); }
+
+/* ---- 18. Search Bar ---- */
+.ow-search-wrap {
+  position: relative;
+  max-width: 680px;
+}
+.ow-search {
+  width: 100%;
+  padding: 14px 20px 14px 48px;
+  border: 1.5px solid var(--line);
+  border-radius: 99px;
+  background: var(--surface);
+  font-family: var(--sans);
+  font-size: 14.5px;
+  color: var(--ink);
+  outline: none;
+  transition: border-color 0.2s;
+}
+.ow-search:focus { border-color: var(--ink); }
+.ow-search::placeholder { color: var(--muted2); }
+.ow-search-icon {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted2);
+  pointer-events: none;
+}
+
+/* ---- 19. Stats ---- */
+.ow-stats { display: flex; gap: 0; margin: 40px 0; }
+.ow-stat {
+  flex: 1;
+  padding: 28px 32px;
+  border-right: 1px solid var(--line);
+}
+.ow-stat:last-child { border-right: none; }
+.ow-stat-n {
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: 40px;
+  letter-spacing: -0.04em;
+  color: var(--ink);
+  line-height: 1;
+}
+.ow-stat-l { font-size: 13px; color: var(--muted); margin-top: 4px; }
+
+/* ---- 20. Highlight text ---- */
+.ow-hl { color: var(--accent); }
+.ow-hl-ink { color: var(--muted2); }
+
+/* ---- 21. Responsive ---- */
+@media (max-width: 1024px) {
+  .ow-docs-layout { grid-template-columns: 1fr; }
+  .ow-docs-sidebar { display: none; }
+  .ow-docs-content { padding: 32px 24px 64px; }
+  .ow-steps { grid-template-columns: 1fr; gap: 16px; }
+  .ow-bento { grid-template-columns: 1fr; }
+  .ow-bento-cell.col-8, .ow-bento-cell.col-4,
+  .ow-bento-cell.col-6, .ow-bento-cell.col-5,
+  .ow-bento-cell.col-7, .ow-bento-cell.col-12 { grid-column: span 1; }
+  .ow-footer-inner { grid-template-columns: 1fr; gap: 40px; }
+  .ow-footer-cols { flex-wrap: wrap; gap: 32px; }
+  .ow-cta-strip { padding: 48px 28px; margin: 40px 16px; }
+}
+@media (max-width: 768px) {
+  .ow-nav { padding: 0 20px; }
+  .ow-nav-links a:not(.ow-btn-nav) { display: none; }
+  .ow-section { padding: 64px 20px; }
+  .ow-page-hero { padding: 48px 20px 40px; }
+  .ow-footer { padding: 48px 24px 32px; }
+  .ow-stats { flex-direction: column; }
+  .ow-stat { border-right: none; border-bottom: 1px solid var(--line); }
+  .ow-stat:last-child { border-bottom: none; }
+}
