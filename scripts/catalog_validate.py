@@ -1,0 +1,878 @@
+#!/usr/bin/env python3
+"""Validate the endpoint catalog (src/olywork/catalog/*.yaml) — schema shape + referential integrity.
+
+Run from the repo root: `uv run python scripts/catalog_validate.py [service ...]`
+Exit 0 = valid. Every violation prints one line: `<file>: <problem>`.
+
+Checks (the success criteria from docs/context/architecture/catalog.md):
+  - provider file's `provider` matches its filename and exists in olywork.oauth_providers.REGISTRY
+  - endpoint ids unique across the WHOLE catalog; id convention `<provider>.<capability>`
+  - `capability` exists in capabilities.yaml OR the file's own proposed_capabilities
+  - `platform` equals the capability's first segment and exists in capabilities.yaml platforms
+  - required fields present; enums valid (scope, method, cost.type/currency/unit/source/confidence)
+  - a `cost` block is BILLABLE, not decorative: a null `value` and `confidence: unknown` appear
+    together or not at all; a verified/documented price names its `source_url`; every priced entry
+    carries `checked` (WARN past 90 days); free is spelled exactly one way
+  - `cost.table` rows reference safe input fields, linear `times` fields have a maximum, and the
+    explicit fallback covers every row's maximum computable price
+  - merged provider/endpoint `async` descriptors have exactly one poll mode and result mode,
+    same-provider endpoint references, a dynamic-URL host allow-list, and per-success billing
+  - a `verified` endpoint must have an existing example_response file
+  - an extended endpoint a verification run has touched claims exactly one non-empty state
+    (verified | unverified | untestable | skipped), and an `untestable` one carries no
+    test_request for a re-verify run to call it with anyway
+  - no obvious credential leak (Authorization/token values) in any catalog file
+
+Two tiers, two rule sets. `<provider>.yaml` holds hand-curated `tier: core` entries and every rule
+above applies. `<provider>.extended.yaml` holds the machine-generated coverage tier written by
+scripts/catalog_ingest.py: those entries need only id/platform/method/path/summary, and carry no
+capability (nothing has been mapped to the taxonomy yet). Id-prefix, id-uniqueness, platform
+integrity and the leak scan apply to BOTH — an extended entry that does declare a capability is
+held to the core referential rules.
+
+The evidence rule is deliberately tier-blind, and needed no loosening when the extended tier gained
+generated `test_request`s and live verification (scripts/catalog_verify_extended.py): `verified`
+means the same thing in both files, so in both it must be backed by an `example_response` file that
+exists and a `test_request` to re-check it with. A tier decides how much is EXPECTED of an entry,
+never what a claim on it is worth.
+"""
+
+from __future__ import annotations
+
+import datetime as dt
+import math
+import re
+import sys
+from pathlib import Path
+
+import yaml
+
+ROOT = Path(__file__).resolve().parent.parent
+CATALOG = ROOT / "src" / "olywork" / "catalog"
+sys.path.insert(0, str(ROOT / "src"))
+# The enums the SERVER reads the same files with. Imported, never re-typed: a validator that
+# accepts a unit `cost_view` cannot price is worse than no validator.
+from olywork.domain.catalog.store import COST_SOURCES as _SOURCES  # noqa: E402
+from olywork.domain.catalog.store import COST_UNITS as _UNITS  # noqa: E402
+from olywork.domain.catalog.store import CONFIDENCES as _CONFIDENCES  # noqa: E402
+from olywork.domain.catalog.store import effective_async_descriptor  # noqa: E402
+
+SCOPES = {"any_account", "own_account"}
+METHODS = {"GET", "POST", "PUT", "PATCH", "DELETE"}
+COST_TYPES = {"per_call", "per_result", "per_success", "free", "quota_rows"}
+# What the price is denominated in. `credit` and `unit` are PROVIDER-scoped meters, not currencies,
+# and convert via fx.yaml's `credit_rates_usd` / `unit_rates_usd` (see catalog_store.cost_view).
+CURRENCIES = {"USD", "CNY", "credit", "unit"}
+COST_UNITS, CONFIDENCES, COST_SOURCES = set(_UNITS), set(_CONFIDENCES), set(_SOURCES)
+# A price is a perishable fact. Older than this and CI says so — a warning, not an error: a stale
+# price is still the best number we have, and failing the build over the calendar would only teach
+# people to bump the date without re-checking.
+STALE_DAYS = 90
+# The one spelling of free. It was written three incompatible ways across 661 endpoints (`value: 0`,
+# `value: 0.0`, and no value at all), which made "is this free?" a per-entry judgement call and left
+# `cost.usd` null on a third of them — indistinguishable, downstream, from "price unknown".
+CANONICAL_FREE = {"value": 0, "currency": "USD", "unit": "call"}
+TIERS = {"core", "extended"}
+# what an endpoint IS (marketplace browse surface vs. plumbing). Optional — absent reads as "data" —
+# but a stated one must be from this set. See docs/context/architecture/catalog.md.
+KINDS = {"data", "action", "account", "utility"}
+ENDPOINT_STATUSES = {"retired", "broken"}
+QUERY_ARRAY_ENCODINGS = {"json", "comma", "repeated"}
+ASYNC_PARAM_LOCATIONS = {"pathParams", "queryParams"}
+JSON_PATH = re.compile(r"(?:[A-Za-z_][A-Za-z0-9_-]*|[0-9]+)(?:\.(?:[A-Za-z_][A-Za-z0-9_-]*|[0-9]+))*")
+# Only the unit real traffic has settled (OpenRouter's `usage.cost` in dollars). A token unit
+# returns with the first metered token-priced listing, together with its fx rule and a live test.
+USAGE_UNITS = {"usd"}
+# the section heading an endpoint files under on its platform page — one lowercase word
+DOMAIN = re.compile(r"[a-z][a-z0-9_]*")
+HOST = re.compile(
+    r"(?=.{1,253}\Z)(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)"
+    r"(?:\.(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?))*"
+)
+REQUIRED = {
+    "core": ("id", "capability", "platform", "method", "path", "summary"),
+    "extended": ("id", "platform", "method", "path", "summary"),
+}
+# The four outcomes an extended endpoint can have once a verification run has touched it. They are
+# mutually exclusive by construction, and an entry that has been through the pipeline must claim
+# exactly one — "no state" reads as "never attempted", which is a different fact and a lie once a
+# run has been over it. This caught a real regression: re-running an endpoint overwrote its result
+# record, dropped the reason string, and stamped an EMPTY state that nothing else noticed.
+STATES = ("verified", "unverified", "untestable", "skipped")
+# a long token-looking literal anywhere in a catalog file is a leak until proven otherwise
+LEAK = re.compile(r"(Bearer\s+[A-Za-z0-9+/_=-]{16,}|[A-Za-z0-9+/]{40,}={0,2})")
+# ...but URL and API paths are also long runs of [A-Za-z0-9/], and the extended tier is thousands
+# of them. Two things separate them from a credential: a path is built of short slash-separated
+# segments, and those segments spell words ("dataforseo", "kolContentTags"). A base64 secret hits
+# a `/` only about once per 64 characters, so at least one of its segments stays long and wordless.
+WORDY = re.compile(r"[a-z]{8,}")
+
+
+def looks_like_secret(match: str) -> bool:
+    if match.lower().startswith("bearer"):
+        return True
+    return any(
+        len(seg) >= 24 and not WORDY.search(seg) and any(c.isdigit() for c in seg)
+        for seg in match.split("/")
+    )
+
+
+
+def fail(errors: list[str], where: str, msg: str) -> None:
+    errors.append(f"{where}: {msg}")
+
+
+def check_status_marker(ep: dict, where: str, endpoint_status: dict[str, str],
+                        errors: list[str]) -> None:
+    """Validate the migration marker and its cross-catalog successor reference."""
+    status = str(ep.get("status") or "").strip()
+    note = str(ep.get("status_note") or "").strip()
+    successor = str(ep.get("superseded_by") or "").strip()
+    if status and status not in ENDPOINT_STATUSES:
+        fail(errors, where, f"status '{status}' not one of {sorted(ENDPOINT_STATUSES)}")
+    if status and not note:
+        fail(errors, where, "status requires a non-empty status_note explaining the retirement")
+    if not status and note:
+        fail(errors, where, "status_note requires status: retired or status: broken")
+    if not status and successor:
+        fail(errors, where, "superseded_by requires status: retired or status: broken")
+    if not successor:
+        return
+    if successor == ep.get("id"):
+        fail(errors, where, "superseded_by cannot point to the endpoint itself")
+    elif successor not in endpoint_status:
+        fail(errors, where, f"superseded_by target '{successor}' is not a catalog endpoint id")
+    elif endpoint_status[successor]:
+        fail(errors, where, f"superseded_by target '{successor}' is itself "
+                            f"{endpoint_status[successor]} — replacements must be live")
+
+
+def _as_date(value) -> dt.date | None:
+    """`checked: 2026-07-28` parses as a date; quoted, it stays a string. Accept both, reject prose."""
+    if isinstance(value, dt.datetime):
+        return value.date()
+    if isinstance(value, dt.date):
+        return value
+    try:
+        return dt.date.fromisoformat(str(value))
+    except ValueError:
+        return None
+
+
+def _input_fields(input_schema: object) -> dict[str, dict]:
+    """Flatten request fields to location-qualified dotted paths used by price tables."""
+    if not isinstance(input_schema, dict):
+        return {}
+    fields: dict[str, dict] = {}
+    for location in ("pathParams", "queryParams", "body"):
+        block = input_schema.get(location)
+        if not isinstance(block, dict):
+            continue
+        if isinstance(block.get("properties"), dict):
+            block = block["properties"]
+        def add_fields(items: dict, prefix: str) -> None:
+            for name, spec in items.items():
+                if not isinstance(spec, dict):
+                    continue
+                field = f"{prefix}.{name}"
+                fields.setdefault(field, spec)
+                nested = spec.get("properties")
+                if isinstance(nested, dict):
+                    add_fields(nested, field)
+
+        for name, spec in block.items():
+            if isinstance(spec, dict):
+                field = f"{location}.{name}"
+                fields.setdefault(field, spec)
+                nested = spec.get("properties")
+                if isinstance(nested, dict):
+                    add_fields(nested, field)
+    return fields
+
+
+def _finite_number(value: object) -> bool:
+    return (isinstance(value, (int, float)) and not isinstance(value, bool)
+            and math.isfinite(float(value)))
+
+
+def check_cost_table(cost: dict, input_schema: object, where: str, errors: list[str]) -> None:
+    """Validate a first-match AIGC price table and its explicit reserve upper bound."""
+    table = cost.get("table")
+    if not isinstance(table, list) or not table:
+        fail(errors, where, "cost.table must be a non-empty list")
+        return
+    fields = _input_fields(input_schema)
+    maximums: list[float] = []
+    prior_conditions: list[dict] = []
+    for index, row in enumerate(table):
+        rwhere = f"{where}:cost.table[{index}]"
+        if not isinstance(row, dict):
+            fail(errors, rwhere, "table row must be a mapping")
+            continue
+        extra = set(row) - {"when", "value", "times", "times_min"}
+        if extra:
+            fail(errors, rwhere, f"unknown table row keys: {sorted(extra)}")
+        when = row.get("when")
+        if not isinstance(when, dict) or not when:
+            fail(errors, rwhere, "when must be a non-empty mapping")
+        else:
+            for previous in prior_conditions:
+                if all(field in when and when[field] == value for field, value in previous.items()):
+                    fail(errors, rwhere, "when is shadowed by an earlier subset row")
+                    break
+            prior_conditions.append(when)
+            for field, expected in when.items():
+                spec = fields.get(str(field))
+                if spec is None:
+                    fail(errors, rwhere, f"when field '{field}' is not declared in input")
+                elif spec.get("required") is not True and "default" not in spec:
+                    fail(errors, rwhere, f"when field '{field}' must be required or declare a default")
+                elif isinstance(expected, (dict, list)) or expected is None:
+                    fail(errors, rwhere, f"when field '{field}' must compare a scalar value")
+                elif isinstance(expected, float) and not math.isfinite(expected):
+                    fail(errors, rwhere, f"when field '{field}' must compare a finite number")
+                else:
+                    if isinstance(spec.get("enum"), list) and expected not in spec["enum"]:
+                        fail(errors, rwhere, f"when value {expected!r} is not in input enum for '{field}'")
+                    if _finite_number(expected):
+                        lower = spec.get("min")
+                        upper = spec.get("max")
+                        if _finite_number(lower) and float(expected) < float(lower):
+                            fail(errors, rwhere, f"when value {expected!r} is below input min for '{field}'")
+                        if _finite_number(upper) and float(expected) > float(upper):
+                            fail(errors, rwhere, f"when value {expected!r} is above input max for '{field}'")
+        value = row.get("value")
+        if not _finite_number(value) or float(value) < 0:
+            fail(errors, rwhere, "value must be a finite non-negative number")
+            continue
+        maximum = float(value)
+        if "times" in row:
+            times = row.get("times")
+            if not isinstance(times, str) or not times.strip():
+                fail(errors, rwhere, "times must name an input field")
+                continue
+            spec = fields.get(times)
+            if spec is None:
+                fail(errors, rwhere, f"times field '{times}' is not declared in input")
+                continue
+            if spec.get("type") not in ("integer", "number"):
+                fail(errors, rwhere, f"times field '{times}' must be numeric")
+                continue
+            upper = spec.get("max")
+            if not _finite_number(upper) or float(upper) <= 0:
+                fail(errors, rwhere, f"times field '{times}' must declare a positive input max")
+                continue
+            maximum *= float(upper)
+            # `times_min`: this row's own lower bound on the `times` field, when the model it names
+            # accepts less than the field-wide minimum. Display only (the price floor); it must sit
+            # inside the field's declared range.
+            if "times_min" in row:
+                low = row.get("times_min")
+                field_min = spec.get("min")
+                if not _finite_number(low) or float(low) <= 0 \
+                        or (_finite_number(field_min) and float(low) < float(field_min)) \
+                        or float(low) > float(upper):
+                    fail(errors, rwhere, "times_min must be a number within the times field's declared range")
+        elif "times_min" in row:
+            fail(errors, rwhere, "times_min is only valid on a row with times")
+        maximums.append(maximum)
+
+    fallback = cost.get("fallback")
+    if not isinstance(fallback, dict):
+        fail(errors, where, "cost.table requires a fallback mapping with value and note")
+        return
+    extra = set(fallback) - {"value", "note"}
+    if extra:
+        fail(errors, where, f"cost.fallback has unknown keys: {sorted(extra)}")
+    fallback_value = fallback.get("value")
+    if not _finite_number(fallback_value) or float(fallback_value) < 0:
+        fail(errors, where, "cost.fallback.value must be a finite non-negative number")
+    if not str(fallback.get("note") or "").strip():
+        fail(errors, where, "cost.fallback.note must explain the explicit upper bound")
+    if _finite_number(fallback_value) \
+            and maximums and float(fallback_value) < max(maximums):
+        fail(errors, where, "cost.fallback.value must be at least every table row's maximum "
+                            "computable price")
+
+    settle = cost.get("settle", "table")
+    if settle not in ("table", "usage"):
+        fail(errors, where, "cost.table settle must be 'table' or 'usage'")
+    usage = cost.get("usage")
+    if settle == "usage":
+        if not isinstance(usage, dict) or set(usage) != {"path", "unit"} \
+                or not isinstance(usage.get("path"), str) or not JSON_PATH.fullmatch(usage["path"]) \
+                or usage.get("unit") not in USAGE_UNITS:
+            fail(errors, where, "cost.settle 'usage' requires usage.path and usage.unit")
+    elif usage is not None:
+        fail(errors, where, "cost.usage is only valid with settle: usage")
+
+
+def check_async_descriptor(descriptor: object, where: str, provider: str,
+                           endpoint_index: dict[str, dict], cost: object,
+                           errors: list[str]) -> None:
+    """Validate the effective (provider defaults + endpoint overrides) async descriptor."""
+    if not isinstance(descriptor, dict):
+        fail(errors, where, "async must be a mapping")
+        return
+    extra = set(descriptor) - {"id_from", "poll", "status", "result", "interval"}
+    if extra:
+        fail(errors, where, f"async has unknown keys: {sorted(extra)}")
+    if not isinstance(descriptor.get("id_from"), str) or not JSON_PATH.fullmatch(descriptor["id_from"]):
+        fail(errors, where, "async.id_from must be a dotted JSON path")
+
+    def check_param(value: object, label: str, target: dict | None, *, fetch: bool = False) -> None:
+        expected = {"in", "name", "value_from"} if fetch else {"in", "name"}
+        if not isinstance(value, dict) or set(value) != expected:
+            suffix = " and value_from" if fetch else ""
+            fail(errors, where, f"{label} requires exactly in, name{suffix}")
+            return
+        location, field = value.get("in"), value.get("name")
+        if location not in ASYNC_PARAM_LOCATIONS or not isinstance(field, str) or not field.strip():
+            fail(errors, where, f"{label} must name an input field in pathParams or queryParams")
+        elif target is not None and f"{location}.{field}" not in _input_fields(target.get("input")):
+            fail(errors, where, f"{label} target does not declare input field '{location}.{field}'")
+        elif target is not None:
+            # The declared location must agree with the target path: a pathParams id needs exactly
+            # one `{name}` placeholder, a queryParams id none - the worker substitutes by location.
+            marker, path = "{" + field + "}", str(target.get("path") or "")
+            if location == "pathParams" and path.count(marker) != 1:
+                fail(errors, where, f"{label} pathParams '{field}' needs exactly one {marker} in the target path")
+            if location == "queryParams" and marker in path:
+                fail(errors, where, f"{label} queryParams '{field}' must not appear as {marker} in the target path")
+        if fetch and (not isinstance(value.get("value_from"), str)
+                      or not JSON_PATH.fullmatch(value["value_from"])):
+            fail(errors, where, f"{label}.value_from must be a dotted terminal-response JSON path")
+
+    def target_for(endpoint_id: str, label: str) -> dict | None:
+        target = endpoint_index.get(endpoint_id)
+        if target is None or target.get("provider") != provider:
+            fail(errors, where, f"{label} '{endpoint_id}' must be an existing same-provider catalog id")
+            return None
+        if target.get("kind") != "utility":
+            fail(errors, where, f"{label} '{endpoint_id}' must have kind utility")
+        if str(target.get("status") or "").strip():
+            fail(errors, where, f"{label} '{endpoint_id}' is marked {target['status']!r}; a descriptor "
+                                "cannot depend on a retired or broken row")
+        if target.get("method") != "GET":
+            fail(errors, where, f"{label} '{endpoint_id}' must use GET")
+        return target
+
+    poll = descriptor.get("poll")
+    if not isinstance(poll, dict):
+        fail(errors, where, "async.poll must be a mapping")
+    else:
+        modes = [key for key in ("endpoint", "url_from")
+                 if isinstance(poll.get(key), str) and poll[key].strip()]
+        if len(modes) != 1:
+            fail(errors, where, "async.poll needs exactly one of endpoint or url_from")
+        if modes == ["endpoint"]:
+            target = str(poll["endpoint"])
+            target_ep = target_for(target, "async.poll.endpoint")
+            if set(poll) != {"endpoint", "param"}:
+                fail(errors, where, "async.poll endpoint mode allows only endpoint and param")
+            check_param(poll.get("param"), "async.poll endpoint mode", target_ep)
+        elif modes == ["url_from"]:
+            if set(poll) != {"url_from", "url_hosts"}:
+                fail(errors, where, "async.poll url_from mode allows only url_from and url_hosts")
+            if not isinstance(poll.get("url_from"), str) or not JSON_PATH.fullmatch(poll["url_from"]):
+                fail(errors, where, "async.poll.url_from must be a dotted JSON path")
+            hosts = poll.get("url_hosts")
+            if (not isinstance(hosts, list) or not hosts
+                    or any(not isinstance(host, str) or not HOST.fullmatch(host) for host in hosts)):
+                fail(errors, where, "async.poll.url_from requires non-empty url_hosts")
+
+    status = descriptor.get("status")
+    if not isinstance(status, dict):
+        fail(errors, where, "async.status must be a mapping")
+    else:
+        if set(status) != {"path", "success", "failure"}:
+            fail(errors, where, "async.status requires exactly path, success, and failure")
+        if not isinstance(status.get("path"), str) or not JSON_PATH.fullmatch(status["path"]):
+            fail(errors, where, "async.status.path must be a dotted JSON path")
+        success, failure = status.get("success"), status.get("failure")
+        for name, values in (("success", success), ("failure", failure)):
+            if not isinstance(values, list) or not values:
+                fail(errors, where, f"async.status.{name} must be a non-empty list")
+            elif any(isinstance(value, (dict, list, bool)) or value is None
+                     or not str(value).strip() for value in values):
+                fail(errors, where, f"async.status.{name} values must be non-empty strings or numbers")
+        if isinstance(success, list) and isinstance(failure, list) \
+                and {str(value) for value in success} & {str(value) for value in failure}:
+            fail(errors, where, "async.status.success and failure must not overlap")
+
+    result = descriptor.get("result")
+    if not isinstance(result, dict):
+        fail(errors, where, "async.result must be a mapping")
+    else:
+        modes = [key for key in ("path", "fetch")
+                 if isinstance(result.get(key), str) and result[key].strip()]
+        if len(modes) != 1:
+            fail(errors, where, "async.result needs exactly one of path or fetch")
+        if modes == ["fetch"]:
+            target = str(result["fetch"])
+            target_ep = target_for(target, "async.result.fetch")
+            if set(result) - {"fetch", "fetch_param", "ttl_note"}:
+                fail(errors, where, "async.result fetch mode allows only fetch, fetch_param, and ttl_note")
+            check_param(result.get("fetch_param"), "async.result fetch mode", target_ep, fetch=True)
+        elif modes == ["path"]:
+            if set(result) - {"path", "ttl_note"}:
+                fail(errors, where, "async.result path mode allows only path and ttl_note")
+            if not isinstance(result.get("path"), str) or not JSON_PATH.fullmatch(result["path"]):
+                fail(errors, where, "async.result.path must be a dotted JSON path")
+        if "ttl_note" in result and (not isinstance(result.get("ttl_note"), str)
+                                     or not result["ttl_note"].strip()):
+            fail(errors, where, "async.result.ttl_note must be non-empty when present")
+
+    interval = descriptor.get("interval")
+    if not _finite_number(interval) or interval <= 0:
+        fail(errors, where, "async.interval must be a positive finite number of seconds")
+    if not isinstance(cost, dict) or cost.get("type") != "per_success":
+        fail(errors, where, "an endpoint with async must have cost.type per_success")
+
+
+def check_resource_ownership(rule: object, where: str, input_schema: object,
+                             errors: list[str]) -> None:
+    """Validate declarative ownership of opaque ids on olywork's shared provider account."""
+    if not isinstance(rule, dict) or not rule or set(rule) - {"requires", "produces"}:
+        fail(errors, where, "resource_ownership must contain only requires and/or produces")
+        return
+    required = rule.get("requires")
+    if required is not None:
+        if (not isinstance(required, dict) or set(required) != {"kind", "param"}
+                or not all(isinstance(required.get(k), str) and required[k].strip()
+                           for k in ("kind", "param"))):
+            fail(errors, where, "resource_ownership.requires needs exactly non-empty kind and param")
+        else:
+            fields = _input_fields(input_schema)
+            name = required["param"]
+            if not any(field in fields for field in (f"pathParams.{name}", f"queryParams.{name}")):
+                fail(errors, where, f"resource_ownership requires undeclared parameter '{name}'")
+    produced = rule.get("produces")
+    if produced is not None:
+        if not isinstance(produced, list) or not produced:
+            fail(errors, where, "resource_ownership.produces must be a non-empty list")
+        else:
+            for item in produced:
+                if (not isinstance(item, dict) or set(item) != {"kind", "path"}
+                        or not isinstance(item.get("kind"), str) or not item["kind"].strip()
+                        or not isinstance(item.get("path"), str)
+                        or not JSON_PATH.fullmatch(item["path"])):
+                    fail(errors, where, "each resource_ownership.produces item needs exactly kind and JSON path")
+
+
+def check_cost(cost: dict, where: str, errors: list[str], warnings: list[str],
+               input_schema: object = None) -> None:
+    """The price block's own rules — the ones that make a figure BILLABLE rather than decorative.
+
+    A platform key spends olywork's money on a caller's behalf, so every number here has to answer
+    "how much, per what, says who, checked when". The rules below are what makes each of those four
+    unskippable; `catalog_store.Catalog.platform_eligible` is what refuses the ones that fail.
+    """
+    if cost.get("type") not in COST_TYPES:
+        fail(errors, where, f"cost.type missing or not one of {sorted(COST_TYPES)}")
+    value, conf = cost.get("value"), cost.get("confidence")
+    if conf is not None and conf not in CONFIDENCES:
+        fail(errors, where, f"cost.confidence '{conf}' not one of {sorted(CONFIDENCES)}")
+    if (src := cost.get("source")) is not None and src not in COST_SOURCES:
+        fail(errors, where, f"cost.source '{src}' not one of {sorted(COST_SOURCES)}")
+    if (unit := cost.get("unit")) is not None and unit not in COST_UNITS:
+        fail(errors, where, f"cost.unit '{unit}' not one of {sorted(COST_UNITS)}")
+    if (cur := cost.get("currency")) is not None and cur not in CURRENCIES:
+        fail(errors, where, f"cost.currency '{cur}' not one of {sorted(CURRENCIES)}")
+    per = cost.get("per")
+    if per is not None and (not isinstance(per, int) or isinstance(per, bool) or per < 1):
+        fail(errors, where, f"cost.per '{per}' must be a positive integer (the quantity `value` covers)")
+    has_table = "table" in cost
+    if has_table:
+        if "value" in cost:
+            fail(errors, where, "cost.value and cost.table are mutually exclusive")
+        check_cost_table(cost, input_schema, where, errors)
+    if (settle := cost.get("settle")) is not None and not has_table \
+            and settle not in ("base", "modifiers"):
+        fail(errors, where, "cost.settle currently supports only 'base' or 'modifiers'")
+    modifiers = cost.get("modifiers")
+    if modifiers is not None:
+        if not isinstance(modifiers, dict) or not modifiers:
+            fail(errors, where, "cost.modifiers must be a non-empty mapping")
+        else:
+            for name, rule in modifiers.items():
+                mwhere = f"{where}:cost.modifiers.{name}"
+                if not isinstance(name, str) or not name or not isinstance(rule, dict):
+                    fail(errors, mwhere, "modifier name and rule must be mappings keyed by parameter name")
+                    continue
+                if rule.get("location", "query") not in ("query", "body", "lookups"):
+                    fail(errors, mwhere, "location must be query, body, or lookups")
+                if rule.get("when", "truthy") not in ("truthy", "present"):
+                    fail(errors, mwhere, "when must be truthy or present")
+                effects = [key for key in ("set_credits", "add_credits", "add_credits_per_result")
+                           if key in rule]
+                if len(effects) != 1:
+                    fail(errors, mwhere, "needs exactly one credit effect")
+                reserve_only = rule.get("reserve_only")
+                if reserve_only is not None and not isinstance(reserve_only, bool):
+                    fail(errors, mwhere, "reserve_only must be a boolean")
+                if reserve_only and effects != ["add_credits"]:
+                    fail(errors, mwhere, "reserve_only currently supports only add_credits")
+                for key in effects:
+                    amount = rule[key]
+                    if (not isinstance(amount, (int, float)) or isinstance(amount, bool) or amount < 0):
+                        fail(errors, mwhere, f"{key} must be a non-negative number")
+                    if key == "set_credits" and amount != 0:
+                        fail(errors, mwhere, "set_credits currently supports only the free value 0")
+    # `currency: unit` means "the provider's own meter" — which meter is the only thing that makes
+    # the number convertible, and it is `unit` that names it.
+    if cur == "unit" and unit not in COST_UNITS:
+        fail(errors, where, "cost.currency 'unit' needs cost.unit to name the provider's meter "
+                            "(fx.yaml unit_rates_usd is keyed by it)")
+
+    if cost.get("type") == "free":
+        wrong = {k: cost.get(k) for k, want in CANONICAL_FREE.items() if cost.get(k) != want}
+        if wrong or (per not in (None, 1)):
+            fail(errors, where, f"free must be spelled {CANONICAL_FREE} (got {wrong or {'per': per}})")
+        return
+
+    if has_table:
+        if cost.get("currency") not in CURRENCIES:
+            fail(errors, where, f"cost.table currency must be one of {sorted(CURRENCIES)}")
+        value = (cost.get("fallback") or {}).get("value") \
+            if isinstance(cost.get("fallback"), dict) else None
+
+    # An unknown price and a null figure are the SAME fact, so they must always be written together:
+    # a null value with a confident-looking block is how a guess ships, and `confidence: unknown`
+    # over a real number is how a real number gets ignored.
+    if not has_table and (value is None) != (conf == "unknown"):
+        fail(errors, where, f"cost.value {value!r} vs confidence {conf!r} — a null value requires "
+                            "confidence: unknown and vice versa")
+    if not has_table and value is None:
+        if not str(cost.get("note") or "").strip():
+            fail(errors, where, "unknown price needs a cost.note saying why no figure is recorded")
+        return
+
+    # Priced from here on. Provenance is not paperwork: without it there is no way to tell a figure
+    # read off a rate card from one somebody remembered.
+    if conf in ("verified", "documented") and not str(cost.get("source_url") or "").strip():
+        # `source: observed` is the exception — its evidence is the captured example response and
+        # the provider's own reported charge, not a page that may have moved since.
+        if cost.get("source") != "observed":
+            fail(errors, where, f"confidence '{conf}' requires a cost.source_url naming the rate card")
+    checked = cost.get("checked")
+    if not checked:
+        fail(errors, where, "priced entry needs cost.checked (the date the PRICE was confirmed — "
+                            "distinct from `verified`, which is the date the ROUTE was called)")
+    elif (day := _as_date(checked)) is None:
+        fail(errors, where, f"cost.checked '{checked}' is not an ISO date (YYYY-MM-DD)")
+    elif (age := (dt.date.today() - day).days) > STALE_DAYS:
+        warnings.append(f"{where}: cost.checked is {age} days old (> {STALE_DAYS}) — re-check the price")
+
+
+SHARED_PLAN_KIND = "olywork_shared_plan"
+TRIAL_KIND = "olywork_trial"
+
+
+def check_fx(errors: list[str]) -> None:
+    """The fx entries that carry a rate OLYWORK SET, not one the vendor published.
+
+    A `kind: olywork_shared_plan` entry is the catalog asserting its own price for a flat-fee provider
+    (see docs/SHARED-PLAN-PRICING-PLAN.md). Everything downstream shows the basis string as
+    provenance, so the honesty lives in that string — these checks make it impossible to add a
+    olywork-set rate that does not say whose price it is, what the vendor fee was, and what volume it
+    breaks even at. A olywork rate card with none of that printed is exactly the dishonesty the design
+    exists to avoid.
+    """
+    fx = yaml.safe_load((CATALOG / "fx.yaml").read_text()) or {}
+    for service, entry in (fx.get("credit_rates_usd") or {}).items():
+        if not isinstance(entry, dict):
+            continue
+        where = f"fx.yaml credit_rates_usd.{service}"
+        kind = entry.get("kind")
+        basis = str(entry.get("basis") or "")
+        if kind is None:
+            # a vendor-published rate; but prose claiming a olywork rate without the marker is drift
+            # between what the machine knows and what the human reads
+            if "olywork shared-plan" in basis.lower():
+                fail(errors, where, "basis claims a olywork shared-plan rate but has no "
+                                    f"`kind: {SHARED_PLAN_KIND}` marker")
+            continue
+        if kind == TRIAL_KIND:
+            # A ZERO rate olywork set: served on olywork's own free-tier key as a capped taste. The
+            # allowance is what makes $0 honest — without it the zero reads as unlimited and the
+            # shared free key dies to the first looping agent.
+            if entry.get("usd") not in (0, 0.0):
+                fail(errors, where, "a olywork_trial rate must be exactly 0 — a non-zero olywork-set "
+                                    "price is a shared plan, not a trial")
+            allowance = entry.get("trial_calls_per_team_day")
+            if not isinstance(allowance, int) or allowance <= 0:
+                fail(errors, where, "trial_calls_per_team_day (a positive integer) is required — "
+                                    "at $0 the allowance is the only congestion control")
+            if not basis.startswith("olywork trial rate"):
+                fail(errors, where, "basis must START with 'olywork trial rate' so every surface "
+                                    "showing provenance says whose $0 this is")
+            if not entry.get("source") or not entry.get("checked"):
+                fail(errors, where, "source and checked are required on a olywork-set rate")
+            continue
+        if kind != SHARED_PLAN_KIND:
+            fail(errors, where, f"unknown kind {kind!r} (only {SHARED_PLAN_KIND!r} and "
+                                f"{TRIAL_KIND!r} exist)")
+            continue
+        if not isinstance(entry.get("usd"), (int, float)) or entry["usd"] <= 0:
+            fail(errors, where, "a olywork_shared_plan rate must carry a positive usd — null means "
+                                "'unpriced', which needs no marker")
+        if not basis.startswith("olywork shared-plan rate"):
+            fail(errors, where, "basis must START with 'olywork shared-plan rate' so every surface "
+                                "showing provenance says whose price this is")
+        if not re.search(r"\$[\d,]+(?:\.\d+)?\s*/\s*(?:mo|yr)", basis):
+            fail(errors, where, "basis must name the vendor fee (e.g. '$49.99/mo')")
+        if not re.search(r"break-even at [\d,]+ calls/mo", basis):
+            fail(errors, where, "basis must state 'break-even at N calls/mo'")
+        if not entry.get("source") or not entry.get("checked"):
+            fail(errors, where, "source and checked are required on a olywork-set rate")
+        fee = entry.get("fee_usd_month")
+        if not isinstance(fee, (int, float)) or fee <= 0:
+            fail(errors, where, "fee_usd_month is required on a olywork_shared_plan entry — the "
+                                "recovery report computes fee vs collected from it, and a fee that "
+                                "lives only in prose cannot be computed against")
+
+
+_ALIAS_KEY = re.compile(r"^[a-z0-9\u3400-\u9fff]+$")
+_ALIAS_TARGET = re.compile(r"^(?:[a-z0-9]+(?:-[a-z0-9]+)*|[\u3400-\u9fff]+)$")
+
+
+def check_aliases(errors: list[str], warnings: list[str]) -> None:
+    """aliases.yaml — the query-side vocabulary map (catalog_store.search).
+
+    Keys must survive query tokenization as one token. Targets may also be a lowercase hyphenated
+    phrase: matching uses the target string directly against catalog text, which is exactly what
+    lets compact queries such as t2v bridge to the selective phrase text-to-video. A target that
+    occurs nowhere in catalog text is dead weight and produces a warning."""
+    path = CATALOG / "aliases.yaml"
+    if not path.exists():
+        return
+    doc = yaml.safe_load(path.read_text()) or {}
+    corpus = "\n".join(p.read_text().lower() for p in CATALOG.glob("*.yaml") if p != path)
+    for key, vals in (doc.get("aliases") or {}).items():
+        where = f"aliases.yaml {key}"
+        if not _ALIAS_KEY.fullmatch(str(key)):
+            fail(errors, where, "key must be one lowercase word (it must survive the tokenizer)")
+        if not isinstance(vals, list) or not vals:
+            fail(errors, where, "value must be a non-empty list of words")
+            continue
+        for v in vals:
+            if not _ALIAS_TARGET.fullmatch(str(v)):
+                fail(errors, where, f"alias {v!r} must be one lowercase word or hyphenated phrase")
+            elif str(v) == str(key):
+                fail(errors, where, "alias points at itself")
+            elif str(v) not in corpus:
+                warnings.append(f"{where}: alias {v!r} occurs nowhere in the catalog — dead weight")
+
+
+def main(argv: list[str]) -> int:
+    errors: list[str] = []
+    warnings: list[str] = []
+    check_fx(errors)
+    check_aliases(errors, warnings)
+    tax = yaml.safe_load((CATALOG / "capabilities.yaml").read_text())
+    platforms = set(tax.get("platforms") or {})
+    capabilities = set(tax.get("capabilities") or {})
+
+    from olywork.oauth_providers import REGISTRY  # noqa: E402
+
+    only = set(argv)
+    all_files = sorted(p for p in CATALOG.glob("*.yaml")
+                       if p.name not in ("capabilities.yaml", "fx.yaml", "aliases.yaml", "contracts.yaml", "adapters.yaml"))
+    # Successors can appear later in the same file or in another provider. Build the reference map
+    # before validating any row; a one-pass lookup would make validity depend on filename order.
+    endpoint_status: dict[str, str] = {}
+    endpoint_index: dict[str, dict] = {}
+    for path in all_files:
+        data = yaml.safe_load(path.read_text()) or {}
+        if not isinstance(data, dict):
+            continue
+        provider = str(data.get("provider") or path.stem.removesuffix(".extended"))
+        for ep in data.get("endpoints") or []:
+            if isinstance(ep, dict) and ep.get("id"):
+                endpoint_id = str(ep["id"])
+                endpoint_status[endpoint_id] = str(ep.get("status") or "").strip()
+                endpoint_index[endpoint_id] = {**ep, "provider": provider}
+    files = list(all_files)
+    # "tikhub" selects tikhub.yaml AND tikhub.extended.yaml — a service is both its tiers
+    service_of = {p: p.stem.removesuffix(".extended") for p in files}
+    if only:
+        files = [p for p in files if service_of[p] in only]
+        missing = only - {service_of[p] for p in files}
+        for m in missing:
+            fail(errors, m, "no such catalog file")
+
+    seen_ids: dict[str, str] = {}
+    # (service, method, path) -> {tier: [ids]} — to catch the same operation shipping in BOTH tiers.
+    # Some providers multiplex one URL across many jobs (SerpApi's `engine`, BrightData's
+    # `dataset_id`, GAQL's query body), so a core/extended path collision is legitimate THERE and
+    # only there. Everywhere else it is the ingest-dedup failure that shipped 27 duplicate rows
+    # (dataforseo via the /v3 prefix mismatch, scrapecreators via core being curated after ingest).
+    # Some APIs deliberately expose several catalog jobs on one method/path and select the job by
+    # required parameters. Instagram Graph's profile read and business_discovery both call
+    # GET /{ig_user_id}; the latter is selected by its required business_discovery `fields` value.
+    PARAM_MULTIPLEXED = {"serpapi", "brightdata", "google-ads", "instagram", "minimax", "openrouter"}
+    route_tiers: dict[tuple, dict[str, list[str]]] = {}
+    for path in files:
+        name = path.name
+        text = path.read_text()
+        data = yaml.safe_load(text)
+        if not isinstance(data, dict):
+            fail(errors, name, "not a mapping")
+            continue
+        extended_file = path.name.endswith(".extended.yaml")
+        service = data.get("provider")
+        if service != service_of[path]:
+            fail(errors, name, f"provider '{service}' != filename stem '{service_of[path]}'")
+        if service not in REGISTRY:
+            fail(errors, name, f"provider '{service}' not in oauth_providers.REGISTRY")
+        src = data.get("source")
+        # core files cite the docs they were curated from; extended files cite the specs they were
+        # generated from, so that a re-run is reproducible from the file alone
+        need = "spec_urls" if extended_file else "docs"
+        if not isinstance(src, dict) or not src.get(need):
+            fail(errors, name, f"source.{need} missing")
+        proposed = set(data.get("proposed_capabilities") or {})
+        known = capabilities | proposed
+
+        eps = data.get("endpoints")
+        if not isinstance(eps, list) or not eps:
+            fail(errors, name, "endpoints missing or empty")
+            continue
+        for ep in eps:
+            eid = ep.get("id", "<no id>")
+            where = f"{name}:{eid}"
+            tier = ep.get("tier", "extended" if extended_file else "core")
+            if tier not in TIERS:
+                fail(errors, where, f"bad tier '{tier}'")
+                tier = "extended" if extended_file else "core"
+            if extended_file != (tier == "extended"):
+                fail(errors, where, f"tier '{tier}' does not belong in {name}")
+            route_tiers.setdefault((service, ep.get("method"), ep.get("path")), {}) \
+                .setdefault(tier, []).append(eid)
+            for f in REQUIRED[tier]:
+                if not ep.get(f):
+                    fail(errors, where, f"missing required field '{f}'")
+            if eid in seen_ids:
+                fail(errors, where, f"duplicate id (also in {seen_ids[eid]})")
+            seen_ids[eid] = name
+            if service and not eid.startswith(f"{service}."):
+                fail(errors, where, f"id must start with '{service}.'")
+            # extended entries are unmapped by design; one that DOES claim a capability is held to
+            # the same referential rules as core, so a hand-promoted entry can't drift
+            cap = ep.get("capability", "")
+            if cap or tier == "core":
+                if cap not in known:
+                    fail(errors, where, f"capability '{cap}' not in capabilities.yaml or proposed_capabilities")
+            plat = ep.get("platform", "")
+            if plat not in platforms:
+                fail(errors, where, f"platform '{plat}' not in capabilities.yaml platforms")
+            if cap and plat and cap.split(".")[0] != plat:
+                fail(errors, where, f"platform '{plat}' != capability's first segment '{cap.split('.')[0]}'")
+            # `domain` is optional — the loader derives one from the capability id or the path when
+            # it is absent. Declaring one overrides that, so it has to be the same SHAPE the derived
+            # ones are: one lowercase word, or the platform page grows a section of one.
+            # `name` is an optional short DISPLAY title; `summary` stays the provider's own
+            # description. Light check only: present ⇒ a non-empty string that fits a row heading.
+            nm = ep.get("name")
+            if nm is not None and (not isinstance(nm, str) or not nm.strip() or len(nm) > 60):
+                fail(errors, where, "name must be a non-empty string of at most 60 chars")
+            dom = ep.get("domain")
+            if dom is not None and not DOMAIN.fullmatch(str(dom)):
+                fail(errors, where, f"domain '{dom}' must be a single lowercase word (a-z0-9_)")
+            # `kind` is optional (absent ⇒ data); a stated one must be a known kind
+            if ep.get("kind") is not None and ep.get("kind") not in KINDS:
+                fail(errors, where, f"kind '{ep.get('kind')}' not one of {sorted(KINDS)}")
+            if ep.get("scope", "any_account") not in SCOPES:
+                fail(errors, where, f"bad scope '{ep.get('scope')}'")
+            if ep.get("method") not in METHODS:
+                fail(errors, where, f"bad method '{ep.get('method')}'")
+            check_status_marker(ep, where, endpoint_status, errors)
+            inp = ep.get("input") or {}
+            default_array_encoding = inp.get("queryArrayEncoding")
+            if (default_array_encoding is not None
+                    and default_array_encoding not in QUERY_ARRAY_ENCODINGS):
+                fail(errors, where, "input.queryArrayEncoding must be one of "
+                     f"{sorted(QUERY_ARRAY_ENCODINGS)}")
+            cost = ep.get("cost")
+            if cost is not None or tier == "core":
+                # cost is optional in the extended tier — several providers publish prices per API
+                # family rather than per route — but a stated cost must still be a real cost model.
+                # An ABSENT one reads as "price unknown", never as free (catalog.md, Cost), which is
+                # why nothing here has to be written out for it to be refused a platform key.
+                if not isinstance(cost, dict):
+                    fail(errors, where, f"cost.type missing or not one of {sorted(COST_TYPES)}")
+                else:
+                    check_cost(cost, where, errors, warnings, inp)
+            effective_async = effective_async_descriptor(data.get("async"), ep.get("async"))
+            if effective_async is not None:
+                check_async_descriptor(effective_async, where, str(service), endpoint_index,
+                                       cost, errors)
+            elif isinstance(cost, dict) and cost.get("settle") == "usage":
+                # Usage evidence is read from the TERMINAL response by the worker; a synchronous
+                # response path has no consumer for it and would silently settle the reserve.
+                fail(errors, where, "cost.settle 'usage' requires an async descriptor")
+            if ep.get("resource_ownership") is not None:
+                check_resource_ownership(ep["resource_ownership"], where, inp, errors)
+            if ep.get("verified"):
+                ex = ep.get("example_response")
+                if not ex:
+                    fail(errors, where, "verified but no example_response")
+                elif not (CATALOG / ex).is_file():
+                    fail(errors, where, f"example_response '{ex}' does not exist")
+                if not ep.get("test_request"):
+                    fail(errors, where, "verified but no test_request (nothing to re-verify with)")
+            if tier == "extended":
+                # "been through the pipeline" = a run either built it a request or recorded an
+                # outcome for it. A freshly ingested entry that has never been verified has
+                # neither, and is left alone.
+                claimed = [s for s in STATES if ep.get(s)]
+                touched = ep.get("test_request") or any(s in ep for s in STATES)
+                if len(claimed) > 1:
+                    fail(errors, where, f"claims {len(claimed)} states at once: {claimed} — "
+                                        "verified/unverified/untestable/skipped are exclusive")
+                elif touched and not claimed:
+                    empty = [s for s in STATES if s in ep]
+                    fail(errors, where, f"no endpoint state: {sorted(empty)} present but empty"
+                         if empty else "has a test_request but no verified/unverified/untestable/"
+                                       "skipped saying what happened when it was called")
+                if ep.get("untestable") and ep.get("test_request"):
+                    # `untestable` means no call is possible — but catalog_verify.py --extended
+                    # replays anything that HAS a test_request, so the pair is not just a
+                    # contradiction on paper: it gets the endpoint called, and billed, by a
+                    # re-verification run that was told it was uncallable.
+                    fail(errors, where, "untestable but carries a test_request — a re-verify run "
+                                        "would call it anyway; drop one of the two")
+
+        if extended_file:
+            # extended files are machine-generated from PUBLIC specs and public target ids (TikTok
+            # secUids, WeChat export ids, CDN URIs, pagination cursors) — long opaque strings that
+            # pattern-match as secrets endlessly. Credentials only ever travel via OLYWORK_CATALOG_CRED
+            # env in the verify scripts, so here only the unambiguous leak shape is flagged.
+            for m in re.finditer(r"Bearer\s+[A-Za-z0-9+/_=-]{16,}", text):
+                fail(errors, name, f"credential literal in file: '{m.group(0)[:24]}…'")
+            continue
+        for m in LEAK.finditer(text):
+            if looks_like_secret(m.group(0)):
+                fail(errors, name, f"possible credential literal in file: '{m.group(0)[:24]}…'")
+
+    # The same operation must not ship in both tiers — core wins and the extended copy is a bug,
+    # except for the param-multiplexed providers where one URL is legitimately many jobs.
+    for (svc, method, path), tiers in route_tiers.items():
+        if svc in PARAM_MULTIPLEXED or not (tiers.get("core") and tiers.get("extended")):
+            continue
+        fail(errors, f"{svc} {method} {path}",
+             f"shipped in BOTH tiers — core {tiers['core']} duplicates extended {tiers['extended']}; "
+             f"drop the extended copy (core wins) or fix the ingester's core_routes dedup")
+
+    for e in errors:
+        print(e)
+    for w in warnings:
+        print(f"WARN {w}")
+    print(f"{'FAIL' if errors else 'OK'} — {len(files)} provider file(s), {len(seen_ids)} endpoint(s), "
+          f"{len(errors)} error(s), {len(warnings)} warning(s)")
+    return 1 if errors else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv[1:]))

@@ -1,0 +1,36 @@
+{
+  "name": "@olywork/cli",
+  "version": "0.1.0",
+  "description": "olywork — call your team's APIs through one credential-injecting proxy, with no keys on your machine. npm launcher for the olywork CLI.",
+  "bin": {
+    "olywork": "bin/olywork.js",
+    "olywork": "bin/olywork.js"
+  },
+  "files": [
+    "bin"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "Apache-2.0",
+  "homepage": "https://olywork.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/meettaqi/olywork-new.git",
+    "directory": "packages/npm"
+  },
+  "keywords": [
+    "olywork",
+    "olywork",
+    "tools-registry",
+    "credentials",
+    "secrets",
+    "proxy",
+    "api-keys",
+    "agents",
+    "cli"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
+}

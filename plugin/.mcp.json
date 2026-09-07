@@ -1,0 +1,6 @@
+{
+  "olywork": {
+    "url": "https://olywork.com/mcp/",
+    "bearer_token_env_var": "OLYWORK_TOKEN"
+  }
+}

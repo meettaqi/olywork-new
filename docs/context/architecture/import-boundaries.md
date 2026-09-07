@@ -1,0 +1,137 @@
+---
+title: Enforced import boundaries
+status: shipped
+sources:
+  - pyproject.toml
+  - .github/workflows/ci.yml
+  - src/olywork/application/__init__.py
+  - src/olywork/application/call/__init__.py
+  - src/olywork/application/call/access.py
+  - src/olywork/application/call/authorize.py
+  - src/olywork/application/call/idempotency.py
+  - src/olywork/application/call/overflow.py
+  - src/olywork/application/call/route.py
+  - src/olywork/domain/catalog/routing/__init__.py
+  - src/olywork/application/call/intake.py
+  - src/olywork/application/call/resolve.py
+  - src/olywork/application/call/reserve.py
+  - src/olywork/application/call/settle.py
+  - src/olywork/application/call/evidence.py
+  - src/olywork/application/call/service.py
+  - src/olywork/application/call/types.py
+  - src/olywork/client_identity.py
+  - src/olywork/domain/__init__.py
+  - src/olywork/domain/governance/__init__.py
+  - src/olywork/domain/governance/access.py
+  - src/olywork/domain/governance/budgets.py
+  - src/olywork/domain/governance/publicdemo.py
+  - src/olywork/domain/governance/teams.py
+  - src/olywork/domain/governance/usage.py
+  - src/olywork/domain/identity/__init__.py
+  - src/olywork/domain/connections/__init__.py
+  - src/olywork/domain/connections/authorization.py
+  - src/olywork/domain/connections/oauth_flow.py
+  - src/olywork/domain/connections/refresh.py
+  - src/olywork/domain/money/__init__.py
+  - src/olywork/domain/asynctasks/__init__.py
+  - src/olywork/domain/capacity/__init__.py
+  - src/olywork/infra/upstream/__init__.py
+  - src/olywork/infra/upstream/injectors.py
+  - src/olywork/infra/upstream/relay.py
+  - src/olywork/infra/upstream/aggregators/__init__.py
+  - src/olywork/infra/upstream/limiter.py
+  - tests/test_call_architecture.py
+  - tests/test_import_lightness.py
+related:
+  - architecture/composition.md
+  - architecture/money.md
+  - interface/cli.md
+---
+
+# Enforced import boundaries
+
+Import Linter reads the contracts under `tool.importlinter` in `pyproject.toml`. The main CI `test`
+job installs the lock with `uv sync --locked` (failing on a stale lock), then runs
+`uv run --locked lint-imports` before the test suite. Keeping the check in that job reuses the
+development environment and avoids a second install for a fast static architecture check.
+The separate `test-postgres` job runs its database-sensitive subset serially against Postgres 16;
+it uses unbuffered Python output and a 15-minute job budget so a slow test remains diagnosable. The
+subset includes agent attribution, credential health, local-run reporting and ads-conversion coverage
+so naive-UTC assumptions are exercised by asyncpg rather than hidden by SQLite's permissive adapter.
+
+Stage 1 activated the first two contracts:
+
+- The explicit lightweight CLI module list cannot directly import any server-extra package, including
+  FastAPI, SQLModel, SQLAlchemy, Alembic, database drivers, MCP, Stripe, or cryptography. Imports guarded
+  by `TYPE_CHECKING` are excluded globally because they cannot load at runtime. Indirect imports are
+  allowed by this contract because optional proxy dependencies may appear in lazily executed internal
+  modules; the named CLI modules themselves must remain free of direct server imports.
+- `olywork.domain.money` cannot import `olywork.audit`. Money correctness never flows through the best-effort audit
+  path, whose writes may be shed under load.
+
+Stage 2 adds a third contract: the complete `olywork.routers` package cannot import `olywork.api`, directly or
+indirectly. `as_packages = true` makes the source cover every current and future router submodule.
+`api.py` remains the compatibility exporter and ordered route-table host, so the allowed direction is
+API to routers.
+
+The async-task domain has the same inward-only boundary as capacity: it may not import API, routers,
+application orchestration or best-effort audit. `tests/test_call_architecture.py` pins the rule and a
+mutation proving the guard rejects a forbidden edge.
+
+Stage 3 adds domain contracts as packages appear. The complete `olywork.domain.identity` package cannot import
+`olywork.api`, `olywork.routers`, or `olywork.application`. Identity now owns session signing and validation,
+MCP token and grant-family primitives, and caller/access resolution as a leaf. Sibling-domain
+edges are added when the sibling appears; identity therefore also forbids governance. Governance may
+import identity but cannot import the API, routers, or application layer. Future sibling contracts remain
+absent until their packages exist, so no placeholder domain makes a future boundary look active.
+Governance owns shared tool/project ACLs, tag-budget rules, and public-demo rate policy. The package also
+forbids direct FastAPI and Starlette imports; semantic policy errors are translated by each HTTP interface.
+The call application package owns the framework-neutral staged use case: request intake, idempotency
+state, target resolution, catalog pricing and access decisions, authorization, reservation, relay
+orchestration, and finalization. The HTTP adapter captures a `CallInput`, translates typed failures, and
+wraps the returned `UpstreamResponse`. Client-name normalization lives in a neutral leaf so the application path does not
+load the Request-aware caller metadata adapter.
+
+The complete `olywork.domain.connections` package is also an inward-facing domain package. It owns
+provider-neutral authorization-method selection, consent URL construction, and refresh state changes.
+It cannot import the API, bootstrap, routers, application layer, FastAPI, or Starlette. Provider registry
+data can call these rules through the legacy compatibility modules, while HTTP exchange adapters stay in
+`olywork.infra` and workflow coordination stays in `olywork.application`.
+
+Two runtime contracts keep that boundary executable. `olywork.application.call` cannot import the legacy
+API, bootstrap, routers, FastAPI, or Starlette. `olywork.infra.upstream` cannot import those HTTP adapters
+or frameworks. Direct imports of the application-owned request and response DTOs remain the port shared
+by the use case and relay. Mutation tests inject representative forbidden edges and assert detection.
+The same test module also pins the money transaction boundary: all five `domain/money` primitives
+(the reserve/settle/release staged bodies plus `grant` and `topup`) are scanned for `db.commit` /
+`db.rollback` and must stage only, with a mutation self-check that an injected commit is detected;
+the lazy stale-hold reap keeps its documented independent committing boundary.
+
+Two direct edges are precise exceptions. `cli.ensure_proxy_dependency` imports `cryptography` only after
+the user invokes the optional proxy feature and offers to install the proxy extra first.
+`localrun.render_grant` imports SQLModel only when the server executes the grant path. Import Linter treats
+function-local imports as ordinary direct edges, so both appear in `ignore_imports`; unmatched ignores are
+errors, ensuring a removed or renamed edge cannot leave a stale exception behind.
+
+An ignore covers an entire module edge and therefore cannot detect someone moving either lazy import to
+module scope. `tests.test_import_lightness` closes that gap by starting an isolated Python subprocess,
+importing every lightweight module, and asserting that no server dependency root appears in `sys.modules`.
+Base dependencies such as httpx and questionary remain allowed.
+
+The async task domain (`olywork.domain.asynctasks`) is a **stdlib-only leaf shared with the light
+CLI**: `cli.await_async_task` imports its `json_path`, `classify_terminal` and `artifact` so the
+awaiter and the settlement worker can never disagree about what "done" means. Two guards keep it
+light: the module is on `test_import_lightness`'s list, and an import-linter contract forbids it
+every server root (`olywork.models`, `olywork.infra`, `olywork.config`, SQLModel, pydantic, yaml, httpx).
+
+The capacity domain (`olywork.domain.capacity`, plan step B) is a leaf like identity: it cannot import
+`olywork.api`, `olywork.routers`, `olywork.application`, `olywork.bootstrap`, `olywork.audit`, FastAPI or Starlette.
+It reads config and writes only its own tables and ratestore keys, from worker-profile commands
+(`olywork-worker`, a separate console script so the light `olywork` CLI never gains a DB import). The call
+application imports the capacity domain inward (`resolve` → `view`, `settle` → `signatures`/`marks`);
+the domain never imports back; `application.call.overflow` composes the capacity domain, the
+aggregator envelopes and the money primitives, and the aggregator adapters stay pure envelope code; `application.call.route` composes the pure
+`domain.catalog.routing` package (contracts, adapters, ranking) with the call use case itself. The
+aggregator envelopes live under `olywork.infra.upstream.aggregators` and inherit the upstream contract
+(no HTTP adapters, no routers); the capacity domain's `verify` module may import them because they are
+pure envelope code, not a web framework.

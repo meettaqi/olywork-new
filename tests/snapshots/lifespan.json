@@ -1,0 +1,43 @@
+{
+  "background_tasks": [
+    {
+      "condition": "olywork.adsconv.enabled()",
+      "task": "olywork.adsconv.worker"
+    }
+  ],
+  "mounted_lifespans": [
+    {
+      "condition": "olywork.bootstrap._mcp is not None",
+      "task": "olywork.mcp.mcp_lifespan"
+    }
+  ],
+  "shutdown": [
+    {
+      "action": "cancel",
+      "condition": "olywork.adsconv.worker was started",
+      "task": "olywork.adsconv.worker"
+    },
+    {
+      "action": "await",
+      "task": "olywork.audit.drain"
+    },
+    {
+      "action": "await",
+      "task": "olywork.analytics.drain"
+    },
+    {
+      "action": "await close",
+      "task": "app.state.http"
+    }
+  ],
+  "startup": [
+    {
+      "action": "await",
+      "task": "olywork.infra.db.verify_db"
+    },
+    {
+      "action": "create",
+      "task": "app.state.http (httpx.AsyncClient)"
+    }
+  ]
+}

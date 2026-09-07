@@ -1,0 +1,46 @@
+{
+  "exception_handlers": [
+    {
+      "exception": "starlette.exceptions.HTTPException",
+      "handler": "olywork.api._mark_olywork_own_errors"
+    },
+    {
+      "exception": "fastapi.exceptions.RequestValidationError",
+      "handler": "fastapi.exception_handlers.request_validation_exception_handler"
+    },
+    {
+      "exception": "fastapi.exceptions.WebSocketRequestValidationError",
+      "handler": "fastapi.exception_handlers.websocket_request_validation_exception_handler"
+    },
+    {
+      "exception": "builtins.OverflowError",
+      "handler": "olywork.api._id_out_of_range"
+    },
+    {
+      "exception": "sqlalchemy.exc.TimeoutError",
+      "handler": "olywork.api._pool_saturated"
+    }
+  ],
+  "middleware": [
+    {
+      "args": [],
+      "class": "olywork.mcp.NormalizeDirectoryMCPPath",
+      "kwargs": {}
+    },
+    {
+      "args": [],
+      "class": "olywork.api._BodyDecodeMiddleware",
+      "kwargs": {}
+    },
+    {
+      "args": [],
+      "class": "olywork.api._SecurityHeadersMiddleware",
+      "kwargs": {}
+    },
+    {
+      "args": [],
+      "class": "olywork.api._LegacyHostRedirectMiddleware",
+      "kwargs": {}
+    }
+  ]
+}

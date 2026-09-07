@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "olywork",
+  "displayName": "olywork",
+  "version": "0.15.0",
+  "description": "OpenRouter for tools - 2,896 agent-friendly tools, pay for the usage, not subscription",
+  "author": {
+    "name": "Olywork dev, Inc.",
+    "email": "taqi@olywork.com",
+    "url": "https://olywork.com"
+  },
+  "homepage": "https://olywork.com",
+  "repository": "https://github.com/meettaqi/olywork-new",
+  "license": "Apache-2.0",
+  "keywords": [
+    "api",
+    "tools",
+    "seo",
+    "serp",
+    "backlinks",
+    "enrichment",
+    "scraping",
+    "api-keys",
+    "credentials"
+  ]
+}

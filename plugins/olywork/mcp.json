@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "olywork": {
+      "url": "https://olywork.com/mcp/",
+      "headers": {
+        "Authorization": "Bearer ${env:OLYWORK_TOKEN}"
+      }
+    }
+  }
+}

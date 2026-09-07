@@ -1,0 +1,258 @@
+# VERIFIED 2026-07-31 with a live credential (STARTER plan). Five of six endpoints called live and
+# passed; paths, parameters and the Facebook actor's per-result price are now observed rather than
+# transcribed. The one failure is `apify.tiktok-ads.library.search`: the actor RUNS (three runs,
+# exit code 0, two different input shapes) and produces ZERO dataset items every time, billing $0 —
+# an upstream-broken community actor, not a catalog error. Prices and paths below were originally
+# transcribed from official docs 2026-07-28.
+#
+# BILLING IS READABLE AFTER THE FACT, which is what let the estimates above become observed figures:
+# GET /v2/actor-runs?limit=N&desc=1 returns `usageTotalUsd` per run — the actual dollars a run cost.
+# Verified 2026-07-31: one facebook-ads-scraper run capped at maxItems=1 billed exactly $0.005, the
+# value this file already carried; a hello-world run billed $0.00013 (compute only, no results).
+# Read that endpoint after any pay-per-result run rather than trusting an estimate.
+#
+# Apify is not a data API — it is a runner for other people's scrapers ("Actors"). One generic
+# endpoint shape does every job; what changes is WHICH actor id sits in the path and what its input
+# JSON looks like. The two entries that carry a capability below are therefore the same route twice,
+# pinned to the two ad-library actors this provider exists for:
+#   apify~facebook-ads-scraper   (official Apify actor) → meta-ads.library.search
+#   s-r~tiktok-ads-library                              → tiktok-ads.library.search
+# The actor id in a path is `username~actorname` with a TILDE, not a slash — a slash breaks routing.
+#
+# Both capabilities have a second provider, and the tradeoff is the point of cataloguing them here:
+#   - meta-ads.library.search: meta-ad-library.yaml is Meta's own API — free, official, and limited
+#     to what Meta discloses. This actor scrapes the Ad Library UI, so it also yields per-ad detail
+#     (Instagram data, spend hints, ecommerce enrichment) that the API withholds — paid, unofficial,
+#     and it breaks when Meta changes the page.
+#   - tiktok-ads.library.search: this is the ONLY provider in the catalog serving it, because
+#     TikTok's own Commercial Content API lives behind a separate research-access application on a
+#     different host (see tiktok-ads.yaml).
+#
+# COST IS PER RESULT AND OPEN-ENDED. Pay-per-result actors bill each dataset item, and most have no
+# default cap — an unbounded run over a large advertiser can produce tens of thousands of rows and
+# bill for all of them. ALWAYS send resultsLimit/limit in the input AND `maxItems` (or
+# maxTotalChargeUsd) in the query string; maxItems is the only ceiling Apify enforces server-side.
+# The per-result price varies by SUBSCRIPTION TIER (roughly $3.40–$5.80 per 1,000 for the Facebook
+# actor), so a value here is the observed STARTER-plan figure, not a universal quote — re-read
+# usageTotalUsd on your own plan before budgeting a large pull.
+provider: apify
+source:
+  docs: https://docs.apify.com/api/v2
+  openapi: null
+  curated: 2026-07-28
+
+limits: "actor runs are asynchronous — poll or use a webhook"
+pricing_url: https://apify.com/pricing  # Billed on compute units plus storage; actor-specific rental may apply.; free tier: 5 USD platform credit/month
+endpoints:
+  - id: apify.meta-ads.library.search
+    capability: meta-ads.library.search
+    platform: meta-ads
+    scope: any_account
+    method: POST
+    path: /actors/apify~facebook-ads-scraper/run-sync-get-dataset-items
+    name: "Scrape the Meta ad library by Page or search URL"
+    summary: "Scrape publicly running Facebook and Instagram ads for a page or Ad Library search"
+    input:
+      queryParams:
+        maxItems: {type: integer, required: false, note: "SERVER-SIDE result cap for pay-per-result actors — the only hard spend limit; set it on every call", example: 50}
+        maxTotalChargeUsd: {type: number, required: false, note: "alternative hard cap, in dollars", example: 1.0}
+        timeout: {type: integer, required: false, note: "seconds before the synchronous run is cut off. This route blocks until the actor finishes and Apify closes the connection at 300s regardless — use the async pair below for anything large", example: 120}
+      body:
+        startUrls: {type: array, required: true, note: "[{\"url\": \"…\"}] — either a Facebook Page URL or a full Meta Ad Library search URL (facebook.com/ads/library/?q=…&country=US)", example: [{"url": "https://www.facebook.com/ads/library/?active_status=all&ad_type=all&country=US&q=project%20management"}]}
+        resultsLimit: {type: integer, required: false, note: "max ads PER URL; unlimited if omitted, which is how runs get expensive", example: 50}
+        activeStatus: {type: string, required: false, note: "\"active\" | \"inactive\" | \"\" for both", example: "active"}
+        isDetailsPerAd: {type: boolean, required: false, note: "true adds Instagram data, spend info and EU reach/targeting per ad — richer than Meta's own API, and slower", example: false}
+        includeAboutPage: {type: boolean, required: false, note: "true adds the advertiser's address, admin country and page history"}
+        onlyAdsNewerThan: {type: string, required: false, note: "YYYY-MM-DD or a relative phrase like \"2 months\"", example: "2026-06-01"}
+        onlyAdsOlderThan: {type: string, required: false}
+        onlyTotal: {type: boolean, required: false, note: "true returns just the ad COUNT instead of the ads — one cheap result row when all you need is how much a competitor is running", example: false}
+        enrichWithEcommerceData: {type: boolean, required: false, note: "true follows landing pages for product names and prices"}
+      bodyType: json
+      note: "the response is the dataset items array directly — no run envelope, no polling. Result count is what you pay for, so onlyTotal:true is the cheap probe before a full pull. Unofficial: this reads the Ad Library web UI, so field availability tracks whatever Meta currently renders"
+    test_request:
+      queryParams: {maxItems: 1, maxTotalChargeUsd: 0.05, timeout: 180}
+      body: {startUrls: [{url: "https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=US&q=project%20management"}], resultsLimit: 1, activeStatus: "active", isDetailsPerAd: false, onlyTotal: true}
+    cost: {type: per_result, value: 0.005, currency: USD, per: 1, unit: ad, source: observed, source_url: 'https://apify.com/pricing', checked: '2026-07-31', confidence: verified, note: 'pay-per-result: one result = one ad. OBSERVED 2026-07-31 on the STARTER plan — a run capped at maxItems=1 reported usageTotalUsd 0.005 in GET /actor-runs, matching the $5.00-per-1,000 list rate; the rate varies $3.40–$5.80 across subscription tiers, so this is the Starter figure. Charged on results produced even if the run is cut short — cap it with maxItems'}
+    verified: 2026-07-31
+    example_response: examples/apify.meta-ads.library.search.json
+    docs_url: https://apify.com/apify/facebook-ads-scraper
+
+  - id: apify.tiktok-ads.library.search
+    capability: tiktok-ads.library.search
+    platform: tiktok-ads
+    scope: any_account
+    method: POST
+    path: /actors/s-r~tiktok-ads-library/run-sync-get-dataset-items
+    name: "Scrape the TikTok ad library by keyword"
+    summary: "Scrape publicly running TikTok ads from TikTok's ad library by keyword or advertiser"
+    input:
+      queryParams:
+        maxItems: {type: integer, required: false, note: "server-side result cap; set it on every call", example: 50}
+        timeout: {type: integer, required: false, example: 120}
+      body:
+        search: {type: string, required: true, note: "keyword or advertiser name to search the ad library for", example: "skincare"}
+        adv_biz_ids: {type: string, required: false, note: "advertiser business id, to pin the search to one advertiser instead of a keyword"}
+        ad_id: {type: string, required: false, note: "fetch one specific ad"}
+        region: {type: string, required: false, note: "ISO country code or 'all' (the default). TikTok's library is a DSA transparency database, so coverage is EU/EEA/UK-centric — and per the actor's own input schema it REJECTS region=US; pass 'all' to include US ads", example: "all"}
+        query_type: {type: string, required: false, note: "which field `search` is matched against: '1' = advertiser name (the actor's DEFAULT), '0' = keyword. A keyword passed without query_type:'0' is matched as an advertiser name and finds nothing", example: "1"}
+        start_date: {type: string, required: false, note: "YYYY-MM-DD", example: "2026-06-01"}
+        end_date: {type: string, required: false, note: "YYYY-MM-DD"}
+        sort: {type: string, required: false}
+        limit: {type: integer, required: false, note: "results to return; pair it with maxItems", example: 50}
+        offset: {type: integer, required: false, example: 0}
+      bodyType: json
+      note: "returns creative content, advertiser, dates, audience reach and targeting as TikTok discloses them in the Commercial Content Library. Community actor, not an official TikTok surface — the only route to this capability in the catalog, and the one most likely to break upstream, so check the actor's run history before relying on it"
+    test_request:
+      queryParams: {maxItems: 1, maxTotalChargeUsd: 0.05, timeout: 180}
+      body: {search: "nike", region: "all", query_type: "1", limit: 1, offset: 0}
+    cost: {type: per_result, value: 0.003, currency: USD, per: 1, unit: ad, source: docs, source_url: 'https://apify.com/pricing', checked: '2026-08-13', confidence: documented, note: 'pay-per-event: ~$3.00 per 1,000 ads scraped (published on the actor page), no subscription minimum. The per-ad price is documented, but the charge stays unobservable: a live run 2026-08-13 succeeded (201) yet returned 0 items (x-apify-pagination-total 0), as did all three 2026-07-31 runs — the actor consistently yields nothing, so a real call bills $0. Treat as effectively non-returning until the upstream actor is fixed.'}
+    unverified: "actor is upstream-broken, not the route: HTTP 201 with an EMPTY dataset ([]) on three
+      live runs 2026-07-31 — search=skincare/region=DE/query_type default, search=skincare/region=all/
+      query_type=0 (keyword), and search=nike/region=all/query_type=1 (advertiser, the actor's own
+      prefill). Every run reports SUCCEEDED with exit code 0 and usageTotalUsd 0.00, and the run log
+      shows the Actor initialising and exiting inside 1 second without attempting a fetch. Input
+      shapes were taken from the actor's own published input schema (region=US is rejected upstream —
+      use 'all'), so this is not a parameter error. Re-check the actor's run history before relying on
+      this capability; it is the catalog's ONLY route to tiktok-ads.library.search"
+    docs_url: https://apify.com/s-r/tiktok-ads-library
+
+  - id: apify.linkedin.search.jobs
+    capability: linkedin.search.jobs
+    platform: linkedin
+    scope: any_account
+    method: POST
+    path: /actors/harvestapi~linkedin-job-search/run-sync-get-dataset-items
+    name: "LinkedIn job postings by title, company or location"
+    summary: "Scrape LinkedIn job postings by title, company, location or filters — the hiring-signal search that also answers 'what is this company hiring for' via the company filter"
+    input:
+      queryParams:
+        maxItems: {type: integer, required: false, note: "SERVER-SIDE result cap for pay-per-result actors — the only hard spend limit; set it on every call", example: 25}
+        maxTotalChargeUsd: {type: number, required: false, note: "alternative hard cap, in dollars", example: 0.05}
+        timeout: {type: integer, required: false, note: "seconds before the synchronous run is cut off; Apify closes the connection at 300s regardless", example: 120}
+      body:
+        jobTitles: {type: "array[string]", required: true, note: "job-search queries; supports boolean operators. To list ALL of one company's openings, pass a broad query here and pin `company`", example: ["software engineer"]}
+        company: {type: "array[string]", required: false, note: "restrict to these companies — names or LinkedIn company URLs", example: ["Netflix"]}
+        locations: {type: "array[string]", required: false, note: "LinkedIn location names; free text must match LinkedIn's autocomplete", example: ["San Francisco"]}
+        workplaceType: {type: "array[string]", required: false, note: "Remote / Hybrid / On-site"}
+        employmentType: {type: "array[string]", required: false, note: "Full-time / Part-time / Contract"}
+        experienceLevel: {type: "array[string]", required: false, note: "Entry / Mid / Senior"}
+        postedLimit: {type: string, required: false, note: "Past hour / Past 24 hours / Past week / Past month"}
+        sortBy: {type: string, required: false, note: "date | relevance"}
+        maxItems: {type: integer, required: false, note: "jobs per query; 0 means every available page (LinkedIn caps at 40 pages ≈ 1,000). Pair with the query-string maxItems, which is the enforced ceiling", example: 25}
+        page: {type: integer, required: false, note: "starting page, 25 jobs per page"}
+      bodyType: json
+      note: "the response is the dataset items array directly — no run envelope. Community actor scraping LinkedIn's public job search: no LinkedIn login needed, but expect the flakiness every LinkedIn scraper shows — retry before concluding a company has no openings"
+    test_request:
+      queryParams: {maxItems: 1, maxTotalChargeUsd: 0.05, timeout: 180}
+      body: {jobTitles: ["attorney"], locations: ["Miami, Florida"], maxItems: 1}
+    cost: {type: per_result, value: 0.001, currency: USD, per: 1, unit: result, source: docs, source_url: 'https://apify.com/harvestapi/linkedin-job-search', checked: '2026-08-20', confidence: documented, note: 'pay-per-event: $1.00 per 1,000 jobs published on the actor page, no platform usage charge on top. Charged per dataset item produced — cap every call with maxItems and read usageTotalUsd from GET /v2/actor-runs after a big pull'}
+    verified: 2026-08-20
+    example_response: examples/apify.linkedin.search.jobs.json
+    docs_url: https://apify.com/harvestapi/linkedin-job-search
+
+  - id: apify.web.scrape.job.start
+    kind: utility
+    capability: web.scrape.job.start
+    platform: web
+    scope: any_account
+    method: POST
+    path: /actors/{actor_id}/runs
+    name: "Start an Apify actor run in the background"
+    summary: "Start a scraper run in the background and get back its run id"
+    resource_ownership:
+      produces:
+        - {kind: run, path: data.id}
+        - {kind: dataset, path: data.defaultDatasetId}
+    input:
+      pathParams:
+        actor_id: {type: string, required: true, note: "username~actorname with a TILDE, e.g. apify~facebook-ads-scraper", example: "apify~facebook-ads-scraper"}
+      queryParams:
+        maxItems: {type: integer, required: false, note: "result cap for pay-per-result actors", example: 500}
+        maxTotalChargeUsd: {type: number, required: false, example: 5.0}
+        timeout: {type: integer, required: false, note: "seconds the RUN may take (not the HTTP call)", example: 900}
+        memory: {type: integer, required: false, note: "MB; higher memory is faster and costs more compute", example: 2048}
+        waitForFinish: {type: integer, required: false, note: "seconds to hold the HTTP response open waiting for the run, max 60 — a middle ground between async and run-sync", example: 0}
+      bodyType: json
+      note: "the whole request body IS the actor's input object — there is no wrapper key; use the same fields as the run-sync entries above (startUrls/resultsLimit for the Facebook actor, search/limit for the TikTok one). Returns immediately with {data: {id, status, defaultDatasetId}}. This is the route for anything that outruns run-sync's 300-second ceiling: keep `id` to poll and `defaultDatasetId` to collect results. The test_request deliberately targets apify~hello-world rather than a data actor — REPLAYING IT STARTS A REAL RUN, and hello-world is the cheapest actor that exists (observed 2026-07-31: $0.00013 of compute, no results, so nothing pay-per-result can bill). Verified live 2026-07-31 that /actors/{id}/runs and the older /acts/{id}/runs are the same endpoint — both answer 201"
+    cost: {type: free, value: 0, currency: USD, unit: call, note: starting a run costs nothing; the run itself bills per result or per compute unit according to the actor's pricing}
+    test_request:
+      pathParams: {actor_id: "apify~hello-world"}
+      queryParams: {waitForFinish: 0, timeout: 60, memory: 256, maxTotalChargeUsd: 0.05}
+      body: {}
+    verified: 2026-07-31
+    example_response: examples/apify.web.scrape.job.start.json
+    docs_url: https://docs.apify.com/api/v2/act-runs-post
+
+  - id: apify.web.scrape.job.status
+    kind: utility
+    capability: web.scrape.job.status
+    platform: web
+    scope: any_account
+    method: GET
+    path: /actor-runs/{run_id}
+    name: "Check an Apify actor run by run id"
+    summary: "Check whether a background scraper run has finished"
+    resource_ownership:
+      requires: {kind: run, param: run_id}
+      produces:
+        - {kind: dataset, path: data.defaultDatasetId}
+    input:
+      pathParams:
+        run_id: {type: string, required: true, note: "the id from the run-start response", example: "HG7ML7M8z78YcAPEB"}
+      queryParams:
+        waitForFinish: {type: integer, required: false, note: "seconds to block waiting for a terminal status, max 60 — cheaper than a poll loop", example: 30}
+      note: "status is READY | RUNNING | SUCCEEDED | FAILED | TIMED-OUT | ABORTED. The response also carries usageTotalUsd — what the run has cost so far — and defaultDatasetId for collecting results. GET /actor-runs (no id) lists recent runs with the same fields, which is how you price a run-sync call after the fact: run-sync-get-dataset-items returns the items only, never the run id. CHAINED ID: the run_id in test_request is a real hello-world run from 2026-07-31 and unnamed runs expire with the plan's data-retention window — re-verify by starting a fresh run and harvesting its id, not by trusting a 404 here"
+    cost: {type: free, value: 0, currency: USD, unit: call, note: polling is free}
+    test_request:
+      pathParams: {run_id: "nHiUlQKgmSYKxjdtc"}
+      queryParams: {}
+    verified: 2026-07-31
+    example_response: examples/apify.web.scrape.job.status.json
+    docs_url: https://docs.apify.com/api/v2/actor-run-get
+
+  - id: apify.web.scrape.job.results
+    capability: web.scrape.job.results
+    platform: web
+    scope: any_account
+    method: GET
+    path: /datasets/{dataset_id}/items
+    name: "Download an Apify run's results by dataset id"
+    summary: "Download the results of a finished scraper run"
+    resource_ownership:
+      requires: {kind: dataset, param: dataset_id}
+    input:
+      pathParams:
+        dataset_id: {type: string, required: true, note: "defaultDatasetId from the run", example: "9RcGyLmzZm3nBWNsL"}
+      queryParams:
+        limit: {type: integer, required: false, note: "items per page; default is everything, which can be a very large response", example: 100}
+        offset: {type: integer, required: false, example: 0}
+        fields: {type: string, required: false, note: "comma-separated field allow-list — the fastest way to shrink an unwieldy scrape result", example: "adId,pageName,adText,snapshotUrl"}
+        format: {type: string, required: false, note: "json (default) | jsonl | csv | xlsx | xml | rss", example: "json"}
+        clean: {type: boolean, required: false, note: "true drops empty and hidden (#-prefixed) items", example: true}
+      note: "results are already paid for at run time — re-reading a dataset is free and repeatable, so store the dataset id rather than re-running the actor. The response is the items ARRAY at the top level, not an envelope. CHAINED ID: the dataset_id in test_request is the defaultDatasetId of that same 2026-07-31 hello-world run and expires with it — harvest a fresh one from a run before re-verifying"
+    cost: {type: free, value: 0, currency: USD, unit: call, note: reading a dataset costs nothing; you paid when the run produced the items}
+    test_request:
+      pathParams: {dataset_id: "QPg9EhVcdbiiLL2X5"}
+      queryParams: {limit: 5, clean: true}
+    verified: 2026-07-31
+    example_response: examples/apify.web.scrape.job.results.json
+    docs_url: https://docs.apify.com/api/v2/dataset-items-get
+
+  - id: apify.account.usage
+    kind: account
+    capability: account.usage
+    platform: account
+    scope: any_account
+    method: GET
+    path: /users/me
+    name: "Your Apify plan, credits and monthly limits"
+    summary: "Check your Apify plan, credit usage and remaining monthly limits"
+    input:
+      note: "no parameters. Returns the account's plan, monthly usage in USD and the limits it is measured against — the pre-flight check before a large pay-per-result pull, and the cheapest way to prove a token is valid (a bad token 401s here)"
+    cost: {type: free, value: 0, currency: USD, unit: call, note: free; this is also the registry's probe endpoint for the provider}
+    test_request: {queryParams: {}}
+    verified: 2026-07-28
+    example_response: examples/apify.account.usage.json
+    docs_url: https://docs.apify.com/api/v2/users-me-get
+
+proposed_capabilities:

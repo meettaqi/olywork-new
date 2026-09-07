@@ -1,0 +1,50 @@
+# Path → area label mapping for the PR auto-labeler (actions/labeler v5).
+# Keep in sync with the labels defined on the repo and the docs/context fragments.
+
+"area:api":
+  - changed-files:
+      - any-glob-to-any-file: 'src/olywork/api.py'
+
+"area:proxy":
+  - changed-files:
+      - any-glob-to-any-file: 'src/olywork/infra/upstream/relay.py'
+
+"area:auth-secrets":
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/olywork/infra/upstream/injectors.py'
+          - 'src/olywork/crypto.py'
+          - 'src/olywork/oauth.py'
+          - 'src/olywork/domain/identity/session.py'
+          - 'src/olywork/email.py'
+          - 'src/olywork/health.py'
+          - 'src/olywork/ratestore.py'
+
+"area:cli":
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/olywork/cli.py'
+          - 'src/olywork/convert.py'
+          - 'src/olywork/shell.py'
+
+"area:runner":
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/olywork/runner.py'
+          - 'src/olywork/localrun.py'
+          - 'src/olywork/egress.py'
+          - 'src/olywork/fsjail.py'
+
+"area:dashboard":
+  - changed-files:
+      - any-glob-to-any-file: 'src/olywork/web/**'
+
+"area:docs":
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'docs/**'
+          - '**/*.md'
+
+"area:ci":
+  - changed-files:
+      - any-glob-to-any-file: '.github/**'
