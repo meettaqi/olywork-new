@@ -19,7 +19,7 @@
 }
 *{box-sizing:border-box}
 html{scroll-behavior:smooth}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);
+body{padding-top: 80px; margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);
   font-size:14.5px;line-height:1.72;-webkit-font-smoothing:antialiased}
 /* film grain, same as the landing */
 

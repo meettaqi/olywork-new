@@ -126,18 +126,18 @@ button { background: none; border: none; cursor: pointer; font-family: inherit; 
 </head>
 <body>
 
-<nav class="navbar">
-  <a href="/" class="brand">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+<div class="navwrap"><nav class="nav" style="position:fixed;top:0;width:100%;height:80px;display:flex;align-items:center;justify-content:space-between;padding:0 48px;background:rgba(244,242,236,0.95);backdrop-filter:blur(12px);border-bottom:1px solid rgba(232,229,218,0.6);z-index:50;left:0;">
+  <a class="brand" href="/" style="display:flex;align-items:center;gap:8px;font-family:var(--display);font-weight:800;font-size:24px;letter-spacing:-0.04em;">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:24px;height:24px;"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
     Olywork
   </a>
-  <div class="nav-links">
-    <a href="/catalog" class="nav-link">Catalog</a>
-    <a href="/docs" class="nav-link">Docs</a>
-    <a href="/login" class="nav-link">Sign In</a>
-    <a href="/post" class="btn-primary">Post a tool request</a>
+  <div class="links" style="display:flex;gap:32px;align-items:center;">
+    <a href="/catalog" style="font-weight:500;">Catalog</a>
+    <a href="/docs" style="font-weight:500;">API</a>
+    <a href="/tutorial" style="font-weight:500;">Tutorial</a>
+    <a href="/app" style="background:var(--ink);color:var(--bg);padding:10px 24px;border-radius:99px;font-weight:600;">Start free</a>
   </div>
-</nav>
+</nav></div>
 
 <section class="hero">
   <canvas class="hero-canvas" id="heroCanvas"></canvas>
@@ -593,17 +593,114 @@ draw();
   </div>
 </section>
 
-<footer class="footer">
-  <div class="brand">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-    Olywork
+
+<style>
+/* FAQ SECTION */
+.faq-section { padding: 100px 24px; max-width: 800px; margin: 0 auto; }
+.faq-title { font-family: var(--font-heading); font-size: 40px; font-weight: 800; text-align: center; margin-bottom: 48px; letter-spacing: -0.03em; }
+.faq-item { border-bottom: 1px solid var(--border); padding: 24px 0; }
+.faq-q { font-size: 18px; font-weight: 600; color: var(--ink); cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+.faq-a { font-size: 15px; color: var(--ink-secondary); margin-top: 16px; line-height: 1.6; display: none; }
+.faq-item.active .faq-a { display: block; }
+.faq-icon { font-size: 24px; font-weight: 300; transition: transform 0.3s; }
+.faq-item.active .faq-icon { transform: rotate(45deg); }
+</style>
+
+
+<style>
+.how-section { padding: 120px 24px; max-width: 1000px; margin: 0 auto; text-align: center; }
+.how-title { font-family: var(--font-heading); font-size: 48px; font-weight: 800; margin-bottom: 24px; letter-spacing: -0.03em; }
+.how-sub { font-size: 18px; color: var(--ink-secondary); margin-bottom: 80px; max-width: 600px; margin-left: auto; margin-right: auto; line-height: 1.5; }
+.how-diagram { display: flex; align-items: center; justify-content: center; gap: 24px; }
+.how-box { background: var(--surface); border: 1px solid var(--border); border-radius: 24px; padding: 40px; flex: 1; position: relative; }
+.how-box-icon { width: 48px; height: 48px; background: var(--bg); border: 1px solid var(--border); border-radius: 12px; display: flex; align-items: center; justify-content: center; margin: 0 auto 24px; font-weight: bold; }
+.how-box h4 { font-family: var(--font-heading); font-size: 24px; margin-bottom: 12px; font-weight: 700; }
+.how-box p { font-size: 15px; color: var(--ink-secondary); line-height: 1.5; }
+.how-arrow { color: var(--ink-muted); font-size: 24px; }
+@media (max-width: 768px) {
+  .how-diagram { flex-direction: column; }
+  .how-arrow { transform: rotate(90deg); }
+}
+</style>
+
+<section class="how-section">
+  <h2 class="how-title">How Olywork works</h2>
+  <p class="how-sub">Give your AI agents the power to interact with the world, without managing 60 different API keys and billing portals.</p>
+  
+  <div class="how-diagram">
+    <div class="how-box">
+      <div class="how-box-icon">🤖</div>
+      <h4>1. Your Agent</h4>
+      <p>Your AI agent makes a single standard REST or MCP call to the Olywork endpoint, using one unified token.</p>
+    </div>
+    
+    <div class="how-arrow">→</div>
+    
+    <div class="how-box" style="background: var(--primary-deep); color: white;">
+      <div class="how-box-icon" style="background: var(--ink); border: none;">▚</div>
+      <h4 style="color: var(--accent);">2. Olywork</h4>
+      <p style="color: #A09E96;">We instantly route the request, inject the appropriate provider credentials, and meter the micro-USD cost.</p>
+    </div>
+    
+    <div class="how-arrow">→</div>
+    
+    <div class="how-box">
+      <div class="how-box-icon">🌍</div>
+      <h4>3. 2,800+ Tools</h4>
+      <p>The upstream provider (Google, Twitter, TikTok, etc.) executes the task and the result is returned directly to your agent.</p>
+    </div>
   </div>
-  <div class="footer-links">
-    <a href="/catalog" class="footer-link">Catalog</a>
-    <a href="/docs" class="footer-link">Documentation</a>
-    <a href="/terms" class="footer-link">Terms</a>
-    <a href="/privacy" class="footer-link">Privacy</a>
+</section>
+
+<section class="faq-section">
+  <h2 class="faq-title">Frequently Asked Questions</h2>
+  
+  <div class="faq-item" onclick="this.classList.toggle('active')">
+    <div class="faq-q">What is Olywork? <span class="faq-icon">+</span></div>
+    <div class="faq-a">Olywork is an open marketplace and OpenRouter for AI agent tools. It provides a single API endpoint that gives your AI agents access to over 2,800 tools across 60+ providers like Google, Twitter, LinkedIn, and more, all with one unified token.</div>
   </div>
+  
+  <div class="faq-item" onclick="this.classList.toggle('active')">
+    <div class="faq-q">How does pricing work? <span class="faq-icon">+</span></div>
+    <div class="faq-a">We use a strict micro-USD pay-per-call model. There are no monthly subscriptions, no provider signups required, and no hidden markups. You simply pay fractions of a cent per successful API call based on the provider's base cost.</div>
+  </div>
+  
+  <div class="faq-item" onclick="this.classList.toggle('active')">
+    <div class="faq-q">Do I need my own API keys? <span class="faq-icon">+</span></div>
+    <div class="faq-a">No. With Olywork, you don't need to manage API keys for dozens of services. Your single Olywork token instantly authenticates your agent across our entire catalog of 2,896+ endpoints.</div>
+  </div>
+  
+  <div class="faq-item" onclick="this.classList.toggle('active')">
+    <div class="faq-q">Can my agent act on behalf of my users? <span class="faq-icon">+</span></div>
+    <div class="faq-a">Yes! Olywork handles all the OAuth connections natively. Your users simply click "Connect Twitter" (or any other service), and your agent is immediately authorized to act securely on their behalf.</div>
+  </div>
+</section>
+
+<footer style="padding:80px 48px;background:var(--surface);border-top:1px solid var(--border);display:flex;justify-content:space-between;max-width:1200px;margin:0 auto;width:100%;">
+  <div class="foot-brand" style="max-width:300px;">
+    <div class="brand" style="display:flex;align-items:center;gap:8px;font-family:var(--font-heading);font-weight:800;font-size:24px;letter-spacing:-0.04em;margin-bottom:16px;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:24px;height:24px;"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+      Olywork
+    </div>
+    <div style="color:var(--ink-secondary);font-size:14px;line-height:1.5;">The OpenRouter for AI Agent Tools. One unified token for 2,800+ endpoints.</div>
+  </div>
+  <nav class="foot-cols" style="display:flex;gap:64px;">
+    <div class="foot-col" style="display:flex;flex-direction:column;gap:12px;">
+      <div style="font-weight:700;color:var(--ink);margin-bottom:8px;">Explore</div>
+      <a href="/catalog" style="color:var(--ink-secondary);transition:color 0.2s;">Catalog</a>
+    </div>
+    <div class="foot-col" style="display:flex;flex-direction:column;gap:12px;">
+      <div style="font-weight:700;color:var(--ink);margin-bottom:8px;">Build</div>
+      <a href="/docs" style="color:var(--ink-secondary);transition:color 0.2s;">API Docs</a>
+      <a href="/tutorial" style="color:var(--ink-secondary);transition:color 0.2s;">Tutorial</a>
+    </div>
+    <div class="foot-col" style="display:flex;flex-direction:column;gap:12px;">
+      <div style="font-weight:700;color:var(--ink);margin-bottom:8px;">Company</div>
+      <a href="/support" style="color:var(--ink-secondary);transition:color 0.2s;">Support</a>
+      <a href="/terms" style="color:var(--ink-secondary);transition:color 0.2s;">Terms</a>
+      <a href="/privacy" style="color:var(--ink-secondary);transition:color 0.2s;">Privacy</a>
+    </div>
+  </nav>
 </footer>
 
 </body>

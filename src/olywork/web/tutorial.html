@@ -10,21 +10,23 @@
 <script src="/sitetrack.js"></script>
 <script src="/tutorial.js"></script>
 <style>
+body { padding-top: 80px; }
+
   /* Same tokens as the dashboard — see index.html and
      docs/context/interface/restyle-plan.md. Light is the default; --accent is ink,
      because colour is reserved for status (rows.gg). */
-  :root{ --bg:#f4f4f1;--surface:#fff;--panel:#fafaf9;--panel2:#f0f0ee;--ink:#1a1a1a;
-    --muted:#7c7c7c;--muted2:#989898;--line:#2626231a;--line2:#25252233;--hover:#2a2a250a;
-    --green:#118453;--amber:#ba6603;--red:#c0362f;--teal:#1a7da6;
-    --shadow-sm:0 1px 2px #00000014;--shadow-md:0 1px 2px -1px #0000000a,0 4px 6px -1px #0000000f;
-    --ease:cubic-bezier(.2,.72,.25,1);--r:15px;--rb:10px;
-    --mono:"DM Mono",ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
-    --sans:"Suisse Intl","Inter","Segoe UI",system-ui,sans-serif;
-    /* Syntax ramp, themed like the dashboard's (index.html 3.8). Every value clears 4.5:1
-       on the light code surface; a ramp drawn for a dark block is invisible on a light one. */
-    --sx-cmd:#1a1a1a; --sx-var:#16688a; --sx-str:#0f7346; --sx-flag:#9a5502;
-    --sx-cmt:#6b6b6b; --sx-punct:#6b6b6b;
-    color-scheme:light;}
+  :root{
+  --bg: #F4F2EC; --surface: #FCFBFA; --panel: #FFFFFF; --panel2: #F0EEE6;
+  --ink: #202020; --muted: #7E7C74; --muted2: #A09E96;
+  --line: #E8E5DA; --line2: #D5D1C3; --hover: rgba(0,0,0,0.05);
+  --green: #22C55E; --amber: #F59E0B; --red: #EF4444; --teal: #202020;
+  --accent: #9FF25F;
+  --shadow-sm: none; --shadow-md: none;
+  --ease: cubic-bezier(.2,.72,.25,1); --r: 16px; --rb: 12px;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --sans: "Inter", sans-serif;
+  --display: "Plus Jakarta Sans", sans-serif;
+}
   [data-theme="dark"]{ --bg:#161518;--surface:#1e1d20;--panel:#1c1b1e;--panel2:#232226;
     --ink:#f0f0ee;--muted:#989898;--muted2:#6f6f6d;
     --line:#f3f3f512;--line2:#f3f3f524;--hover:#f4f4f50a;
@@ -114,6 +116,18 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 </head>
 <body>
+<div class="navwrap"><nav class="nav" style="position:fixed;top:0;width:100%;height:80px;display:flex;align-items:center;justify-content:space-between;padding:0 48px;background:rgba(244,242,236,0.95);backdrop-filter:blur(12px);border-bottom:1px solid rgba(232,229,218,0.6);z-index:50;left:0;">
+  <a class="brand" href="/" style="display:flex;align-items:center;gap:8px;font-family:var(--display);font-weight:800;font-size:24px;letter-spacing:-0.04em;">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:24px;height:24px;"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+    Olywork
+  </a>
+  <div class="links" style="display:flex;gap:32px;align-items:center;">
+    <a href="/catalog" style="font-weight:500;">Catalog</a>
+    <a href="/docs" style="font-weight:500;">API</a>
+    <a href="/tutorial" style="font-weight:500;">Tutorial</a>
+    <a href="/app" style="background:var(--ink);color:var(--bg);padding:10px 24px;border-radius:99px;font-weight:600;">Start free</a>
+  </div>
+</nav></div>
 <header class="top">
   <span class="brand">▚ olywork</span>
   <span class="sub">Interactive tutorial - teams, roles, skills &amp; the credential-injecting proxy</span>
@@ -222,5 +236,31 @@
 })();
 </script>
 <script src="/gtag.js"></script>
+<footer style="padding:80px 48px;background:var(--surface);border-top:1px solid var(--border);display:flex;justify-content:space-between;max-width:1200px;margin:100px auto 0;width:100%;">
+  <div class="foot-brand" style="max-width:300px;">
+    <div class="brand" style="display:flex;align-items:center;gap:8px;font-family:var(--display);font-weight:800;font-size:24px;letter-spacing:-0.04em;margin-bottom:16px;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:24px;height:24px;"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+      Olywork
+    </div>
+    <div style="color:var(--muted);font-size:14px;line-height:1.5;">The OpenRouter for AI Agent Tools. One unified token for 2,800+ endpoints.</div>
+  </div>
+  <nav class="foot-cols" style="display:flex;gap:64px;">
+    <div class="foot-col" style="display:flex;flex-direction:column;gap:12px;">
+      <div style="font-weight:700;color:var(--ink);margin-bottom:8px;">Explore</div>
+      <a href="/catalog" style="color:var(--muted);">Catalog</a>
+    </div>
+    <div class="foot-col" style="display:flex;flex-direction:column;gap:12px;">
+      <div style="font-weight:700;color:var(--ink);margin-bottom:8px;">Build</div>
+      <a href="/docs" style="color:var(--muted);">API Docs</a>
+      <a href="/tutorial" style="color:var(--muted);">Tutorial</a>
+    </div>
+    <div class="foot-col" style="display:flex;flex-direction:column;gap:12px;">
+      <div style="font-weight:700;color:var(--ink);margin-bottom:8px;">Company</div>
+      <a href="/support" style="color:var(--muted);">Support</a>
+      <a href="/terms" style="color:var(--muted);">Terms</a>
+      <a href="/privacy" style="color:var(--muted);">Privacy</a>
+    </div>
+  </nav>
+</footer>
 </body>
 </html>
