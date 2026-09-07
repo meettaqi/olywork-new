@@ -451,7 +451,39 @@ async def catalog_index():
         if _hosted() else ""
     )
     # Vanilla JS for instant filter/search
-    filter_script = '''<script>
+    filter_script = '''
+    <style>
+    dialog {
+      border: none; border-radius: 12px; padding: 24px; width: 100%; max-width: 500px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.1); font-family: var(--font-i);
+    }
+    dialog::backdrop { background: rgba(0,0,0,0.4); }
+    .d-close { float: right; background: none; border: none; cursor: pointer; font-size: 16px; opacity: 0.5; margin-top: -4px; margin-right: -4px; }
+    .d-close:hover { opacity: 1; }
+    .d-title { font-size: 18px; font-weight: 600; margin-bottom: 12px; color: var(--ink); }
+    .d-input { width: 100%; box-sizing: border-box; padding: 12px; border: 1px solid var(--line); border-radius: 6px; margin: 12px 0 20px; font-family: var(--font-i); font-size: 15px; }
+    .d-input:focus { outline: none; border-color: var(--line2); }
+    .d-pre { background: rgba(0,0,0,0.03); padding: 16px; border-radius: 8px; font-family: var(--font-m); font-size: 13px; white-space: pre-wrap; margin-bottom: 20px; color: var(--ink); line-height: 1.5; border: 1px solid var(--line); }
+    </style>
+
+    <dialog id="reqAsk">
+      <button class="d-close" onclick="this.closest('dialog').close()">✕</button>
+      <div class="d-title">Request a tool</div>
+      <p style="color:var(--muted); font-size: 14px; margin-bottom:16px; line-height: 1.5;">Missing a provider or capability? Tell us what you need and we'll add it.</p>
+      <input type="text" id="reqInput" class="d-input" placeholder="e.g. Ahrefs backlinks, flight prices...">
+      <button class="btn sm primary" onclick="submitReq()">Submit request</button>
+      <span id="reqMsg" style="margin-left: 12px; font-size: 14px; color: #10B981; display: none; font-weight: 500;">Sent!</span>
+    </dialog>
+
+    <dialog id="vendorAsk">
+      <button class="d-close" onclick="this.closest('dialog').close()">✕</button>
+      <div class="d-title">List your API in this catalog</div>
+      <p style="color:var(--muted); font-size: 14px; margin-bottom:16px; line-height: 1.5;">Paste this instruction into your coding agent (Claude Code, Cursor, etc). It will read the docs and open a pull request.</p>
+      <div class="d-pre" id="vendorPrompt">Help me create a PR to olywork (https://github.com/meettaqi/olywork-new) that adds our API to its tool catalog. Follow the instructions at https://olywork.com/vendor-listing — and include our contact email in the PR description so the maintainers can reach us to arrange live verification.</div>
+      <button class="btn sm primary" onclick="navigator.clipboard.writeText(document.getElementById('vendorPrompt').innerText); this.innerText='Copied!'; setTimeout(()=>this.innerText='Copy instruction',2000)">Copy instruction</button>
+    </dialog>
+
+    <script>
       document.addEventListener("DOMContentLoaded", () => {
         const input = document.getElementById("catSearch");
         const cards = document.querySelectorAll(".pcard");
@@ -476,6 +508,23 @@ async def catalog_index():
             filter();
           });
         });
+        
+        window.submitReq = async function() {
+          const cap = document.getElementById("reqInput").value.trim();
+          if(!cap) return;
+          try {
+            await fetch('/api/1/catalog/requests', {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({capability: cap, note: '', contact: ''})
+            });
+            const msg = document.getElementById("reqMsg");
+            msg.style.display = 'inline';
+            setTimeout(() => { document.getElementById('reqAsk').close(); msg.style.display='none'; document.getElementById("reqInput").value=''; }, 1500);
+          } catch (e) {
+            alert('Failed to submit. Please try again.');
+          }
+        };
       });
     </script>'''
 
@@ -487,6 +536,11 @@ async def catalog_index():
   <h1 class="cat-h1">{total_eps:,} endpoints.<br><span style="opacity:.4">One key.</span></h1>
   <p class="cat-lede">{total_eps:,} endpoints across {len(rows)} platforms and {len(providers)} providers — every tool your agent can call through one key, priced per call with no provider signup.</p>
   {hub_links}
+  <div style="margin-top: 12px; display: flex; gap: 12px; flex-wrap: wrap;">
+    <button class="btn sm" onclick="document.getElementById('reqAsk').showModal()">Request a tool</button>
+    <button class="btn sm" onclick="document.getElementById('vendorAsk').showModal()">List as vendor</button>
+    <button class="btn sm primary" onclick="window.location.href='/app'">Bring your own key</button>
+  </div>
 </div>
 </div>
 <div class="stats-strip">
