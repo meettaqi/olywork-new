@@ -367,35 +367,56 @@ async def catalog_index():
     cats: dict[str, list[dict]] = {}
     for row in rows:
         cats.setdefault(row["category"], []).append(row)
-    sections = []
-    for name, items in cats.items():
-        cards = []
-        for r in items:
-            price = _price_label(r["price_from"])
-            slug = _esc_html(r["slug"])
-            label = _esc_html(r["label"])
-            summary = _esc_html(r["summary"])
-            logo_url = f'/logos/platforms/{slug}.svg'
-            price_badge = f'<span class="pcard-price">from {_esc_html(price)}</span>' if price else ""
-            # Use first provider slug as logo fallback
-            first_prov = r["providers"][0] if r["providers"] else slug
-            logo_url2 = f'/logos/platforms/{_esc_html(first_prov)}.svg'
-            cards.append(
-                f'<a href="/catalog/{slug}" class="pcard">'
-                f'<div class="pcard-head">'
-                f'<div class="pcard-logo"><img src="{logo_url}" onerror="this.src=\'{logo_url2}\';this.onerror=null" alt="{label}" loading="lazy"></div>'
-                f'<div><div class="pcard-name">{label}</div>'
-                f'<div class="pcard-cat">{_esc_html(name)}</div></div>'
-                f'</div>'
-                f'<div class="pcard-desc">{summary}</div>'
-                f'<div class="pcard-meta">'
-                f'<span class="pcard-badge">{r["endpoints"]} endpoints</span>'
-                f'<span class="pcard-badge">{r["capabilities"]} caps</span>'
-                f'{price_badge}'
-                f'<span class="pcard-cta">View →</span>'
-                f'</div>'
-                f'</a>')
-        sections.append(f'<div class="cat">{_esc_html(name)}</div><div class="grid">{"".join(cards)}</div>')
+
+    # 1. Build sidebar items
+    sidebar_items = []
+    # 'All' tab
+    sidebar_items.append(
+        '<div class="cat-nav-item active" data-cat="all">'
+        '<div class="cat-nav-left"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>All</div>'
+        f'<div class="cat-nav-count">{len(rows)}</div></div>'
+    )
+    
+    # Rest of categories
+    # Sort categories alphabetically
+    for name, items in sorted(cats.items()):
+        # simple generic icon for everything else
+        icon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle></svg>'
+        sidebar_items.append(
+            f'<div class="cat-nav-item" data-cat="{_esc_html(name)}">'
+            f'<div class="cat-nav-left">{icon}{_esc_html(name)}</div>'
+            f'<div class="cat-nav-count">{len(items)}</div></div>'
+        )
+
+    # 2. Build flat grid of all cards
+    all_cards = []
+    # sort all rows alphabetically by label
+    for r in sorted(rows, key=lambda x: x["label"].lower()):
+        price = _price_label(r["price_from"])
+        slug = _esc_html(r["slug"])
+        label = _esc_html(r["label"])
+        name = _esc_html(r["category"])
+        summary = _esc_html(r["summary"])
+        logo_url = f'/logos/platforms/{slug}.svg'
+        price_badge = f'<span class="pcard-price">from {_esc_html(price)}</span>' if price else ""
+        first_prov = r["providers"][0] if r["providers"] else slug
+        logo_url2 = f'/logos/platforms/{_esc_html(first_prov)}.svg'
+        
+        all_cards.append(
+            f'<a href="/catalog/{slug}" class="pcard" data-cat="{name}" data-search="{label.lower()} {summary.lower()}">'
+            f'<div class="pcard-head">'
+            f'<div class="pcard-logo"><img src="{logo_url}" onerror="this.src=\'{logo_url2}\';this.onerror=null" alt="{label}" loading="lazy"></div>'
+            f'<div><div class="pcard-name">{label}</div>'
+            f'<div class="pcard-cat">{name}</div></div>'
+            f'</div>'
+            f'<div class="pcard-desc">{summary}</div>'
+            f'<div class="pcard-meta">'
+            f'<span class="pcard-badge">{r["endpoints"]} endpoints</span>'
+            f'<span class="pcard-badge">{r.get("capabilities", 0)} caps</span>'
+            f'{price_badge}'
+            f'</div>'
+            f'</a>'
+        )
 
 
     # The provider links live HERE, in the crawlable prerender, rather than on an index page of
@@ -415,14 +436,42 @@ async def catalog_index():
         '<a href="/agents" style="color:var(--ink);font-weight:600;text-decoration:underline;text-underline-offset:3px">Agent pages</a> show the full menu for one agent.</p>'
         if _hosted() else ""
     )
+    # Vanilla JS for instant filter/search
+    filter_script = '''<script>
+      document.addEventListener("DOMContentLoaded", () => {
+        const input = document.getElementById("catSearch");
+        const cards = document.querySelectorAll(".pcard");
+        const navs = document.querySelectorAll(".cat-nav-item");
+        let currentCat = "all";
+
+        function filter() {
+          const q = input.value.toLowerCase();
+          cards.forEach(c => {
+            const matchesCat = currentCat === "all" || c.getAttribute("data-cat") === currentCat;
+            const matchesSearch = !q || c.getAttribute("data-search").includes(q);
+            c.style.display = (matchesCat && matchesSearch) ? "flex" : "none";
+          });
+        }
+
+        input.addEventListener("input", filter);
+        navs.forEach(nav => {
+          nav.addEventListener("click", () => {
+            navs.forEach(n => n.classList.remove("active"));
+            nav.classList.add("active");
+            currentCat = nav.getAttribute("data-cat");
+            filter();
+          });
+        });
+      });
+    </script>'''
+
     prerender = (
         _PRERENDER_CSS
-        + f"""<div class="cat-hero">
+        + f'''<div class="cat-hero">
   <div class="cat-eyebrow">Tool catalog</div>
   <h1>{total_eps:,} endpoints.<br><span style="opacity:.4">One key.</span></h1>
   <p class="lede">{total_eps:,} endpoints across {len(rows)} platforms and {len(providers)} providers — every tool your agent can call through one key, priced per call with no provider signup.</p>
   {hub_links}
-  <div class="search-hint">🔍 &nbsp; Search tools, providers, categories…</div>
 </div>
 <div class="stats-strip">
   <div class="stat-item"><div class="stat-n">{total_eps:,}</div><div class="stat-l">Endpoints</div></div>
@@ -430,11 +479,29 @@ async def catalog_index():
   <div class="stat-item"><div class="stat-n">{len(rows)}</div><div class="stat-l">Platforms</div></div>
   <div class="stat-item"><div class="stat-n">$0</div><div class="stat-l">Markup</div></div>
 </div>
-<div class="cat-wrap">
-{"".join(sections)}
-<h2 class="prov-h">The providers</h2>
-<p class="prov-p">{len(prov_rows)} vendors serve this catalog, each with its own page: {prov_links}</p>
-</div>"""
+
+<div class="cat-main-wrap">
+  <div class="cat-top-search">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+    <input type="text" id="catSearch" placeholder="Search the catalog — try 'video gen' or 'amazon reviews'">
+  </div>
+  
+  <div class="cat-layout">
+    <div class="cat-sidebar">
+      {"".join(sidebar_items)}
+    </div>
+    
+    <div>
+      <div class="cat-grid">{"".join(all_cards)}</div>
+      
+      <div style="margin-top: 80px; border-top: 1px solid var(--line); padding-top: 40px;">
+        <h2 class="prov-h">The providers</h2>
+        <p class="prov-p">{len(prov_rows)} vendors serve this catalog, each with its own page: {prov_links}</p>
+      </div>
+    </div>
+  </div>
+</div>
+{filter_script}'''
     )
 
     ld = [

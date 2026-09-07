@@ -358,3 +358,65 @@ a:hover { text-decoration: none; }
   .ep-table { font-size: 12.5px; }
   .grid { grid-template-columns: 1fr; }
 }
+
+/* ─── CATALOG LAYOUT & SEARCH ────────────────────────────────────────── */
+.cat-main-wrap {
+  max-width: 1300px; margin: 0 auto; padding: 40px;
+}
+.cat-top-search {
+  margin-bottom: 40px; position: relative;
+}
+.cat-top-search input {
+  width: 100%; height: 56px; padding: 0 24px 0 52px;
+  border-radius: 12px; border: 1px solid var(--line);
+  background: var(--surface); color: var(--ink);
+  font-family: inherit; font-size: 16px;
+  transition: border-color .2s, box-shadow .2s;
+}
+.cat-top-search input:focus {
+  border-color: var(--line2); outline: none;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+}
+.cat-top-search svg {
+  position: absolute; left: 20px; top: 50%; transform: translateY(-50%);
+  color: var(--muted2); width: 18px; height: 18px;
+}
+.cat-layout {
+  display: grid; grid-template-columns: 240px 1fr; gap: 40px;
+  align-items: start;
+}
+.cat-sidebar {
+  display: flex; flex-direction: column; gap: 4px;
+  position: sticky; top: 100px;
+}
+.cat-nav-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 16px; border-radius: 8px;
+  color: var(--muted); font-size: 14px; font-weight: 500;
+  cursor: pointer; transition: background .2s, color .2s;
+  border: 1px solid transparent; border-bottom: 1px solid transparent;
+}
+.cat-nav-item:hover { background: rgba(0,0,0,0.03); color: var(--ink); }
+.cat-nav-item.active {
+  background: #EAF0F6; /* Light blue tint matching the image */
+  color: var(--ink); font-weight: 600;
+  border-bottom: 2px solid #2B6CB0;
+  border-bottom-left-radius: 4px; border-bottom-right-radius: 4px;
+}
+.cat-nav-left { display: flex; align-items: center; gap: 12px; }
+.cat-nav-left svg { width: 16px; height: 16px; opacity: 0.7; }
+.cat-nav-count { font-family: var(--font-m); font-size: 11px; color: var(--muted2); }
+
+/* Updated grid for flat layout */
+.cat-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+.pcard { padding: 20px; border-radius: 12px; }
+@media (max-width: 900px) {
+  .cat-layout { grid-template-columns: 1fr; }
+  .cat-sidebar { position: static; flex-direction: row; flex-wrap: wrap; margin-bottom: 24px; }
+  .cat-nav-item { flex: 1 1 auto; justify-content: center; }
+  .cat-nav-count { display: none; }
+  .cat-grid { grid-template-columns: 1fr; }
+}
