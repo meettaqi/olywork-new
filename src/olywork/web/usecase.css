@@ -13,23 +13,21 @@
    marketing/landing/*.md — do not edit the generated HTML by hand.
    ================================================================ */
 :root{
-  --bg:#f4f4f1; --surface:#fff; --panel:#fafaf9; --panel2:#f0f0ee;
-  /* --muted/--muted2 are darkened from the landing page's #7c7c7c/#989898: at body size those
-     measured 3.79:1 and 2.62:1 on --bg, under the 4.5:1 WCAG AA floor. These carry the running
-     copy, so the fix is contrast, not decoration. --teal likewise moved from #1a7da6 (4.21:1). */
-  --ink:#1a1a1a; --muted:#5f5f5f; --muted2:#6e6e6e;
-  --line:#2626231a; --line2:#25252233;
-  --teal:#136485;
-  --green:#118453; --amber:#ba6603; --red:#c0362f;
-  --inverse:#1a1a1a; --inverse-ink:#f8f8f7;
-  --shadow-sm:0 1px 2px #00000014;
-  --shadow-md:0 1px 2px -1px #0000000a,0 4px 6px -1px #0000000f;
-  --shadow-lg:0 1px 2px -1px #0000000a,0 4px 6px -1px #0000000f,0 8px 16px #0000000a;
-  --ease:cubic-bezier(.2,.72,.25,1); --ease-out:cubic-bezier(.22,1,.36,1);
-  --r:15px; --rb:10px;
-  --display:"Geist Pixel",Georgia,serif;
-  --sans:"Suisse Intl","Inter","Segoe UI",system-ui,sans-serif;
-  --mono:"DM Mono",ui-monospace,"SF Mono",Menlo,monospace;
+  --bg: #F4F2EC; --surface: #FCFBFA; --panel: #FFFFFF; --panel2: #F0EEE6;
+  --ink: #202020; --muted: #7E7C74; --muted2: #A09E96;
+  --line: #E8E5DA; --line2: #D5D1C3;
+  --teal: #202020;
+  --green: #22C55E; --amber: #F59E0B; --red: #EF4444;
+  --accent: #9FF25F;
+  --inverse: #1A1A1A; --inverse-ink: #FCFBFA;
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+  --ease: cubic-bezier(.2,.72,.25,1);
+  --r: 16px; --rb: 12px;
+  --display: "Plus Jakarta Sans", sans-serif;
+  --sans: "Inter", sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 *{box-sizing:border-box;min-width:0}
 html,body{overflow-x:clip}
@@ -48,7 +46,7 @@ code{font-family:var(--mono);font-size:.9em;background:var(--panel2);
 .nav{max-width:1160px;margin:0 auto;display:flex;align-items:center;gap:22px;
   background:rgba(255,255,255,.86);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
   border:1px solid var(--line);border-radius:14px;padding:10px 12px 10px 22px;
-  box-shadow:var(--shadow-md)}
+  box-shadow:none; border:1px solid var(--line)}
 .brand{display:flex;align-items:center;gap:9px;font-family:var(--mono);font-weight:600;
   font-size:15px;color:var(--ink)}
 .brand:hover{text-decoration:none}
@@ -65,7 +63,7 @@ code{font-family:var(--mono);font-size:.9em;background:var(--panel2);
   border:0;border-radius:999px;padding:13px 28px;font-size:14.5px;cursor:pointer;
   box-shadow:var(--shadow-sm);
   transition:box-shadow .24s var(--ease),transform .12s var(--ease-out)}
-.candy:hover{box-shadow:var(--shadow-lg);transform:translateY(-1px);text-decoration:none}
+.candy:hover{box-shadow:none; border:1px solid var(--line);transform:translateY(-1px);text-decoration:none}
 .candy.sm{padding:8px 18px;font-size:12.5px}
 .ghostbtn{display:inline-flex;align-items:center;gap:8px;font-family:var(--sans);font-size:14.5px;
   font-weight:500;color:var(--ink);background:var(--surface);border:1px solid var(--line2);
@@ -122,7 +120,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0}
 
 /* ---------- tables (compare, provider, proof) ---------- */
 .tablewrap{margin-top:22px;overflow-x:auto;border-radius:var(--r);
-  background:var(--surface);box-shadow:var(--shadow-md)}
+  background:var(--surface);box-shadow:none; border:1px solid var(--line)}
 table{border-collapse:collapse;width:100%;font-size:13.5px;min-width:520px}
 th,td{text-align:left;padding:12px 16px;border-bottom:1px solid var(--line);vertical-align:top}
 thead th{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;
@@ -135,7 +133,7 @@ table.compare td:nth-child(3){color:var(--ink)}
 
 /* ---------- the copyable prompt ---------- */
 .promptbox{margin-top:22px;border-radius:var(--r);background:var(--inverse);
-  box-shadow:var(--shadow-lg);padding:16px 18px}
+  box-shadow:none; border:1px solid var(--line);padding:16px 18px}
 .promptbox .ph{display:flex;align-items:center;gap:10px;padding-bottom:12px}
 .promptbox .ph span{font-family:var(--mono);font-size:10px;letter-spacing:.2em;
   text-transform:uppercase;color:#8a8a86}
@@ -148,14 +146,14 @@ table.compare td:nth-child(3){color:var(--ink)}
 .copybtn.done{color:#7fdcae;border-color:#7fdcae66}
 /* the sample output keeps the terminal surface but stays clearly secondary */
 .sample{margin-top:18px;border-radius:var(--r);overflow:hidden;
-  background:var(--surface);box-shadow:var(--shadow-md)}
+  background:var(--surface);box-shadow:none; border:1px solid var(--line)}
 .sample .sbar{padding:10px 16px;border-bottom:1px solid var(--line);background:var(--panel);
   font-family:var(--mono);font-size:11px;color:var(--muted)}
 .sample pre{margin:0;padding:16px;overflow-x:auto;font-family:var(--mono);
   font-size:12px;line-height:1.7;color:var(--ink)}
 
 /* ---------- callout / honest-read blockquote ---------- */
-blockquote{margin:22px 0 0;padding:16px 20px;border-radius:var(--rb);
+blockquote{margin:22px 0 0;padding:16px 20px;border-radius:999px;
   background:var(--panel);border-left:2.5px solid var(--amber)}
 blockquote p{margin:8px 0 0;font-size:14px;color:var(--muted)}
 blockquote p:first-child{margin-top:0}
@@ -165,7 +163,7 @@ blockquote b{color:var(--ink)}
 .cards{margin-top:24px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
 .card{border-radius:var(--r);padding:20px;background:var(--surface);
   box-shadow:var(--shadow-sm);transition:box-shadow .24s var(--ease)}
-.card:hover{box-shadow:var(--shadow-lg)}
+.card:hover{box-shadow:none; border:1px solid var(--line)}
 .card h4{margin:0;font-size:15px;font-weight:650;letter-spacing:-.2px}
 .card p{margin:10px 0 0;font-size:13.5px;color:var(--muted);line-height:1.6}
 /* on the hub the whole card is the link, so it must not inherit link colour or underline */
@@ -178,13 +176,13 @@ a.card:hover h4::after{color:var(--ink);margin-left:3px}
 
 /* ---------- who this is for ---------- */
 .who{margin-top:22px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-.who div{border-radius:var(--rb);padding:16px 18px;background:var(--panel);font-size:13.5px;
+.who div{border-radius:999px;padding:16px 18px;background:var(--panel);font-size:13.5px;
   color:var(--muted);line-height:1.6}
 .who div b{display:block;color:var(--ink);font-weight:600;margin-bottom:3px}
 @media(max-width:820px){.who{grid-template-columns:1fr}}
 
 /* ---------- objections ---------- */
-details{border-radius:var(--rb);background:var(--surface);box-shadow:var(--shadow-sm);
+details{border-radius:999px;background:var(--surface);box-shadow:var(--shadow-sm);
   margin-top:10px;overflow:hidden}
 details summary{cursor:pointer;padding:15px 18px;font-weight:600;font-size:14.5px;
   list-style:none;display:flex;align-items:center;gap:12px}
@@ -238,7 +236,7 @@ p.stephint{margin:8px 0 0;font-size:13.5px;color:var(--muted)}
    The whole economic argument is "a seat you rent vs cents you spend", and prose was burying it.
    Two numbers, one struck, at a size you cannot skim past. */
 .pricewall{margin-top:24px;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:18px;
-  background:var(--surface);border-radius:var(--r);box-shadow:var(--shadow-md);padding:26px 24px}
+  background:var(--surface);border-radius:var(--r);box-shadow:none; border:1px solid var(--line);padding:26px 24px}
 .pricewall .pw{display:flex;flex-direction:column;gap:5px;text-align:center;min-width:0}
 .pricewall .k{font-family:var(--mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;
   color:var(--muted2)}
@@ -267,7 +265,7 @@ p.stephint{margin:8px 0 0;font-size:13.5px;color:var(--muted)}
   table{min-width:0;display:block;font-size:14px}
   table thead{display:none}
   table tbody,table tr,table td{display:block;width:100%}
-  table tr{background:var(--surface);border-radius:var(--rb);box-shadow:var(--shadow-sm);
+  table tr{background:var(--surface);border-radius:999px;box-shadow:var(--shadow-sm);
     padding:6px 2px;margin-bottom:10px}
   /* Label ABOVE the value, not beside it. A side-by-side flex row looked tidy until a cell
      contained inline <code> or a long phrase, at which point the two competed for width and the
