@@ -2548,7 +2548,6 @@ def _esc_html(s: str) -> str:
 async def landing(
     request: Request,
     olywork_session: str = Cookie(default=""),
-    olywork_session: str = Cookie(default=""),
     db: AsyncSession = Depends(get_session),
 ):
     """Serve the marketing landing at the root. Any query string (invite links, OAuth returns,
@@ -2566,7 +2565,7 @@ async def landing(
     # Only `ref` may be present. Anything else alongside it belongs to the SPA, and a referral code
     # is not a reason to hijack an invite or an OAuth return.
     ref_only = set(request.query_params.keys()) <= {"ref"}
-    session_cookie = olywork_session or olywork_session
+    session_cookie = olywork_session
     if page.exists() and (not request.query_params or (ref and ref_only)):
         if session_cookie and await _user_from_session(session_cookie, db):
             return RedirectResponse("/app", status_code=302)
@@ -2582,13 +2581,12 @@ async def landing(
         if ref:
             _remember_referral(resp, request, ref)
         return resp
-    return await dashboard(request, olywork_session=olywork_session, olywork_session=olywork_session, db=db)
+    return await dashboard(request, olywork_session=olywork_session, db=db)
 
 
 @app.get("/app", include_in_schema=False)
 async def dashboard(
     request: Request,
-    olywork_session: str = Cookie(default=""),
     olywork_session: str = Cookie(default=""),
     db: AsyncSession = Depends(get_session),
 ):
@@ -2607,7 +2605,7 @@ async def dashboard(
     index = _WEB_DIR / "index.html"
     if not index.exists():
         return HTMLResponse("<h3>tools-registry API. Dashboard not bundled.</h3>")
-    session_cookie = olywork_session or olywork_session
+    session_cookie = olywork_session
     signed_in = await _user_from_session(session_cookie, db)
     # A parked authorization resumes here, but ONLY once the user is actually signed in — otherwise
     # this would bounce them back to /oauth/authorize, which would bounce them here again.
@@ -2662,7 +2660,6 @@ def _spa_with_og(kind: str, name: str):
 @app.get("/app/marketplace/{service}", include_in_schema=False)
 async def dashboard_marketplace(
     service: str, request: Request,
-    olywork_session: str = Cookie(default=""),
     olywork_session: str = Cookie(default=""),  # noqa: ARG001 — the SPA reads the path itself
     db: AsyncSession = Depends(get_session),
 ):
@@ -2670,7 +2667,7 @@ async def dashboard_marketplace(
     to add, because this view is only meaningful to a signed-in member of the org. A signed-out
     visitor is sent to the provider's PUBLIC page instead — /tools/<service> is the same subject
     with the member actions replaced by sign-in CTAs (and it is the URL crawlers get)."""
-    session_cookie = olywork_session or olywork_session
+    session_cookie = olywork_session
     if not session_cookie:
         # Redirect on the CATALOG's spelling of the provider, never the request's: an unknown
         # service 404s here rather than bouncing into a 404, and the redirect target is a value
@@ -2678,8 +2675,7 @@ async def dashboard_marketplace(
         known = next((r["service"] for r in _provider_rows() if r["service"] == service), None)
         if known is None:
             raise HTTPException(status_code=404, detail=f"unknown provider {service!r}")
-        return RedirectResponse(f"/tools/{known}", status_code=302)
-    return await dashboard(request, olywork_session=olywork_session, olywork_session=olywork_session, db=db)
+    return await dashboard(request, olywork_session=olywork_session, db=db)
 
 
 @app.get("/app/skills/{name}", include_in_schema=False)

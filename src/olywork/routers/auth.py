@@ -255,11 +255,10 @@ def _social_login_failure(exc: auth_use_cases.SocialLoginError) -> HTMLResponse:
 async def auth_github_callback(
     request: Request, code: str = "", state: str = "",
     olywork_oauth_state: str = Cookie(default=""),
-    olywork_oauth_state: str = Cookie(default=""),
 ):
     try:
         proof = await auth_use_cases.complete_github_login(
-            lambda: request.app.state.http, code, state, olywork_oauth_state or olywork_oauth_state,
+            lambda: request.app.state.http, code, state, olywork_oauth_state,
             lambda: _login_callback_base(request),
         )
     except auth_use_cases.SocialLoginError as exc:
@@ -277,8 +276,6 @@ async def auth_google(request: Request, cli: str = ""):
     resp = RedirectResponse(started.url, status_code=302)
     resp.set_cookie("olywork_oauth_state", started.state, httponly=True, max_age=600,
                     samesite="lax", secure=_is_https(request))
-    resp.set_cookie("olywork_oauth_state", started.state, httponly=True, max_age=600,
-                    samesite="lax", secure=_is_https(request))
     return resp
 
 
@@ -286,11 +283,10 @@ async def auth_google(request: Request, cli: str = ""):
 async def auth_google_callback(
     request: Request, code: str = "", state: str = "",
     olywork_oauth_state: str = Cookie(default=""),
-    olywork_oauth_state: str = Cookie(default=""),
 ):
     try:
         proof = await auth_use_cases.complete_google_login(
-            lambda: request.app.state.http, code, state, olywork_oauth_state or olywork_oauth_state,
+            lambda: request.app.state.http, code, state, olywork_oauth_state,
             lambda: _login_callback_base(request),
         )
     except auth_use_cases.SocialLoginError as exc:
@@ -335,11 +331,10 @@ class CliApproveIn(BaseModel):
 @app.get("/auth/cli/orgs")
 async def auth_cli_orgs(
     olywork_session: str = Cookie(default=""),
-    olywork_session: str = Cookie(default=""),
 ) -> dict:
     """The /login page fetches this (session-cookie authed) to render the team picker before completing
     a `olywork login` handshake. Returns the signed-in user's teams; empty list if no session."""
-    return await auth_use_cases.cli_orgs(olywork_session or olywork_session)
+    return await auth_use_cases.cli_orgs(olywork_session)
 
 
 _CLI_HTTP_ERRORS = {
@@ -360,7 +355,6 @@ def _cli_http_error(exc: auth_use_cases.CliPairingError) -> HTTPException:
 async def auth_cli_approve(
     request: Request, body: CliApproveIn,
     olywork_session: str = Cookie(default=""),
-    olywork_session: str = Cookie(default=""),
 ) -> dict:
     """Complete a `olywork login` handshake from an EXISTING browser session (the "Continue as" button
     on /login, and the email door after /auth/email/verify sets the cookie). Deliberately a POST with
@@ -376,7 +370,7 @@ async def auth_cli_approve(
         raise HTTPException(status_code=400, detail="bad login_id")
     try:
         return await auth_use_cases.approve_cli_login(
-            olywork_session or olywork_session, body.login_id, body.code, body.org,
+            olywork_session, body.login_id, body.code, body.org,
         )
     except auth_use_cases.CliPairingError as exc:
         raise _cli_http_error(exc) from exc
@@ -385,7 +379,6 @@ async def auth_cli_approve(
 @app.get("/login", include_in_schema=False)
 async def login_page(
     cli: str = "",
-    olywork_session: str = Cookie(default=""),
     olywork_session: str = Cookie(default=""),
 ):
     """The universal sign-in page `olywork login` opens: reuses an existing dashboard session with one
@@ -396,7 +389,7 @@ async def login_page(
     if not _LOGIN_ID_RE.fullmatch(cli):
         return _auth_page("Login failed", "Bad login link. Run <code>olywork login</code> again.", ok=False, status=400)
     s = get_settings()
-    session_email = await auth_use_cases.cli_session_email(olywork_session or olywork_session)
+    session_email = await auth_use_cases.cli_session_email(olywork_session)
     return HTMLResponse(_login_page_html(
         cli, session_email=session_email,
         github=bool(s.github_client_id), google=bool(s.google_client_id)))
@@ -581,15 +574,13 @@ def _intercom_user_hash(email: str) -> str:
 @app.get("/auth/me")
 async def auth_me(
     x_olywork_token: str = Header(default=""),
-    x_olywork_token: str = Header(default=""),
-    olywork_session: str = Cookie(default=""),
     olywork_session: str = Cookie(default=""),
 ) -> dict:
     """Who is the caller? Drives the dashboard's identity display in BOTH session mode (cookie) and
-    token mode (X-Olywork-Token / X-Olywork-Token) — the token door otherwise had no way to learn its own email, which
+    token mode (X-Olywork-Token) — the token door otherwise had no way to learn its own email, which
     broke `isPersonal` and join-by-code."""
     try:
-        identity = await auth_use_cases.current_identity(x_olywork_token or x_olywork_token, olywork_session or olywork_session)
+        identity = await auth_use_cases.current_identity(x_olywork_token, olywork_session)
     except auth_use_cases.IdentityLookupError as exc:
         raise HTTPException(status_code=401, detail="no session") from exc
     out = {"email": identity.email, "is_superadmin": identity.is_superadmin, "onboarded": identity.onboarded,
@@ -624,7 +615,6 @@ _live_invite_by_email_token = auth_use_cases._live_invite_by_email_token
 @app.get("/auth/invite-signin")
 async def auth_invite_signin(
     request: Request, code: str = "", t: str = "",
-    olywork_session: str = Cookie(default=""),
     olywork_session: str = Cookie(default=""),
 ):
     """Landing for an invite email link. Two secrets, two very different trust levels:
@@ -876,7 +866,6 @@ async def oauth_authorize(
     state: str = Query(default=""), code_challenge: str = Query(default=""),
     code_challenge_method: str = Query(default=""), resource: str = Query(default=""),
     olywork_session: str = Cookie(default=""),
-    olywork_session: str = Cookie(default=""),
 ):
     """What is this client asking for, and on behalf of which team?
 
@@ -893,7 +882,7 @@ async def oauth_authorize(
             code_challenge_method=code_challenge_method,
             resource=resource,
             scope=scope,
-            session_cookie=olywork_session or olywork_session,
+            session_cookie=olywork_session,
         )
     except auth_use_cases.OAuthServerError as exc:
         return _oauth_server_failure(exc, redirect_uri, state)
@@ -935,7 +924,6 @@ async def oauth_authorize_approve(
     state: str = Form(default=""), code_challenge: str = Form(default=""),
     code_challenge_method: str = Form(default=""), resource: str = Form(default=""),
     org_id: int = Form(default=0),
-    olywork_session: str = Cookie(default=""),
     olywork_session: str = Cookie(default=""),
 ):
     """The human decided. On approval, mint a one-time code bound to everything that made this
@@ -1113,14 +1101,13 @@ token_router = app
 async def auth_cli_token(
     user: User = Depends(require_identity),
     x_olywork_org: str = Header(default=""),
-    x_olywork_org: str = Header(default=""),
 ) -> dict:
     """Mint a fresh CLI/bearer token for the authenticated caller (session cookie OR token). Identity
     tokens are stateless (`sess.make_identity`), so handing one out rotates/invalidates nothing — it just lets
     the dashboard embed a working token in copy-paste snippets + a 'copy token' button, so a human
     doesn't have to hunt for it in `~/.olywork/config.json`.
 
-    When the caller names a team (the dashboard sends `X-Olywork-Org` / `X-Olywork-Org` for the active org, and only after
+    When the caller names a team (the dashboard sends `X-Olywork-Org` for the active org, and only after
     confirming membership), the org slug is BAKED into the token. That is what makes the dashboard's
     "your API key" work as a bare bearer where no `X-Olywork-Org` header can travel — pasted into an MCP
     server's Authorization it resolves to that team, no header, no per-org agent token to manage. A
@@ -1129,7 +1116,7 @@ async def auth_cli_token(
         user_id=user.id,
         email=user.email,
         token_version=user.token_version,
-        org_ref=x_olywork_org or x_olywork_org,
+        org_ref=x_olywork_org,
     )
 
 

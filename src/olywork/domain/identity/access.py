@@ -73,14 +73,12 @@ async def _resolve_org(ref: str, db: AsyncSession) -> Org | None:
 
 async def require_identity(
     x_olywork_token: str = Header(default=""),
-    x_olywork_token: str = Header(default=""),
-    olywork_session: str = Cookie(default=""),
     olywork_session: str = Cookie(default=""),
     db: AsyncSession = Depends(get_session),
 ) -> User:
     """Just *who* the caller is (no org): a token's user, or a session user. 401 otherwise."""
-    token = x_olywork_token or x_olywork_token
-    session_cookie = olywork_session or olywork_session
+    token = x_olywork_token
+    session_cookie = olywork_session
     if token:
         m = await _membership_by_token(token, db)
         if m is not None:
@@ -126,20 +124,17 @@ async def _user_from_identity_token(token: str, db: AsyncSession) -> User | None
 async def require_member(
     request: Request,
     x_olywork_token: str = Header(default=""),
-    x_olywork_token: str = Header(default=""),
     x_olywork_org: str = Header(default=""),
-    x_olywork_org: str = Header(default=""),
-    olywork_session: str = Cookie(default=""),
     olywork_session: str = Cookie(default=""),
     db: AsyncSession = Depends(get_session),
 ) -> Caller:
     """A caller acting in a specific org. Two ways in:
     - **token** (agents/CLI): the token IS a membership, so the org is baked in.
-    - **session** (dashboard): the cookie identifies the user; the org is chosen via `X-Olywork-Org` / `X-Olywork-Org`.
+    - **session** (dashboard): the cookie identifies the user; the org is chosen via `X-Olywork-Org`.
     """
-    token = x_olywork_token or x_olywork_token
-    org_header = x_olywork_org or x_olywork_org
-    session_cookie = olywork_session or olywork_session
+    token = x_olywork_token
+    org_header = x_olywork_org
+    session_cookie = olywork_session
 
     membership = await _membership_by_token(token, db) if token else None
     if membership is not None:  # per-org token — the org is baked in
@@ -185,8 +180,6 @@ async def require_member(
 
 async def require_superadmin(
     x_olywork_token: str = Header(default=""),
-    x_olywork_token: str = Header(default=""),
-    olywork_session: str = Cookie(default=""),
     olywork_session: str = Cookie(default=""),
     db: AsyncSession = Depends(get_admin_session),
 ) -> str:
@@ -197,8 +190,8 @@ async def require_superadmin(
     caches dependencies per request by identity, so a gate on `get_session` would put admin traffic
     back on the API pool through the back door."""
     admin = get_settings().admin_token
-    token = x_olywork_token or x_olywork_token
-    session_cookie = olywork_session or olywork_session
+    token = x_olywork_token
+    session_cookie = olywork_session
     if token and admin and hmac.compare_digest(token, admin):
         await db.commit()
         return "env-admin"

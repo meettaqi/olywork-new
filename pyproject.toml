@@ -58,8 +58,6 @@ proxy = [
 
 [project.scripts]
 olywork = "olywork.cli:main"
-olywork-worker = "olywork.worker:main"
-olywork = "olywork.cli:main"
 # Scheduled maintainer commands (worker profile) — needs the [server] extra; Render cron calls this.
 olywork-worker = "olywork.worker:main"
 

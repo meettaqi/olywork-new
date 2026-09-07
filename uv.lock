@@ -574,6 +574,74 @@ wheels = [
 ]
 
 [[package]]
+name = "olywork"
+version = "0.15.0"
+source = { editable = "." }
+dependencies = [
+    { name = "httpx" },
+    { name = "questionary" },
+]
+
+[package.optional-dependencies]
+proxy = [
+    { name = "cryptography" },
+]
+server = [
+    { name = "aiosqlite" },
+    { name = "alembic" },
+    { name = "asyncpg" },
+    { name = "cryptography" },
+    { name = "fastapi" },
+    { name = "mcp" },
+    { name = "pydantic-settings" },
+    { name = "pyyaml" },
+    { name = "sqlalchemy", extra = ["asyncio"] },
+    { name = "sqlmodel" },
+    { name = "stripe" },
+    { name = "uvicorn", extra = ["standard"] },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "import-linter" },
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "tools-registry", extra = ["server"] },
+]
+test = [
+    { name = "playwright" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "aiosqlite", marker = "extra == 'server'", specifier = ">=0.20" },
+    { name = "alembic", marker = "extra == 'server'", specifier = ">=1.16.5" },
+    { name = "asyncpg", marker = "extra == 'server'", specifier = ">=0.30" },
+    { name = "cryptography", marker = "extra == 'proxy'", specifier = ">=43" },
+    { name = "cryptography", marker = "extra == 'server'", specifier = ">=43" },
+    { name = "fastapi", marker = "extra == 'server'", specifier = ">=0.115" },
+    { name = "httpx", specifier = ">=0.27" },
+    { name = "mcp", marker = "extra == 'server'", specifier = ">=2" },
+    { name = "pydantic-settings", marker = "extra == 'server'", specifier = ">=2.5" },
+    { name = "pyyaml", marker = "extra == 'server'", specifier = ">=6" },
+    { name = "questionary", specifier = ">=2.0" },
+    { name = "sqlalchemy", extras = ["asyncio"], marker = "extra == 'server'", specifier = ">=2.0" },
+    { name = "sqlmodel", marker = "extra == 'server'", specifier = ">=0.0.22" },
+    { name = "stripe", marker = "extra == 'server'", specifier = ">=12" },
+    { name = "uvicorn", extras = ["standard"], marker = "extra == 'server'", specifier = ">=0.32" },
+]
+provides-extras = ["server", "proxy"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "import-linter", specifier = ">=2.13" },
+    { name = "pytest", specifier = ">=8.3" },
+    { name = "pytest-asyncio", specifier = ">=0.24" },
+    { name = "tools-registry", extras = ["server"] },
+]
+test = [{ name = "playwright", specifier = ">=1.62.0" }]
+
+[[package]]
 name = "opentelemetry-api"
 version = "1.44.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1020,16 +1088,17 @@ wheels = [
 [[package]]
 name = "tools-registry"
 version = "0.15.0"
-source = { editable = "." }
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "httpx" },
     { name = "questionary" },
 ]
+sdist = { url = "https://files.pythonhosted.org/packages/27/2d/391072997077de737166520d1e42e2ee1854733ca164f2b6378818fed2d1/tools_registry-0.15.0.tar.gz", hash = "sha256:adab419247a2266f3f03055304efd3528852ca5a112bdf17ce7e80331bbaa78d", size = 21631308, upload-time = "2026-09-02T21:55:46.699Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c9/96/1e69ffb81c7874d5850f103efa2bfc39166c4abe6f1dbd65aa78bd968b08/tools_registry-0.15.0-py3-none-any.whl", hash = "sha256:13db26d737aef1bf1cebbe80bf16e56af62e47ca68c84cafe560534fb32aa723", size = 21643837, upload-time = "2026-09-02T21:55:57.399Z" },
+]
 
 [package.optional-dependencies]
-proxy = [
-    { name = "cryptography" },
-]
 server = [
     { name = "aiosqlite" },
     { name = "alembic" },
@@ -1044,46 +1113,6 @@ server = [
     { name = "stripe" },
     { name = "uvicorn", extra = ["standard"] },
 ]
-
-[package.dev-dependencies]
-dev = [
-    { name = "import-linter" },
-    { name = "pytest" },
-    { name = "pytest-asyncio" },
-    { name = "tools-registry", extra = ["server"] },
-]
-test = [
-    { name = "playwright" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "aiosqlite", marker = "extra == 'server'", specifier = ">=0.20" },
-    { name = "alembic", marker = "extra == 'server'", specifier = ">=1.16.5" },
-    { name = "asyncpg", marker = "extra == 'server'", specifier = ">=0.30" },
-    { name = "cryptography", marker = "extra == 'proxy'", specifier = ">=43" },
-    { name = "cryptography", marker = "extra == 'server'", specifier = ">=43" },
-    { name = "fastapi", marker = "extra == 'server'", specifier = ">=0.115" },
-    { name = "httpx", specifier = ">=0.27" },
-    { name = "mcp", marker = "extra == 'server'", specifier = ">=2" },
-    { name = "pydantic-settings", marker = "extra == 'server'", specifier = ">=2.5" },
-    { name = "pyyaml", marker = "extra == 'server'", specifier = ">=6" },
-    { name = "questionary", specifier = ">=2.0" },
-    { name = "sqlalchemy", extras = ["asyncio"], marker = "extra == 'server'", specifier = ">=2.0" },
-    { name = "sqlmodel", marker = "extra == 'server'", specifier = ">=0.0.22" },
-    { name = "stripe", marker = "extra == 'server'", specifier = ">=12" },
-    { name = "uvicorn", extras = ["standard"], marker = "extra == 'server'", specifier = ">=0.32" },
-]
-provides-extras = ["server", "proxy"]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "import-linter", specifier = ">=2.13" },
-    { name = "pytest", specifier = ">=8.3" },
-    { name = "pytest-asyncio", specifier = ">=0.24" },
-    { name = "tools-registry", extras = ["server"] },
-]
-test = [{ name = "playwright", specifier = ">=1.62.0" }]
 
 [[package]]
 name = "truststore"
