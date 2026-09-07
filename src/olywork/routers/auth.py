@@ -385,7 +385,7 @@ async def login_page(
     click ("Continue as …"), else offers every configured door — GitHub, Google, email one-time code.
     The email door is always present, so login works even with no OAuth app configured."""
     if not cli:
-        return RedirectResponse("/app", status_code=302)  # a bare visit belongs on the dashboard
+        return RedirectResponse("/app?signin=1", status_code=302)  # a bare visit belongs on the dashboard sign-in
     if not _LOGIN_ID_RE.fullmatch(cli):
         return _auth_page("Login failed", "Bad login link. Run <code>olywork login</code> again.", ok=False, status=400)
     s = get_settings()
@@ -393,6 +393,17 @@ async def login_page(
     return HTMLResponse(_login_page_html(
         cli, session_email=session_email,
         github=bool(s.github_client_id), google=bool(s.google_client_id)))
+
+
+@app.get("/signin", include_in_schema=False)
+async def signin_page():
+    return RedirectResponse("/app?signin=1", status_code=302)
+
+
+@app.get("/signup", include_in_schema=False)
+async def signup_page():
+    return RedirectResponse("/app?signin=1", status_code=302)
+
 
 
 def _login_page_html(login_id: str, *, session_email: str | None, github: bool, google: bool) -> str:

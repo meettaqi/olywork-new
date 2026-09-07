@@ -78,6 +78,8 @@ _CONTROL_ROUTE_KEYS: frozenset[RouteKey] = frozenset({
     ('/auth/cli/orgs', ('GET',), 'auth_cli_orgs'),
     ('/auth/cli/approve', ('POST',), 'auth_cli_approve'),
     ('/login', ('GET',), 'login_page'),
+    ('/signin', ('GET',), 'signin_page'),
+    ('/signup', ('GET',), 'signup_page'),
     ('/auth/me', ('GET',), 'auth_me'),
     ('/auth/logout', ('POST',), 'auth_logout'),
     ('/auth/email/start', ('POST',), 'auth_email_start'),

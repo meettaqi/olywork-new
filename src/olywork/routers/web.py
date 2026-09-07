@@ -204,9 +204,13 @@ def _page(title: str, description: str, path: str, body: str, ld: list[dict],
   </a>
   <div class="ow-nav-links">
     {navlink("/catalog", "Catalog")}
+    {navlink("/use-cases", "Use cases")}
+    {navlink("/workflows", "Workflows")}
+    {navlink("/agents", "Agents")}
     {navlink("/docs", "API Docs")}
     {navlink("/tutorial", "Tutorial")}
     <a href="/pricing" style="color:var(--muted);font-weight:500;">Pricing</a>
+    <a href="/app?signin=1" style="color:var(--ink);font-weight:600;margin-left:6px;font-size:13.5px;">Sign in</a>
     <a href="/app?ref={ref}" class="ow-btn-nav">Start free &#8594;</a>
   </div>
 </nav>
@@ -684,11 +688,11 @@ async def catalog_page(slug: str):
 # --------------------------------------------------------------------------- /agents/<agent>
 
 def _hosted() -> bool:
-    """True on the reference deployment only. The agent pages describe olywork.com's own listings (the
-    ChatGPT Connector, the OAuth connector, the free grant), none of which is true of a self-hosted
-    registry, so off these hosts the pages do not exist rather than lie."""
+    """True on the reference deployment and local dev. The agent pages describe olywork.com's own listings,
+    and during local development we want these hubs and spokes testable."""
     host = (urlsplit(get_settings().public_url).hostname or "").lower()
-    return host in PUBLIC_HOST_ALIASES
+    return host in PUBLIC_HOST_ALIASES or host in ("localhost", "127.0.0.1", "0.0.0.0") or not host
+
 
 
 def _pub(e: dict) -> bool:
@@ -865,22 +869,45 @@ async def agents_hub():
             head = defn[:140].rsplit(" ", 1)[0]
         return head.rstrip(".") + "."
     cards = "".join(
-        f'<a class="pcard" href="/agents/{slug}"><h3>{_esc_html(spec["name"])}</h3>'
-        f'<p>{_esc_html(_blurb(spec["definition"].format(n=n, p=p)))}</p>'
-        f'<div class="meta">{n} tools &middot; {p} platforms</div></a>'
+        f'<a class="pcard" href="/agents/{slug}">'
+        f'<div class="pcard-head">'
+        f'<div class="pcard-logo"><img src="/logos/agents/{slug}.svg" onerror="this.style.display=\'none\'" alt="{_esc_html(spec["name"])}"></div>'
+        f'<div><div class="pcard-name">{_esc_html(spec["name"])}</div>'
+        f'<div class="pcard-cat">{n} tools &middot; {p} platforms</div></div>'
+        f'</div>'
+        f'<div class="pcard-desc">{_esc_html(_blurb(spec["definition"].format(n=n, p=p)))}</div>'
+        f'<div class="pcard-meta">'
+        f'<span class="pcard-badge">{n} tools</span>'
+        f'<span class="pcard-badge">Zero API keys</span>'
+        f'<span class="pcard-cta">Setup guide →</span>'
+        f'</div></a>'
         for slug, spec in agent_pages.AGENTS.items())
     body = (
-        '<main class="wrap"><div class="phead">'
-        '<div class="crumbs"><a href="/">olywork</a> / <a href="/agents">Agents</a></div>'
-        '<h1>The agents that can use olywork</h1>'
-        '<p class="lede">One page per client: the install steps for that agent, then the menu of '
+        '<div class="cat-hero-bar">'
+        '<div class="cat-hero-inner">'
+        '<div class="cat-eyebrow">Supported Agents</div>'
+        '<h1 class="cat-h1">Connect your coding agent.<br><span style="opacity:.4">Claude, Cursor, Codex, OpenClaw.</span></h1>'
+        '<p class="cat-lede">One page per client: the install steps for that agent, then the menu of '
         f'jobs it can do once connected. Every client gets the same {n} tools through one olywork '
         'key, at the provider&rsquo;s own rate with $0.000 markup.</p>'
-        f'</div><section class="cat"><div class="grid">{cards}</div></section>'
-        '<section class="cat"><h2>Everything else</h2><div class="cap"><p style="margin:0">The jobs '
-        'themselves are written up at <a href="/use-cases">/use-cases</a>, the multi-step versions '
-        'at <a href="/workflows">/workflows</a>, and the whole catalog is at '
-        '<a href="/catalog">/catalog</a>.</p></div></section></main>')
+        '</div>'
+        '</div>'
+        '<div class="stats-strip">'
+        f'<div class="stat-item"><div class="stat-n">{len(agent_pages.AGENTS)}</div><div class="stat-l">Agents Supported</div></div>'
+        f'<div class="stat-item"><div class="stat-n">{n}</div><div class="stat-l">Tools Accessible</div></div>'
+        '<div class="stat-item"><div class="stat-n">1-Step</div><div class="stat-l">Install Flow</div></div>'
+        '<div class="stat-item"><div class="stat-n">$0.00</div><div class="stat-l">Markup</div></div>'
+        '</div>'
+        '<div class="cat-main-wrap">'
+        f'<div class="cat-grid">{cards}</div>'
+        '<div style="margin-top:60px;padding:32px;border:1px solid var(--line);border-radius:16px;background:var(--surface);">'
+        '<h3 style="margin:0 0 8px;font-family:var(--font-h);font-size:18px;">Looking for specific tasks or multi-step workflows?</h3>'
+        '<p style="margin:0;color:var(--muted);font-size:14px;line-height:1.6;">Browse use cases by job at <a href="/use-cases" style="text-decoration:underline;color:var(--ink);font-weight:600;">/use-cases</a>, '
+        'multi-step recipes at <a href="/workflows" style="text-decoration:underline;color:var(--ink);font-weight:600;">/workflows</a>, '
+        'or the complete tool index at <a href="/catalog" style="text-decoration:underline;color:var(--ink);font-weight:600;">/catalog</a>.</p>'
+        '</div>'
+        '</div>'
+    )
     names = [s["name"] for s in agent_pages.AGENTS.values()]
     ld = [{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [
         {"@type": "ListItem", "position": 1, "name": "olywork", "item": base + "/"},
@@ -888,7 +915,7 @@ async def agents_hub():
     return _page("Install olywork in ChatGPT, Claude, Cursor or Grok",
                  f"Install steps for {', '.join(names[:-1])} and {names[-1]}, and the menu of jobs "
                  "each can do once connected. One olywork key, no markup.",
-                 "/agents", body, ld)
+                 "/agents", body, ld, css="catalog.css")
 
 
 @app.get("/agents/{agent}.md", include_in_schema=False)
@@ -1756,28 +1783,49 @@ async def use_cases_hub():
         blurb = spec["lede"].format(n=nprov, agent=agent_name,
                                     cheapest=_usd_short(min(prices)) if prices else "free")
         by_cat.setdefault(label, []).append(
-            f'<a class="pcard" href="/use-cases/{j}"><h3>{_esc_html(spec["sentence"])}</h3>'
-            f'<p>{_esc_html(blurb[:140])}</p><div class="meta">{meta}</div></a>')
-    blocks = "".join(f'<section class="cat"><h2 id="{_anchor(c)}">{_esc_html(c)}</h2>'
-                     f'<div class="grid">{"".join(v)}</div></section>' for c, v in by_cat.items())
+            f'<a class="pcard" href="/use-cases/{j}">'
+            f'<div class="pcard-head">'
+            f'<div><div class="pcard-name">{_esc_html(spec["sentence"])}</div>'
+            f'<div class="pcard-cat">{_esc_html(label)}</div></div>'
+            f'</div>'
+            f'<div class="pcard-desc">{_esc_html(blurb[:140])}</div>'
+            f'<div class="pcard-meta">'
+            f'<span class="pcard-badge">{meta}</span>'
+            f'<span class="pcard-cta">View job →</span>'
+            f'</div></a>')
+    blocks = "".join(f'<div style="margin-bottom:52px;"><h2 style="font-family:var(--font-h);font-size:24px;font-weight:700;letter-spacing:-0.03em;margin:0 0 20px;" id="{_anchor(c)}">{_esc_html(c)}</h2>'
+                     f'<div class="cat-grid">{"".join(v)}</div></div>' for c, v in by_cat.items())
     body = (
-        '<main class="wrap"><div class="phead">'
-        '<div class="crumbs"><a href="/">olywork</a> / <a href="/use-cases">Use cases</a></div>'
-        '<h1>What you can have your agent do</h1>'
-        '<p class="lede">One page per job: the prompt that works, what the call costs, and every provider '
-        'that does it. All of it through one olywork key, at the provider&rsquo;s own rate with $0.000 markup.</p>'
-        '</div>' + blocks
-        + '<section class="cat"><h2>Everything else</h2><div class="cap"><p style="margin:0">These are the jobs '
-          'written up so far. The full menu is on the agent pages, and the whole catalog is at '
-          '<a href="/catalog">/catalog</a>. The multi-step versions are at <a href="/workflows">/workflows</a>.'
-          '</p></div></section></main>')
+        '<div class="cat-hero-bar">'
+        '<div class="cat-hero-inner">'
+        '<div class="cat-eyebrow">Use cases</div>'
+        '<h1 class="cat-h1">What your agent can do.<br><span style="opacity:.4">One prompt. Real tools.</span></h1>'
+        '<p class="cat-lede">One page per job: the prompt that works, what the call costs, and every provider '
+        'that does it. All through one olywork key, at the provider&rsquo;s own rate with $0.000 markup.</p>'
+        '</div>'
+        '</div>'
+        '<div class="stats-strip">'
+        f'<div class="stat-item"><div class="stat-n">{len(agent_pages.USE_CASE_PAGES)}</div><div class="stat-l">Curated Jobs</div></div>'
+        f'<div class="stat-item"><div class="stat-n">{len(by_cat)}</div><div class="stat-l">Categories</div></div>'
+        '<div class="stat-item"><div class="stat-n">$0.00</div><div class="stat-l">Markup</div></div>'
+        '<div class="stat-item"><div class="stat-n">$1.00</div><div class="stat-l">Free Credit</div></div>'
+        '</div>'
+        f'<div class="cat-main-wrap">{blocks}'
+        '<div style="margin-top:60px;padding:32px;border:1px solid var(--line);border-radius:16px;background:var(--surface);">'
+        '<h3 style="margin:0 0 8px;font-family:var(--font-h);font-size:18px;">Looking for multi-step runs or specific agents?</h3>'
+        '<p style="margin:0;color:var(--muted);font-size:14px;line-height:1.6;">Browse multi-step sequences at <a href="/workflows" style="text-decoration:underline;color:var(--ink);font-weight:600;">/workflows</a>, '
+        'agent setup guides at <a href="/agents" style="text-decoration:underline;color:var(--ink);font-weight:600;">/agents</a>, '
+        'or the full 2,800+ API endpoint index at <a href="/catalog" style="text-decoration:underline;color:var(--ink);font-weight:600;">/catalog</a>.</p>'
+        '</div>'
+        '</div>'
+    )
     ld = [{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [
         {"@type": "ListItem", "position": 1, "name": "olywork", "item": base + "/"},
         {"@type": "ListItem", "position": 2, "name": "Use cases", "item": base + "/use-cases"}]}]
     return _page("What you can have your agent do | olywork",
                  "One page per job: the prompt that works in ChatGPT or Claude, what the call costs, and "
                  "every provider that does it, compared. One olywork key, no markup.",
-                 "/use-cases", body, ld)
+                 "/use-cases", body, ld, css="catalog.css")
 
 
 # ------------------------------------------------------------------ /workflows/<slug>
@@ -2075,28 +2123,53 @@ async def workflows_hub(observations: endpoint_stats.EndpointObservationReader =
         once = set(spec.get("once") or ())
         per_row = sum(((s["usd"] or 0) / rows_in) if s["ep_id"] in once else (s["usd"] or 0) for s in steps)
         n = len(steps)
-        meta = f"{n} steps &middot; from {_esc_html(_usd_short(per_row))} per row" if per_row else f"{n} steps"
+        meta = f"from {_esc_html(_usd_short(per_row))} / row" if per_row else "Free on your account"
         blurb = spec["lede"].format(n=n, steps=n)
-        cards.append(f'<a class="pcard" href="/workflows/{slug}"><h3>{_esc_html(spec["sentence"])}</h3>'
-                     f'<p>{_esc_html(blurb[:140])}</p><div class="meta">{meta}</div></a>')
+        cards.append(
+            f'<a class="pcard" href="/workflows/{slug}">'
+            f'<div class="pcard-head">'
+            f'<div><div class="pcard-name">{_esc_html(spec["sentence"])}</div>'
+            f'<div class="pcard-cat">{n} steps chained</div></div>'
+            f'</div>'
+            f'<div class="pcard-desc">{_esc_html(blurb[:140])}</div>'
+            f'<div class="pcard-meta">'
+            f'<span class="pcard-badge">{n} steps</span>'
+            f'<span class="pcard-badge">{meta}</span>'
+            f'<span class="pcard-cta">View workflow →</span>'
+            f'</div></a>')
     body = (
-        '<main class="wrap"><div class="phead">'
-        '<div class="crumbs"><a href="/">olywork</a> / <a href="/workflows">Workflows</a></div>'
-        '<h1>Workflows your agent can run from one prompt</h1>'
-        '<p class="lede">A use-case page answers one job. A workflow is the sequence a person actually runs: '
-        'one prompt, a price per step read live from the catalog, and the receipt and CSV of a real run. '
+        '<div class="cat-hero-bar">'
+        '<div class="cat-hero-inner">'
+        '<div class="cat-eyebrow">Workflows</div>'
+        '<h1 class="cat-h1">Multi-step agent workflows.<br><span style="opacity:.4">One prompt. Live receipts.</span></h1>'
+        '<p class="cat-lede">A use-case page answers one job. A workflow is the sequence a person actually runs: '
+        'one prompt, a price per step read live from the catalog, and the real receipt and CSV of a real run. '
         'All of it through one olywork key, at the provider&rsquo;s own rate with $0.000 markup.</p>'
-        f'</div><section class="cat"><div class="grid">{"".join(cards)}</div></section>'
-        '<section class="cat"><h2>Everything else</h2><div class="cap"><p style="margin:0">The single-job '
-        'versions are at <a href="/use-cases">/use-cases</a>, and the whole catalog is at '
-        '<a href="/catalog">/catalog</a>.</p></div></section></main>')
+        '</div>'
+        '</div>'
+        '<div class="stats-strip">'
+        f'<div class="stat-item"><div class="stat-n">{len(agent_pages.WORKFLOWS)}</div><div class="stat-l">Workflows</div></div>'
+        '<div class="stat-item"><div class="stat-n">Live</div><div class="stat-l">Real Receipts</div></div>'
+        '<div class="stat-item"><div class="stat-n">CSV</div><div class="stat-l">Exportable Data</div></div>'
+        '<div class="stat-item"><div class="stat-n">$0.00</div><div class="stat-l">Markup</div></div>'
+        '</div>'
+        '<div class="cat-main-wrap">'
+        f'<div class="cat-grid">{"".join(cards)}</div>'
+        '<div style="margin-top:60px;padding:32px;border:1px solid var(--line);border-radius:16px;background:var(--surface);">'
+        '<h3 style="margin:0 0 8px;font-family:var(--font-h);font-size:18px;">Looking for single-job prompts or full catalog?</h3>'
+        '<p style="margin:0;color:var(--muted);font-size:14px;line-height:1.6;">Browse single-job comparisons at <a href="/use-cases" style="text-decoration:underline;color:var(--ink);font-weight:600;">/use-cases</a>, '
+        'client setup guides at <a href="/agents" style="text-decoration:underline;color:var(--ink);font-weight:600;">/agents</a>, '
+        'or the full tool index at <a href="/catalog" style="text-decoration:underline;color:var(--ink);font-weight:600;">/catalog</a>.</p>'
+        '</div>'
+        '</div>'
+    )
     ld = [{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [
         {"@type": "ListItem", "position": 1, "name": "olywork", "item": base + "/"},
         {"@type": "ListItem", "position": 2, "name": "Workflows", "item": base + "/workflows"}]}]
     return _page("Workflows your agent can run from one prompt | olywork",
                  "Multi-step jobs as one prompt: a price per step read live from the catalog, and the "
                  "receipt and CSV of a real run. One olywork key, no markup.",
-                 "/workflows", body, ld)
+                 "/workflows", body, ld, css="catalog.css")
 
 
 @app.get("/catalog.css", include_in_schema=False)
