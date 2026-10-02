@@ -304,25 +304,50 @@ img, svg { display: block; }
   max-width: 1140px;
   margin: 0 auto;
   text-align: center;
+  background-image: radial-gradient(var(--line2) 1px, transparent 1px);
+  background-size: 20px 20px;
+  position: relative;
+}
+.agent-trans-section::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, transparent 0%, var(--bg) 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+.agent-trans-h1, .agent-trans-flow, .trans-give-strip {
+  position: relative;
+  z-index: 1;
 }
 .agent-trans-h1 {
-  font-family: var(--font-m);
-  font-size: clamp(22px, 3.4vw, 35px);
-  font-weight: 500;
-  letter-spacing: -0.01em;
-  color: #4A4A4A;
+  font-family: var(--font-h);
+  font-size: clamp(26px, 3.8vw, 42px);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: #1A1A1A;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-wrap: wrap;
   gap: 12px;
   margin: 0 auto 44px;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.02);
+}
+.agent-trans-h1 > span:not(.agent-trans-icons):not(.agent-trans-role) {
+  font-family: var(--font-m);
+  font-weight: 500;
+  color: #4A4A4A;
 }
 .agent-trans-icons {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  vertical-align: middle;
+  background: #FFFFFF;
+  padding: 4px 6px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.02);
 }
 .agent-ico {
   width: 32px;
@@ -331,20 +356,18 @@ img, svg { display: block; }
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
 }
 .agent-trans-role {
-  font-family: var(--font-m), "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-family: var(--font-m), "JetBrains Mono", monospace;
   color: #0070F3;
-  font-weight: 600;
+  font-weight: 700;
   display: inline-flex;
   align-items: center;
-  letter-spacing: -0.01em;
 }
 .agent-trans-cursor {
   display: inline-block;
   color: #0070F3;
-  font-weight: 300;
+  font-weight: 500;
   animation: blink-cursor 1s step-start infinite;
   margin-left: 3px;
 }
@@ -356,7 +379,7 @@ img, svg { display: block; }
 /* 3-Card Flow */
 .agent-trans-flow {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 38px minmax(0, 1.15fr) 38px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) 40px minmax(0, 1.15fr) 40px minmax(0, 1fr);
   align-items: stretch;
   gap: 0;
   margin: 0 auto;
@@ -364,15 +387,15 @@ img, svg { display: block; }
 }
 .trans-card {
   background: #FFFFFF;
-  border: 1px solid #EAE7DF;
+  border: 1px solid var(--line);
   border-radius: 20px;
-  padding: 22px 24px;
-  box-shadow: 0 4px 20px -2px rgba(0,0,0,0.03), 0 2px 6px -1px rgba(0,0,0,0.02);
+  padding: 24px;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.04), 0 2px 6px rgba(0,0,0,0.02);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   box-sizing: border-box;
-  min-height: 236px;
+  min-height: 280px;
   transition: opacity 0.2s ease;
 }
 .trans-card-label {
@@ -380,45 +403,46 @@ img, svg { display: block; }
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: #9C9A90;
-  margin-bottom: 14px;
+  letter-spacing: 0.05em;
+  color: #8C8A82;
+  margin-bottom: 20px;
 }
 .trans-agent-head {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
+  gap: 16px;
+  margin-bottom: 28px;
 }
 .trans-agent-avatar {
-  width: 36px;
-  height: 36px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #F59E0B, #EA580C);
+  background: linear-gradient(135deg, #FF7E5F, #FEB47B);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #FFF;
-  font-size: 16px;
-  box-shadow: 0 2px 6px rgba(245,158,11,0.25);
+  box-shadow: 0 4px 12px rgba(255,126,95,0.3);
   transition: all 0.2s ease;
+  flex-shrink: 0;
 }
 .trans-agent-name {
   font-family: var(--font-h);
   font-weight: 700;
-  font-size: 15px;
+  font-size: 18px;
   color: #1A1A1A;
+  margin-bottom: 2px;
+  letter-spacing: -0.02em;
 }
 .trans-agent-sub {
   font-family: var(--font-m);
-  font-size: 11px;
-  color: #0284C7;
-  font-weight: 600;
+  font-size: 12px;
+  color: #0070F3;
+  font-weight: 500;
 }
 .trans-task-list {
   display: flex;
   flex-direction: column;
-  gap: 9px;
+  gap: 12px;
   transition: opacity 0.2s ease;
 }
 .trans-task-row {
@@ -426,69 +450,93 @@ img, svg { display: block; }
   align-items: center;
   justify-content: space-between;
   font-family: var(--font-m);
-  font-size: 12px;
-  color: #4B5563;
-  line-height: 1.4;
+  font-size: 11px;
+  color: #555;
+  padding: 8px 12px;
+  background: #F9F9F8;
+  border-radius: 8px;
+  border: 1px solid #F0EEE6;
 }
-.trans-task-row .task-icon {
-  color: #9CA3AF;
-  margin-right: 6px;
-}
-.trans-task-row .task-check {
-  color: #10B981;
-  font-weight: 700;
-  margin-left: 8px;
-}
+.trans-task-row .task-icon { opacity: 0.6; margin-right: 8px; font-size: 12px; }
+.trans-task-row .task-check { color: #10B981; font-weight: 800; font-size: 12px; }
 
 /* Arrow */
 .trans-arrow {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #B4B2A8;
+  color: #A1A1AA;
+  background: #FFFFFF;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  margin: auto;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+  z-index: 10;
 }
-.trans-arrow svg {
-  width: 22px;
-  height: 22px;
-}
+.trans-arrow svg { width: 20px; height: 20px; }
 
-/* Center Box */
+/* Center Box (macOS Terminal) */
 .trans-blackbox {
-  background: #111113;
-  border: 1px solid #27272A;
+  background: #0A0A0A;
+  border: 1px solid #222;
   border-radius: 20px;
-  padding: 26px 22px;
+  padding: 0;
   text-align: center;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
   color: #FFFFFF;
-  box-shadow: 0 16px 36px -4px rgba(0,0,0,0.18), 0 4px 12px rgba(0,0,0,0.08);
+  box-shadow: 0 20px 40px rgba(0,0,0,0.2), 0 0 0 1px rgba(255,255,255,0.05) inset;
   box-sizing: border-box;
-  min-height: 236px;
+  min-height: 280px;
+  overflow: hidden;
+}
+.trans-terminal-header {
+  height: 32px;
+  background: #141414;
+  border-bottom: 1px solid #222;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 6px;
+}
+.mac-dot { width: 10px; height: 10px; border-radius: 50%; }
+.mac-red { background: #FF5F56; }
+.mac-ylw { background: #FFBD2E; }
+.mac-grn { background: #27C93F; }
+
+.trans-blackbox-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 }
 .trans-blackbox-logo {
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 12px;
   font-family: var(--font-h);
-  font-weight: 800;
   font-size: 24px;
-  letter-spacing: -0.03em;
-  margin: auto 0;
-  color: #FFFFFF;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  color: #FFF;
 }
-.trans-blackbox-logo svg {
-  width: 28px;
+.trans-blackbox-logo img {
   height: 28px;
-  color: #FFFFFF;
+  filter: drop-shadow(0 0 12px rgba(159, 242, 95, 0.5));
+}
+.trans-blackbox-cmd-wrap {
+  width: 100%;
+  padding: 0 20px 20px;
+  margin-top: auto;
 }
 .trans-blackbox-cmd {
-  background: #1C1C1F;
-  border: 1px solid #2E2E33;
+  background: #141414;
+  border: 1px solid #2A2A2A;
   border-radius: 10px;
-  padding: 10px 14px;
+  padding: 12px 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -496,141 +544,105 @@ img, svg { display: block; }
   width: 100%;
   box-sizing: border-box;
   font-family: var(--font-m);
-  font-size: 11.5px;
+  font-size: 11px;
 }
-.trans-cmd-text {
-  color: #E4E4E7;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.trans-cmd-text strong {
-  color: #71717A;
-  margin-right: 4px;
-}
-.trans-cmd-slash {
-  color: #52525B;
-  margin: 0 4px;
-}
+.trans-cmd-text { color: #A1A1AA; }
+.trans-cmd-text strong { color: #9FF25F; margin-right: 6px; }
+.trans-cmd-slash { color: #3F3F46; }
 .trans-cmd-status {
-  color: #22C55E;
+  color: #10B981;
   font-weight: 700;
-  font-size: 11.5px;
-  flex-shrink: 0;
+  background: rgba(16, 185, 129, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
 }
 
-/* Toolbelt Card */
+/* Toolbelt Pills */
 .trans-toolbelt-pills {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 14px;
+  gap: 10px;
   transition: opacity 0.2s ease;
 }
 .trans-tool-pill {
-  background: #FFFFFF;
-  border: 1px solid #EAE7DF;
-  border-radius: 9px;
-  padding: 5px 9px;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: 11.5px;
+  gap: 8px;
+  padding: 8px 14px;
+  background: #FFFFFF;
+  border: 1px solid var(--line);
+  border-radius: 100px;
+  font-size: 12px;
   font-weight: 600;
-  color: #1F1F1F;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+  color: #1A1A1A;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+  transition: all 0.2s;
 }
-.trans-tool-pill img {
-  width: 15px;
-  height: 15px;
-  object-fit: contain;
-}
+.trans-tool-pill img { width: 16px; height: 16px; }
 .trans-tool-pill.more {
-  background: #FAF9F5;
-  border: 1px dashed #D5D1C3;
-  color: #7E7C74;
-  font-weight: 500;
+  background: #F9F9F8;
+  border: 1px dashed var(--line2);
+  color: #8C8A82;
+  box-shadow: none;
 }
 .trans-toolbelt-footer {
   font-family: var(--font-m);
   font-size: 11px;
-  color: #059669;
+  color: #10B981;
   font-weight: 600;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-top: 10px;
-  border-top: 1px solid #F3F0E8;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
 }
+.tb-dot { width: 4px; height: 4px; background: #D1D5DB; border-radius: 50%; }
 
 /* Give this to your agent strip */
-.trans-give-strip {
-  margin-top: 36px;
-  display: flex;
-  justify-content: center;
-}
+.trans-give-strip { margin-top: 40px; display: flex; justify-content: center; }
 .trans-give-card {
   background: #FFFFFF;
-  border: 1px solid #EAE7DF;
-  border-radius: 18px;
-  padding: 18px 24px 20px;
-  box-shadow: 0 4px 18px rgba(0,0,0,0.03);
-  max-width: 580px;
-  width: 100%;
-  box-sizing: border-box;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 14px 20px 16px;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.04), 0 2px 6px rgba(0,0,0,0.02);
+  width: 520px;
   text-align: center;
 }
 .trans-give-title {
-  font-family: var(--font-b);
-  font-size: 13.5px;
-  font-weight: 600;
+  font-family: var(--font-h);
+  font-size: 13px;
+  font-weight: 700;
   color: #374151;
   margin-bottom: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 10px;
 }
 .trans-give-box {
   background: #18181B;
   border: 1px solid #27272A;
-  border-radius: 10px;
-  padding: 9px 12px 9px 18px;
+  border-radius: 8px;
+  padding: 6px 6px 6px 14px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 14px;
-  box-sizing: border-box;
 }
-.trans-give-code {
-  font-family: var(--font-m);
-  font-size: 12px;
-  color: #F4F4F5;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.trans-give-code strong {
-  color: #22C55E;
-  margin-right: 6px;
-}
+.trans-give-code { font-family: var(--font-m); font-size: 11.5px; color: #E4E4E7; }
+.trans-give-code strong { color: #22C55E; margin-right: 5px; }
 .trans-give-copy {
   background: #27272A;
-  color: #D4D4D8;
   border: 1px solid #3F3F46;
-  border-radius: 6px;
-  padding: 4px 12px;
-  font-family: var(--font-b);
-  font-size: 11.5px;
+  border-radius: 4px;
+  color: #E4E4E7;
+  font-size: 10px;
   font-weight: 600;
+  padding: 4px 10px;
   cursor: pointer;
-  transition: all 0.15s;
-  flex-shrink: 0;
+  transition: all 0.2s;
 }
-.trans-give-copy:hover {
-  background: #3F3F46;
-  color: #FFFFFF;
-}
+.trans-give-copy:hover { background: #3F3F46; }
 
 /* ─── 2. THE CATALOG GROUPED DIRECTORY ───────────────────────────────────────── */
 .cat-directory-section {
@@ -1257,9 +1269,21 @@ img, svg { display: block; }
   <h2 class="agent-trans-h1">
     <span>Turn</span>
     <span class="agent-trans-icons">
-      <span class="agent-ico" style="background:#FFF3E8;border:1px solid #FFE2CA;" title="Agent"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#EA580C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="3"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4M8 16h.01M16 16h.01"/></svg></span>
-      <span class="agent-ico" style="background:#EBF5FF;border:1px solid #D0E7FF;" title="Web / LLM"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#0284C7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>
-      <span class="agent-ico" style="background:#FEE2E2;border:1px solid #FECACA;" title="Model"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"/><circle cx="12" cy="12" r="3"/></svg></span>
+      <span class="agent-ico" style="background:#FFF7ED;border:1px solid #FFEDD5;" title="Agent">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#EA580C" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="11" width="18" height="10" rx="3"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4M8 16h.01M16 16h.01"/>
+        </svg>
+      </span>
+      <span class="agent-ico" style="background:#F0F9FF;border:1px solid #E0F2FE;" title="Web / LLM">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0284C7" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+        </svg>
+      </span>
+      <span class="agent-ico" style="background:#FEF2F2;border:1px solid #FEE2E2;" title="Model">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"/><circle cx="12" cy="12" r="3"/>
+        </svg>
+      </span>
     </span>
     <span>into</span>
     <span class="agent-trans-role">
@@ -1275,11 +1299,11 @@ img, svg { display: block; }
       <div>
         <div class="trans-card-label">AGENT</div>
         <div class="trans-agent-head">
-          <div class="trans-agent-avatar" id="trans-agent-avatar" style="width:38px;height:38px;border-radius:50%;background:radial-gradient(circle at 35% 35%, #FF9500, #E05300);display:flex;align-items:center;justify-content:center;box-shadow:0 3px 10px rgba(224,83,0,0.32);flex-shrink:0;">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-              <rect x="4.5" y="11" width="3.5" height="9" rx="1.5" fill="#22C55E"/>
-              <rect x="10.25" y="5" width="3.5" height="15" rx="1.5" fill="#3B82F6"/>
-              <rect x="16" y="9" width="3.5" height="11" rx="1.5" fill="#FACC15"/>
+          <div class="trans-agent-avatar" id="trans-agent-avatar">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+              <rect x="4.5" y="11" width="3.5" height="9" rx="1.5" fill="#FFF"/>
+              <rect x="10.25" y="5" width="3.5" height="15" rx="1.5" fill="#FFF"/>
+              <rect x="16" y="9" width="3.5" height="11" rx="1.5" fill="#FFF"/>
             </svg>
           </div>
           <div>
@@ -1303,14 +1327,23 @@ img, svg { display: block; }
 
     <!-- Card 2: BLACK PROXY BOX -->
     <div class="trans-blackbox">
-      <div class="trans-blackbox-logo">
-        <img src="/media/brand/Olywork_Official.png" alt="Olywork" style="height:38px;width:auto;display:inline-block;vertical-align:middle;filter:drop-shadow(0 2px 12px rgba(159,242,95,0.45));">
-        <span>olywork</span>
+      <div class="trans-terminal-header">
+        <div class="mac-dot mac-red"></div>
+        <div class="mac-dot mac-ylw"></div>
+        <div class="mac-dot mac-grn"></div>
       </div>
-      <div class="trans-blackbox-cmd">
-        <span class="trans-cmd-text" id="trans-cmd-call"><strong>$</strong> olywork call meta.ad_library_se..</span>
-        <span class="trans-cmd-slash">/</span>
-        <span class="trans-cmd-status">200</span>
+      <div class="trans-blackbox-content">
+        <div class="trans-blackbox-logo">
+          <img src="/media/brand/Olywork_Official.png" alt="Olywork">
+          <span>olywork</span>
+        </div>
+      </div>
+      <div class="trans-blackbox-cmd-wrap">
+        <div class="trans-blackbox-cmd">
+          <span class="trans-cmd-text" id="trans-cmd-call"><strong>$</strong> olywork call meta.ad_library_se..</span>
+          <span class="trans-cmd-slash">/</span>
+          <span class="trans-cmd-status">200</span>
+        </div>
       </div>
     </div>
 
@@ -2309,7 +2342,7 @@ document.querySelectorAll('.faq-q').forEach(btn => {
       agentTitle: 'Operator',
       agentSub: 'agent:ads',
       avatarBg: 'linear-gradient(135deg, #F59E0B, #EA580C)',
-      avatarIco: '📊',
+      avatarIco: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="4.5" y="11" width="3.5" height="9" rx="1.5" fill="#FFF"/><rect x="10.25" y="5" width="3.5" height="15" rx="1.5" fill="#FFF"/><rect x="16" y="9" width="3.5" height="11" rx="1.5" fill="#FFF"/></svg>',
       tasks: [
         { text: 'audit Meta Ad Library creatives', icon: '⚡' },
         { text: 'track TikTok Ads retention', icon: '⚡' },
@@ -2333,7 +2366,7 @@ document.querySelectorAll('.faq-q').forEach(btn => {
       agentTitle: 'Codex',
       agentSub: 'agent:social',
       avatarBg: 'linear-gradient(135deg, #6366F1, #8B5CF6)',
-      avatarIco: '🤖',
+      avatarIco: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>',
       tasks: [
         { text: 'get trending sounds', icon: '⚡' },
         { text: 'pull competitor posts', icon: '⚡' },
@@ -2418,7 +2451,7 @@ document.querySelectorAll('.faq-q').forEach(btn => {
     if(agentSubEl) agentSubEl.textContent = role.agentSub;
     if(agentAvatarEl) {
       agentAvatarEl.style.background = role.avatarBg;
-      agentAvatarEl.textContent = role.avatarIco;
+      agentAvatarEl.innerHTML = role.avatarIco;
     }
     if(cmdCallEl) {
       cmdCallEl.innerHTML = `<strong>$</strong> ${role.cmd}`;
