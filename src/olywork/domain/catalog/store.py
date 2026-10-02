@@ -46,6 +46,14 @@ KINDS = ("data", "action", "account", "utility", "routed")
 DEFAULT_KIND = "data"
 HIDDEN_KINDS = frozenset({"account", "utility"})  # served, but never inflate the browse counts
 
+
+def browsable(ep: dict) -> bool:
+    """An endpoint the PUBLIC pages may count or list: hidden utility kinds out, and the
+    `kind: routed` meta-rows (PR #242) out with them - a routed row delegates to children that
+    are already on the page, so anywhere public it double-counts and surfaces a provider named
+    "olywork", which the brand rules say must never appear as a vendor."""
+    return ep["kind"] not in HIDDEN_KINDS and ep.get("kind") != "routed"
+
 # How much the recorded PRICE is worth as evidence (cost.confidence). It is a claim about the
 # price, not about the endpoint: `verified: 2026-07-28` says the route answered, `confidence:
 # verified` says the money figure was confirmed against something re-checkable.
@@ -59,11 +67,11 @@ CONFIDENCES = ("verified", "documented", "inferred", "unknown")
 COST_SOURCES = ("rate_card_api", "docs", "observed", "vendor_email", "inferred")
 # What `per` counts: "value currency per <per> <unit>". Under `currency: unit` the provider bills in
 # its own meter and `unit` names that meter (see `Catalog.cost_view`).
-COST_UNITS = ("call", "result", "row", "record", "keyword", "page", "character", "review",
+COST_UNITS = ("call", "result", "row", "record", "keyword", "page", "character", "utf8_byte", "review",
               "section", "employee", "GB", "ad", "month", "line", "target", "domain", "item",
               "post", "user",
               "api_unit", "analysis_unit", "retrieval_unit", "index_item_unit", "quota_row",
-              "verifier_credit")
+              "verifier_credit", "step")
 # A platform key spends OUR money on a caller's behalf, so it is allowed only where the price is
 # machine-computable and provenanced. `account`-kind routes are the provider's own bookkeeping —
 # never worth spending on — and `own_account` scope needs the caller's own credential by definition.
@@ -83,10 +91,11 @@ class Catalog:
     # this is. The rate itself still lives in `credit_rates` like any other — pricing machinery
     # neither knows nor cares that the rate is ours.
     shared_plans: dict[str, dict] = field(default_factory=dict)
-    # service -> calls/team/day for rates olywork set to ZERO (fx.yaml `kind: olywork_trial`): a capped
-    # free taste served on olywork's own free-tier key. The allowance lives beside the zero because at
-    # $0 the price gives no brake — the cap is the only congestion control, so an entry without one
-    # is invalid (check_fx). api._enforce_trial_allowance reads this.
+    # service -> paid calls/team/day for rates olywork set to ZERO (fx.yaml `kind: olywork_trial`): a
+    # capped free taste served on olywork's own free-tier key. Endpoints whose catalog cost is `free`
+    # do not consume it. The allowance lives beside the zero because at $0 the price gives no brake
+    # — the cap is the only per-team congestion control, so an entry without one is invalid
+    # (check_fx). application.call.reserve._enforce_trial_allowance reads this.
     trial_pools: dict[str, int] = field(default_factory=dict)
     # provider service -> meter name -> USD per one unit of that meter (fx.yaml `unit_rates_usd`).
     # Providers that bill in a proprietary meter (Semrush API units, Majestic's three pools, Moz's
@@ -106,7 +115,10 @@ class Catalog:
     adapters: dict = field(default_factory=dict)    # endpoint id -> routing.Adapter (verified flag set)
 
     def for_capability(self, capability: str) -> list[dict]:
-        return [e for e in self.endpoints if capability and e["capability"] == capability]
+        return [e for e in self.endpoints if capability and (
+            e["capability"] == capability or
+            (e["id"] in self.adapters and capability in self.adapters[e["id"]].verified_capabilities)
+        )]
 
     def for_platform(self, slug: str) -> list[dict]:
         return [e for e in self.endpoints if e["platform"] == slug]
@@ -149,17 +161,57 @@ class Catalog:
         usd = (round(value * rate / per, 9)
                if isinstance(value, (int, float)) and rate is not None and per > 0 else None)
         out = {**cost, "usd": usd}
+        # Optional presentation metadata describes the charge unit without changing billing.
+        display = cost.get("display") or {}
+        if usd is not None and display:
+            grouped = display.get("grouped", False)
+            out["display_usd"] = round(usd * per, 9) if grouped else usd
+            unit = display["unit"]
+            if grouped and per == 1_000_000:
+                out["display_unit"] = f"1M {unit}"
+            else:
+                out["display_unit"] = f"{per:g} {unit}" if grouped else unit
+            if display.get("round_up"):
+                out["display_unit"] = "started " + out["display_unit"]
+            out["display_suffix"] = "+" if display.get("variable") else ""
+            out["display_prefix"] = "up to " if display.get("maximum") else ""
         # A table prices out as a RANGE: `usd` stays the validated ceiling (what reserve and
         # eligibility read), `usd_min` is the cheapest row so a display never shows only the
         # worst case as "the price" (an H3 video is $0.25 typical against a $1.96 ceiling).
         floor = cost.get("table_min")
         if isinstance(floor, (int, float)) and rate is not None and per > 0 and usd is not None:
             out["usd_min"] = min(usd, round(floor * rate / per, 9))
+        # A meter-priced table is advertised as a unit rate; `usd`/`usd_min` stay the reserve
+        # ceiling and floor for a whole call.
+        span = cost.get("table_rate")
+        rate_unit = cost.get("table_rate_unit")
+        if isinstance(span, list) and len(span) == 2 and isinstance(rate_unit, str) \
+                and rate_unit and rate is not None and per > 0 \
+                and usd is not None:
+            out["rate_usd_min"] = round(float(span[0]) * rate / per, 9)
+            out["rate_usd"] = round(float(span[1]) * rate / per, 9)
+            out["rate_unit"] = rate_unit
         # A $0 trial price travels with its allowance, so every surface showing the price can also
         # say how much of it a team gets — a bare $0.00 would read as unlimited.
         if provider in self.trial_pools and usd == 0:
             out["trial_calls_per_team_day"] = self.trial_pools[provider]
         return out
+
+    def advertised_usd(self, cost: dict | None) -> float | None:
+        """Dollar figure catalog_search / catalog_get should quote for one typical paid call.
+
+        `usd` is the reserve unit: for `per` > 1 it is the linear slice (Hunter Domain Search
+        → $0.00245/email). When `display.grouped` is set, `display_usd` is the chargeable
+        event — one search credit, one started block — which is what a live successful call
+        actually bills and what `usd_per_call` must say. Settlement still reads `usd`.
+        """
+        if not cost:
+            return None
+        shown = cost.get("display_usd")
+        if isinstance(shown, (int, float)) and not isinstance(shown, bool):
+            return shown
+        usd = cost.get("usd")
+        return usd if isinstance(usd, (int, float)) and not isinstance(usd, bool) else None
 
     def platform_eligible(self, endpoint: dict) -> bool:
         """May olywork serve this endpoint with a PLATFORM key, billed to the caller's balance?
@@ -195,9 +247,11 @@ class Catalog:
         # to keep apart.
         priced_or_free = (cost.get("type") == "free" and not cost.get("usd")) \
             or cost.get("confidence") in ("verified", "documented")
+        kind = endpoint.get("kind") or DEFAULT_KIND
+        managed = isinstance(endpoint.get("managed_resource"), dict)
         return bool(priced_or_free
                     and endpoint.get("scope") != "own_account"
-                    and (endpoint.get("kind") or DEFAULT_KIND) not in PLATFORM_INELIGIBLE_KINDS)
+                    and (kind not in PLATFORM_INELIGIBLE_KINDS or managed))
 
 
 _CACHE: Catalog | None = None
@@ -213,9 +267,20 @@ def load(*, refresh: bool = False, directory: Path | None = None) -> Catalog:
     return _CACHE
 
 
+class _Loader(yaml.SafeLoader):
+    """SafeLoader that keeps timestamps as the strings they were written as. The validator accepts
+    `checked: 2026-09-01` unquoted, and a `date` object in a served row breaks every plain
+    `json.dumps` of it (the /catalog/find stream did exactly that on the video-gen rows)."""
+
+
+_Loader.yaml_implicit_resolvers = {
+    ch: [(tag, rx) for tag, rx in rs if tag != "tag:yaml.org,2002:timestamp"]
+    for ch, rs in yaml.SafeLoader.yaml_implicit_resolvers.items()}
+
+
 def _read_yaml(path: Path) -> dict:
     try:
-        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+        data = yaml.load(path.read_text(encoding="utf-8"), Loader=_Loader)  # noqa: S506 - SafeLoader subclass
     except (OSError, yaml.YAMLError):
         return {}
     return data if isinstance(data, dict) else {}
@@ -271,6 +336,32 @@ def _table_floor(cost: object, input_schema: object) -> float | None:
     return min(floors) if floors else None
 
 
+def _table_rate(cost: object) -> tuple[float, float, str] | None:
+    """Rate span for tables whose rows multiply one recognized request meter."""
+    if not isinstance(cost, dict) or not isinstance(cost.get("table"), list) or not cost["table"]:
+        return None
+    values = []
+    meter: str | None = None
+    for row in cost["table"]:
+        if not isinstance(row, dict) or not isinstance(row.get("value"), (int, float)):
+            return None
+        times = row.get("times")
+        if times is None and any(str(f).rsplit(".", 1)[-1] == "duration" for f in row.get("when") or {}):
+            # A flat row pinning the duration itself (`duration: -1`, the provider's auto mode)
+            # is a whole-clip reserve ceiling, not a rate; the per-second rows still quote the model.
+            continue
+        if not isinstance(times, str):
+            return None
+        unit = {"duration": "s", "max_steps": "step"}.get(times.rsplit(".", 1)[-1])
+        if unit is None or (meter is not None and meter != unit):
+            return None
+        meter = unit
+        values.append(float(row["value"]))
+    if not values or meter is None:
+        return None
+    return (min(values), max(values), meter)
+
+
 def _parse(directory: Path) -> Catalog:
     if not directory.is_dir():
         return Catalog()
@@ -310,6 +401,7 @@ def _parse(directory: Path) -> Catalog:
         # The provider's cache policy (docs/context/architecture/archive.md): one licence judgment
         # at the file header covers every endpoint below it; an endpoint's own `cache:` overrides.
         # Kept as the dict/provenance form, not stringified — archive.policy reads `mode` from it.
+        _validate_cache(doc.get("cache"), header=True)
         if doc.get("cache") and not meta.get("cache"):
             meta["cache"] = doc["cache"]
         for raw in doc.get("endpoints") or []:
@@ -332,6 +424,10 @@ def _parse(directory: Path) -> Catalog:
             floor = _table_floor(raw.get("cost"), raw.get("input"))
             if floor is not None:
                 raw = {**raw, "cost": {**raw["cost"], "table_min": floor}}
+            span = _table_rate(raw.get("cost"))
+            if span is not None:
+                raw = {**raw, "cost": {**raw["cost"], "table_rate": list(span[:2]),
+                                        "table_rate_unit": span[2]}}
             ep = _normalize(raw, provider, directory)
             if ep["id"] in by_id:  # first file wins; ids are unique by validator contract
                 continue
@@ -383,14 +479,12 @@ def _parse(directory: Path) -> Catalog:
                   provider_meta=provider_meta, aliases=aliases, contracts=contracts, adapters=adapters)
     from .routing.synthetic import routed_endpoint
     for cap, contract in contracts.items():
+        if not contract.routed:  # admission-only contract: never a olywork.<capability> row
+            continue
         row = routed_endpoint(contract, cat.for_capability(cap), adapters, cat.cost_view)
         if row is not None and row["id"] not in by_id:
             by_id[row["id"]] = row
             endpoints.append(row)
-            if row["id"].startswith("olywork."):
-                legacy_id = "olywork." + row["id"][len("olywork."):]
-                if legacy_id not in by_id:
-                    by_id[legacy_id] = row
     return cat
 
 
@@ -398,7 +492,9 @@ def _load_routing(directory: Path, by_id: dict[str, dict]):
     from .routing.contracts import load_routing
 
     def _example(ep: dict):
-        name = ep.get("example_file")
+        # Async routing adapts the terminal poll document, not the submission acknowledgement.
+        # The ordinary example remains the public "what this endpoint returns immediately" body.
+        name = ep.get("terminal_example_file") if ep.get("async") else ep.get("example_file")
         if not name:
             return None
         try:
@@ -513,7 +609,33 @@ def _effective_cost(raw: dict):
             "note": "price observed at live verification (provider-reported charge)"}
 
 
+_IGNORE_PATH = re.compile(r"(?:[A-Za-z0-9_][A-Za-z0-9_-]*|\[\*\])(?:\[\*\])*(?:\.[A-Za-z0-9_][A-Za-z0-9_-]*(?:\[\*\])*)*")
+
+
+def _validate_cache(cache, *, header: bool = False, scope: str = "") -> None:
+    if not isinstance(cache, dict):
+        return
+    if "sharing" in cache:
+        # Whose question an answer is (docs/context/architecture/archive.md, "Sharing") is an
+        # ENDPOINT judgment: a provider's licence permitting storage says nothing about whether
+        # the answer depends on who asked, so a header may not declare it for every endpoint
+        # below, and an `own_account` answer is about the credential's account by definition.
+        if header:
+            raise ValueError("cache.sharing is declared per endpoint, never on a provider header")
+        if cache["sharing"] != "public":
+            raise ValueError("cache.sharing accepts only 'public' (org and connection are the defaults)")
+        if scope == "own_account":
+            raise ValueError("cache.sharing: public is impossible on an own_account endpoint")
+    if "ignore_paths" not in cache:
+        return
+    paths = cache["ignore_paths"]
+    if (not isinstance(paths, list) or
+            any(not isinstance(path, str) or not _IGNORE_PATH.fullmatch(path) for path in paths)):
+        raise ValueError("cache.ignore_paths must be a list of dot paths with optional [*] array wildcards")
+
+
 def _normalize(raw: dict, provider: str, directory: Path) -> dict:
+    _validate_cache(raw.get("cache"), scope=str(raw.get("scope") or ""))
     capability = raw.get("capability") or ""
     platform = raw.get("platform") or (capability.split(".")[0] if capability else "other")
     verified = raw.get("verified")
@@ -529,6 +651,9 @@ def _normalize(raw: dict, provider: str, directory: Path) -> dict:
         "kind": str(raw.get("kind") or DEFAULT_KIND).strip().lower() or DEFAULT_KIND,
         "method": (raw.get("method") or "GET").upper(),
         "path": raw.get("path") or "",
+        # Optional alternate provider host. Resolution accepts it only when the provider registry
+        # maps this exact hostname to an approved HTTPS base URL and credential profile.
+        "host": str(raw.get("host") or "").strip().lower(),
         # optional short display title; `summary` stays the provider's own description, verbatim
         "name": str(raw.get("name") or "").strip(),
         "summary": raw.get("summary") or "",
@@ -555,6 +680,20 @@ def _normalize(raw: dict, provider: str, directory: Path) -> dict:
         # Opaque shared-account objects created/read by legacy async endpoint pairs. Resolution
         # enforces `requires`; the buffered successful response persists every `produces` path.
         "resource_ownership": raw.get("resource_ownership") or None,
+        # User-visible long-lived objects created on a shared provider account.
+        "managed_resource": raw.get("managed_resource") or None,
+        "platform_request": raw.get("platform_request") or None,
+        # How olywork serves the catalog fallback after the team's own tool/credential ladder misses.
+        # Absent means the provider credential is required. `anonymous` means the verified public
+        # upstream route is called with no injected credential; catalog validation limits that
+        # mode to free, read-only endpoints.
+        "platform_auth": (
+            str(raw["platform_auth"]).strip().lower()
+            if raw.get("platform_auth") is not None else None
+        ),
+        "strict_query": raw.get("strict_query") is True,
+        "strict_body": raw.get("strict_body") is True,
+        "body_allowlist": raw.get("body_allowlist") is True,
         "cost": _effective_cost(raw),
         # Absent `tier` means core: the curated first wave predates the split, and treating an
         # unmarked endpoint as extended would hide it from the platform view entirely.
@@ -563,7 +702,7 @@ def _normalize(raw: dict, provider: str, directory: Path) -> dict:
         # inherited from the file header unless the endpoint declares its own.
         # Generated media and its task/result utilities must never replay shared-account ids.
         # Enforce this for core and generated extended rows without changing their public kind.
-        "cache": "forbidden" if platform in {"image-gen", "video-gen"} else raw.get("cache"),
+        "cache": "forbidden" if platform in {"image-gen", "video-gen", "voice-gen"} else raw.get("cache"),
         "verified": str(verified) if verified else None,
         # {status, means} — a status the provider uses for "asked and answered: no result" (PDL
         # 404s a person it has no record of). Only endpoints with evidenced miss semantics carry
@@ -581,6 +720,7 @@ def _normalize(raw: dict, provider: str, directory: Path) -> dict:
         "superseded_by": str(raw.get("superseded_by") or "").strip(),
         "docs_url": raw.get("docs_url") or "",
         "example_file": _example_file(raw, directory),
+        "terminal_example_file": _declared_example_file(raw.get("terminal_example_response"), directory),
     }
 
 
@@ -591,6 +731,12 @@ def _example_file(raw: dict, directory: Path) -> str | None:
     data file must never be able to point the server at an arbitrary path.
     """
     declared = raw.get("example_response") or f"{EXAMPLES_DIRNAME}/{raw['id']}.json"
+    return _declared_example_file(declared, directory)
+
+
+def _declared_example_file(declared: object, directory: Path) -> str | None:
+    if not declared:
+        return None
     name = Path(str(declared)).name
     if not name.endswith(".json"):
         return None
@@ -645,12 +791,15 @@ def endpoint_view(ep: dict, provider_display: str, cat: Catalog | None = None) -
         # a fact about the row that decides whether the caller needs a credential at all, so it
         # rides on the row rather than being re-derived per client (see `Catalog.platform_eligible`)
         "platform_eligible": cat.platform_eligible(ep) if cat else None,
+        # A public upstream route can be served without olywork's provider key. This is declarative
+        # endpoint metadata, not provider logic in the relay.
+        **({"platform_auth": "anonymous"} if ep.get("platform_auth") == "anonymous" else {}),
         # WHY the platform can't serve an otherwise-working route (plan/tier gap on olywork's own
         # subscription) — so "bring your own key" is said up front instead of discovered via a 403.
         "platform_blocked": ep.get("platform_blocked") or None,
         # "no match" semantics, when the endpoint has them — an agent that reads `miss` stops
         # treating an expected empty answer as a failed call (and stops retrying it).
-        "miss": ep.get("miss"),
+        "miss": ({k: v for k, v in ep["miss"].items() if k != "when"} if isinstance(ep.get("miss"), dict) else ep.get("miss")),
         # Only direct-id lookups can return a marked row; discovery surfaces never include one.
         "status": ep.get("status") or None,
         "status_note": ep.get("status_note") or None,
@@ -661,6 +810,9 @@ def endpoint_view(ep: dict, provider_display: str, cat: Catalog | None = None) -
         # the request schema, split by location (pathParams/queryParams/body + notes) — without it
         # the dashboard can show what comes BACK (example_response) but not what to SEND
         "input": ep.get("input") or None,
+        **({"strict_query": True} if ep.get("strict_query") else {}),
+        **({"strict_body": True} if ep.get("strict_body") else {}),
+        **({"body_allowlist": True} if ep.get("body_allowlist") else {}),
         # the exact request that live-verified this endpoint — the Try-it drawer prefills from it
         # verbatim (it also carries the ground truth the input spec can't express: whether the
         # body is a bare object or an ARRAY of tasks, which dataforseo requires)
@@ -993,22 +1145,54 @@ def search(query: str, cat: Catalog, limit: int = 25) -> tuple[list[tuple[dict, 
         if sum(1 for i in required if per_tok[i]) < need:
             continue
         scored.append((ep, round(sum(w * idf[i] for i, w in enumerate(per_tok)), 4)))
-    # A routed parent (`olywork.<capability>`) rides in whenever one of its children matched, at the
-    # best child's score: `find leads` matches `leadsforge.people.email.find` on the PROVIDER's
-    # name, and the row an agent should see first for that job is the one where olywork chooses among
-    # every provider — which contains no word of that query (2026-08-28).
+    scored = with_routed_parents(scored, cat)
+    scored.sort(key=lambda row: (-row[1], row[0]["tier"] != "core", not row[0]["verified"], row[0]["id"]))
+    return scored[:max(limit, 0)], len(scored)
+
+
+def with_routed_parents(scored: list[tuple[dict, float]], cat: Catalog) -> list[tuple[dict, float]]:
+    """A routed parent (`olywork.<capability>`) rides in whenever one of its children is in `scored`, at
+    the best child's score: `find leads` matches `leadsforge.people.email.find` on the PROVIDER's
+    name, and the row an agent should see first for that job is the one where olywork chooses among
+    every provider — which contains no word of that query (2026-08-28). Shared by `search` and the
+    judged page (`candidates` deliberately holds no routed rows), so both pages steer alike."""
     present = {ep["id"] for ep, _ in scored}
     best_child: dict[str, float] = {}
     for ep, score in scored:
         parent_id = f"olywork.{ep.get('capability')}" if ep.get("capability") else None
         if parent_id and parent_id not in present and ep.get("kind") != "routed":
             best_child[parent_id] = max(best_child.get(parent_id, 0.0), score)
+    out = list(scored)
     for parent_id, score in best_child.items():
         parent = cat.by_id.get(parent_id)
         if parent is not None and parent.get("kind") == "routed":
-            scored.append((parent, score))
+            out.append((parent, score))
+    return out
+
+
+def candidates(query: str, cat: Catalog, limit: int = 30) -> list[tuple[dict, float]]:
+    """Recall for a JUDGE, not an answer: every concrete endpoint that hits at least one required
+    token, best lexical score first, cut at `limit`.
+
+    `search` demands most of the rare words; that gate is what keeps a keyword page honest and it is
+    also what zeroes task-shaped queries — "apple stock closing prices for last year" carries three
+    words that are parameter VALUES (apple, last, year) and no catalog row will ever contain them.
+    A judge that reads the task can tell a value from a capability; the gate cannot. So this pass
+    admits on ONE hit and lets the judge decide, which is only safe because nothing here is shown
+    without the judge's answer. Routed parents are left out: the judge scores what an endpoint DOES,
+    and `with_routed_parents` puts the parent back over its children afterwards.
+    """
+    m = _match(query, cat)
+    if m is None or limit <= 0:
+        return []
+    tokens, rows, best, idf, required, need = m
+    scored: list[tuple[dict, float]] = []
+    for (ep, _), per_tok in zip(rows, best):
+        if ep.get("kind") == "routed" or not any(per_tok[i] for i in required):
+            continue
+        scored.append((ep, round(sum(w * idf[i] for i, w in enumerate(per_tok)), 4)))
     scored.sort(key=lambda row: (-row[1], row[0]["tier"] != "core", not row[0]["verified"], row[0]["id"]))
-    return scored[:max(limit, 0)], len(scored)
+    return scored[:limit]
 
 
 def near_misses(query: str, cat: Catalog, limit: int = 3) -> list[dict]:
@@ -1167,6 +1351,37 @@ def _required_examples(params, authorization_method: str = "") -> dict:
                  or authorization_method in v["authorization_methods"])}
 
 
+def unflatten_dotted(flat: dict) -> dict:
+    """Expand dotted catalog keys into nested JSON objects.
+
+    Schema fields like `params.domain` describe a nested wire body. When both a parent
+    key (`params`, typically an object placeholder) and dotted children exist, the
+    children win — the parent placeholder is not emitted. Query parameters keep their
+    literal dotted names; only JSON bodies go through this helper.
+    """
+    if not isinstance(flat, dict):
+        return flat
+    dotted = [(k, v) for k, v in flat.items() if isinstance(k, str) and "." in k]
+    if not dotted:
+        return flat
+    parents = {k.split(".", 1)[0] for k, _ in dotted}
+    nested = {
+        k: v for k, v in flat.items()
+        if k not in parents and not (isinstance(k, str) and "." in k)
+    }
+    for key, value in dotted:
+        cursor = nested
+        *heads, tail = key.split(".")
+        for part in heads:
+            nxt = cursor.get(part)
+            if not isinstance(nxt, dict):
+                nxt = {}
+                cursor[part] = nxt
+            cursor = nxt
+        cursor[tail] = value
+    return nested
+
+
 def call_template(ep: dict) -> str:
     """A paste-ready `olywork call …` line for this endpoint.
 
@@ -1209,7 +1424,16 @@ def call_template(ep: dict) -> str:
     # arguments but still requires a JSON body — and dropping `--data '{}'` from the line hands the
     # reader a command that differs from the one that was tested, on handlers that reject an empty
     # body outright.
-    if body is not None and (body or ep["method"] != "GET"):
+    # olywork can faithfully relay a caller-supplied GET body, but generated shell commands never add
+    # one: too many clients/proxies silently discard it. The stored test request can still preserve
+    # the provider's unusual verification contract without printing a misleading paste-ready line.
+    if body is not None and ep["method"] != "GET":
+        # Catalog schemas flatten nested JSON as dotted keys (`params.domain`). MCP callers
+        # nest the object themselves; the paste-ready command must do the same expansion so
+        # `--data` is a valid wire body rather than a flat object Serpstat (and JSON-RPC)
+        # reject.
+        if isinstance(body, dict):
+            body = unflatten_dotted(body)
         parts += ["--data", shlex.quote(json.dumps(
             body, separators=(",", ":"), ensure_ascii=False))]
     return " ".join(parts)
@@ -1250,3 +1474,13 @@ def tool_examples(service: str) -> list[dict]:
             note = f"{note} [capability: {ep['capability']}]"
         out.append({"method": ep["method"], "path": ep["path"], "note": note})
     return out
+
+
+def headline_counts(cat: Catalog) -> tuple[str, int]:
+    """The two numbers every agent-facing surface quotes, taken from the loaded catalog instead of
+    typed by hand: direct (non-routed) endpoints rounded DOWN to the hundred with a trailing "+",
+    and the providers behind them. Six hand-written copies once disagreed with each other and the
+    smallest undersold the catalog by six hundred endpoints; generated, the number cannot drift."""
+    direct = [e for e in cat.by_id.values() if e.get("kind") != "routed"]
+    providers = {e.get("provider") for e in direct if e.get("provider")}
+    return f"{len(direct) // 100 * 100:,}+", len(providers)

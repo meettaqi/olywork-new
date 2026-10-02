@@ -17,7 +17,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlmodel import select
 
-from conftest import make_upstream
+from conftest import make_upstream, verified_signup
 
 from olywork.domain import money as ledger
 from olywork.api import app
@@ -41,7 +41,7 @@ async def c():
 
 async def _org(c: AsyncClient, email: str = "money@olywork.com") -> tuple[int, str]:
     """Register a user (which creates their org and fires the signup promo). Returns (org_id, token)."""
-    r = await c.post("/users", json={"email": email})
+    r = await verified_signup(c, json={"email": email})
     assert r.status_code == 200, r.text
     return r.json()["org_id"], r.json()["token"]
 
@@ -214,9 +214,9 @@ async def test_concurrent_sweeps_pay_a_referral_once(c: AsyncClient):
     from olywork.domain import referrals
     from olywork.models import Referral
 
-    r = await c.post("/users", json={"email": "referrer@olywork.com"})
+    r = await verified_signup(c, json={"email": "referrer@olywork.com"})
     referrer_org, referrer_user = r.json()["org_id"], r.json()["id"]
-    r = await c.post("/users", json={"email": "referee@olywork.com"})
+    r = await verified_signup(c, json={"email": "referee@olywork.com"})
     referred_org, referred_user = r.json()["org_id"], r.json()["id"]
     promo = get_settings().promo_grant_micro
 
@@ -262,9 +262,9 @@ async def test_sweep_grants_and_stamps_commit_together(c: AsyncClient, monkeypat
     from olywork.domain import referrals
     from olywork.models import Referral
 
-    r = await c.post("/users", json={"email": "atomic-ref@olywork.com"})
+    r = await verified_signup(c, json={"email": "atomic-ref@olywork.com"})
     referrer_org, referrer_user = r.json()["org_id"], r.json()["id"]
-    r = await c.post("/users", json={"email": "atomic-referee@olywork.com"})
+    r = await verified_signup(c, json={"email": "atomic-referee@olywork.com"})
     referred_org, referred_user = r.json()["org_id"], r.json()["id"]
     promo = get_settings().promo_grant_micro
 
@@ -395,7 +395,7 @@ async def test_referrals_page_survives_a_sweep_rollback(c: AsyncClient, monkeypa
     from olywork.domain import referrals
     from olywork.application import referrals as referrals_app
 
-    r = await c.post("/users", json={"email": "page-boom@olywork.com"})
+    r = await verified_signup(c, json={"email": "page-boom@olywork.com"})
     user_id = r.json()["id"]
 
     async def sweep_boom(db, **kw):
@@ -409,6 +409,9 @@ async def test_referrals_page_survives_a_sweep_rollback(c: AsyncClient, monkeypa
         summary = await referrals_app.get_referral_summary(user_id)  # must not raise
     assert "referral sweep failed for user" in caplog.text
     assert summary["code"]  # the page still renders
+
+
+async def test_signup_promo_and_its_conversion_land_or_fail_together(c: AsyncClient, monkeypatch):
     """The one-transaction property, in both directions: a failed commit loses the grant AND the
     queued ad conversion (and does not raise - the never-500-the-signup contract), and the retry
     makes both durable in one commit."""
@@ -416,10 +419,15 @@ async def test_referrals_page_survives_a_sweep_rollback(c: AsyncClient, monkeypa
 
     from olywork import adsconv
     from olywork.application import signup
-    from olywork.models import AdConversion
+    from olywork.models import AdConversion, User
+    from olywork.timeutil import utcnow_naive
 
     monkeypatch.setattr(adsconv, "enabled", lambda: True)
     async with session_maker() as db:
+        user = User(email="promo-atomic@example.org", email_verified_at=utcnow_naive())
+        db.add(user)
+        await db.flush()
+        user_id = user.id
         org = Org(name="promo-atomic", slug="promo-atomic", ad_gclid="CLICK_SIGNUP")
         db.add(org)
         await db.commit()
@@ -437,7 +445,7 @@ async def test_referrals_page_survives_a_sweep_rollback(c: AsyncClient, monkeypa
 
     monkeypatch.setattr(SAAsyncSession, "commit", failing_commit)
     async with session_maker() as db:
-        await signup._grant_signup_promo(db, await db.get(Org, org_id))  # must not raise
+        await signup._grant_signup_promo(db, await db.get(Org, org_id), user_id=user_id)  # must not raise
     assert state["failed"], "the promo commit was never attempted"
 
     async with session_maker() as db:  # neither half survived the failed commit
@@ -447,7 +455,7 @@ async def test_referrals_page_survives_a_sweep_rollback(c: AsyncClient, monkeypa
     assert await _assert_invariant(org_id) == 0
 
     async with session_maker() as db:  # the retry lands BOTH, in one commit
-        await signup._grant_signup_promo(db, await db.get(Org, org_id))
+        await signup._grant_signup_promo(db, await db.get(Org, org_id), user_id=user_id)
     async with session_maker() as db:
         assert [e.kind for e in await ledger.entries_of(db, org_id)] == ["grant"]
         assert len((await db.execute(select(AdConversion).where(
@@ -489,7 +497,7 @@ async def test_a_grant_failure_after_staging_still_returns_the_signup(c: AsyncCl
 
     monkeypatch.setattr(ledger, "grant", grant_then_boom)
 
-    r = await c.post("/users", json={"email": "promo-fails-late@olywork.com"},
+    r = await verified_signup(c, json={"email": "promo-fails-late@olywork.com"},
                      headers={"Cookie": f"{REFERRAL_COOKIE}={code}"})
     assert r.status_code == 200, r.text
     body = r.json()
@@ -895,5 +903,56 @@ async def test_demo_orgs_get_no_promo_credit(c: AsyncClient):
         await db.commit()
         # the hook is what enforces this — a demo org that somehow reaches it gets nothing
         from olywork.application.signup import _grant_signup_promo
-        await _grant_signup_promo(db, await db.get(Org, org_id))
+        await _grant_signup_promo(db, await db.get(Org, org_id), user_id=-1)
         assert await ledger.balance_of(db, org_id) == 0
+
+
+async def test_concurrent_settles_lock_by_id_but_consume_by_business_priority(c, monkeypatch):
+    """Check both emitted PostgreSQL SQL and consumption, on two sessions for one org.
+
+    SQLite ignores FOR UPDATE: there this verifies the SQL contract and accounting only.
+    The serial PostgreSQL job additionally exercises actual concurrent row locking.
+    This does not force the old planner to choose opposite scan orders.
+    """
+    from datetime import timedelta
+    from sqlalchemy.ext.asyncio import AsyncSession
+    from sqlalchemy.dialects import postgresql
+    from sqlalchemy.sql import Select
+
+    monkeypatch.setattr(get_settings(), 'platform_margin', 0)
+    async with session_maker() as db:
+        org = Org(name='Lock ordering', slug='lock-ordering', balance_micro=3000)
+        db.add(org)
+        await db.flush()
+        org_id = org.id
+        now = ledger._now()
+        for block_id, kind, age in [('a-new', 'purchased', 0), ('b-old', 'purchased', 1),
+                                    ('z-promo', 'promotional', 0)]:
+            db.add(CreditBlock(id=block_id, org_id=org_id, kind=kind, amount_micro=1000,
+                               remaining_micro=1000, created_at=now - timedelta(days=age)))
+        await db.commit()
+        for call_id in ('ordered-one', 'ordered-two'):
+            await ledger.reserve(db, org_id, 'test.operation', 1000, call_id=call_id)
+
+    statements = []
+    execute = AsyncSession.execute
+    async def checked(self, statement, *args, **kwargs):
+        if isinstance(statement, Select) and statement._for_update_arg is not None:
+            sql = str(statement.compile(dialect=postgresql.dialect()))
+            if 'FROM creditblock' in sql:
+                statements.append(sql)
+        return await execute(self, statement, *args, **kwargs)
+    monkeypatch.setattr(AsyncSession, 'execute', checked)
+    ready = asyncio.Barrier(2)
+    async def settle(call_id):
+        async with session_maker() as db:
+            await ready.wait()
+            return await ledger.settle(db, call_id)
+    assert await asyncio.gather(settle('ordered-one'), settle('ordered-two')) == [1000, 1000]
+    assert len(statements) == 2
+    assert all('ORDER BY creditblock.id FOR UPDATE' in sql for sql in statements)
+    async with session_maker() as db:
+        blocks = await ledger.blocks_of(db, org_id)
+        assert {b.id: b.remaining_micro for b in blocks} == {'a-new': 1000, 'b-old': 0, 'z-promo': 0}
+    assert await _assert_invariant(org_id) == 1000
+

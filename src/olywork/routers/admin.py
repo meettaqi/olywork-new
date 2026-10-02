@@ -17,6 +17,7 @@ from sqlmodel import select
 
 from .. import reconcile
 from ..config import get_settings
+from ..infra import kv
 from ..infra.db import background_session_maker, get_admin_session
 from ..domain import money
 from ..models import ArchiveEndpointStat, ArchiveKey, ArchiveSnapshot, Bundle, CallRecord, LedgerEntry, Membership, Org, Referral, Secret, Tool, User
@@ -298,6 +299,14 @@ async def admin_health(_: str = Depends(require_superadmin), db: AsyncSession = 
     return out
 
 
+@app.get("/admin/kv", include_in_schema=False)
+async def admin_kv(_: str = Depends(require_superadmin)) -> dict:
+    """Is the shared key-value store reachable? `configured` false means the in-process fallback
+    (no `OLYWORK_KV_URL`); `reachable` false with it configured means every budgeted invitation is
+    currently withheld (infra/kv.py fails closed)."""
+    return {"configured": kv.configured(), "reachable": await kv.store().ping()}
+
+
 # Rebind app so the second block keeps its decorator text and remains a separate attach point.
 app = APIRouter()
 reports_router = app
@@ -372,7 +381,8 @@ async def admin_archive(
     import time as _time
     hit = _archive_report_cache.get(top)
     if hit and _time.monotonic() - hit[0] < _ARCHIVE_REPORT_TTL_S:
-        return hit[1]
+        return hit[1] | {"change_outcomes": dict(archive_mod.change_outcomes),
+                         "body_outcomes": dict(archive_mod.archive_bodies.outcomes)}
 
     stats = (await db.execute(
         select(ArchiveEndpointStat)
@@ -411,12 +421,21 @@ async def admin_archive(
             "kept_bytes": st.kept_bytes,
         })
     report = {"mode": archive_mod.mode(),
-            "worker_on": archive_mod.worker_enabled(),
-            "refresh_daily_cap": get_settings().archive_refresh_daily_cap,
-            "keys": int(totals[0]), "snapshots": int(totals[1]),
-            "bodies_kept": int(totals[2]), "kept_bytes": int(totals[3]),
-            "hits_today": int(hits_today), "refreshes_today": int(refreshes_today),
-            "endpoints": rows}
+              "change_outcomes": dict(archive_mod.change_outcomes),
+              "body_outcomes": dict(archive_mod.archive_bodies.outcomes),
+              "comparison_mode": "json",
+              "ttl_policy": "adaptive",
+              "serve_endpoints": sorted(archive_mod.serve_endpoints()),
+              "serve_percent": get_settings().archive_serve_percent,
+              "serve_max_age_s": get_settings().archive_serve_max_age_s,
+              # Cumulative counters include observations from older comparison policies.
+              "change_statistics_scope": "lifetime_mixed_comparison_modes",
+              "worker_on": archive_mod.worker_enabled(),
+              "refresh_daily_cap": get_settings().archive_refresh_daily_cap,
+              "keys": int(totals[0]), "snapshots": int(totals[1]),
+              "bodies_kept": int(totals[2]), "kept_bytes": int(totals[3]),
+              "hits_today": int(hits_today), "refreshes_today": int(refreshes_today),
+              "endpoints": rows}
     _archive_report_cache[top] = (_time.monotonic(), report)
     return report
 

@@ -287,18 +287,82 @@
   .cmd button:hover { background: #313130; }
   .cta-final .ctas { display: flex; justify-content: center; gap: 10px; }
 
-  /* ── the site footer, mirrored from the home page ── */
-  .bigfoot { border-top: 1px solid var(--line); margin-top: 100px; padding: 46px 24px 40px; background: #F5F3ED; text-align: left; }
-  .bigfoot-in { max-width: 1020px; margin: 0 auto; display: flex; gap: 44px; justify-content: space-between; flex-wrap: wrap; }
-  .bf-brand .bfb { display: inline-flex; align-items: center; gap: 10px; font-family: var(--sans); font-weight: 600; font-size: 16px; color: var(--ink); }
-  .bf-brand svg { width: 20px; height: 20px; border-radius: 6px; }
-  .bf-brand .note { color: var(--muted); font-size: 12.5px; margin-top: 8px; }
-  .bf-cols { display: flex; gap: 56px; flex-wrap: wrap; }
-  .bf-col { display: flex; flex-direction: column; gap: 7px; min-width: 108px; }
-  .bf-col .lab { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
-  .bf-col a { color: var(--ink); text-decoration: none; font-size: 13.5px; }
-  .bf-col a:hover { text-decoration: underline; text-underline-offset: 3px; }
-  .bf-tag { max-width: 1020px; margin: 36px auto 0; padding-top: 22px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+  /* ── Unified Footer (TryBounty Style) ── */
+  .ow-footer {
+    background: var(--bg, #FAF9F5);
+    border-top: 1px solid var(--line, #E5E2DA);
+    padding: 80px 48px 48px;
+    color: var(--ink, #141413);
+    margin-top: 80px;
+    box-sizing: border-box;
+    width: 100%;
+    text-align: left;
+  }
+  .ow-footer-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 48px;
+  }
+  .ow-footer-brand-wrap { max-width: 320px; }
+  .ow-footer-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    margin-bottom: 16px;
+    text-decoration: none;
+  }
+  .ow-footer-brand:hover { text-decoration: none; }
+  .ow-footer-tagline {
+    font-size: 14px;
+    color: var(--muted, #6B6A66);
+    line-height: 1.55;
+    margin: 0;
+  }
+  .ow-footer-nav {
+    display: flex;
+    gap: 64px;
+  }
+  .ow-footer-col {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .ow-footer-head {
+    font-family: var(--sans, sans-serif);
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--ink, #141413);
+    margin-bottom: 4px;
+    letter-spacing: -0.01em;
+  }
+  .ow-footer-col a {
+    font-size: 14px;
+    color: var(--muted, #6B6A66);
+    text-decoration: none;
+    transition: color 0.15s;
+  }
+  .ow-footer-col a:hover { color: var(--ink, #141413); text-decoration: none; }
+  .ow-footer-bottom {
+    max-width: 1200px;
+    margin: 64px auto 0;
+    padding-top: 24px;
+    border-top: 1px solid var(--line, #E5E2DA);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+    color: var(--muted, #6B6A66);
+  }
+  .ow-footer-copy { font-family: var(--mono, monospace); }
+  .ow-footer-note { font-family: var(--mono, monospace); }
+  @media (max-width: 860px) {
+    .ow-footer-inner { flex-direction: column; gap: 40px; }
+    .ow-footer-nav { flex-wrap: wrap; gap: 36px; }
+    .ow-footer-bottom { flex-direction: column; align-items: flex-start; gap: 12px; }
+  }
 
   /* ── sign-in modal ── */
   .scrim { position: fixed; inset: 0; background: rgba(26,26,26,.55); display: none; place-items: center; z-index: 200; padding: 20px; backdrop-filter: blur(6px); }
@@ -656,22 +720,49 @@
   </div>
 </section>
 
-<footer class="bigfoot">
-  <div class="bigfoot-in">
-    <div class="bf-brand">
-      <span class="bfb"><svg viewBox="0 0 512 512" aria-hidden="true"><rect width="512" height="512" rx="112" fill="#141413"/><rect x="111" y="111" width="140.5" height="140.5" rx="20" fill="#fff"/><rect x="260.5" y="260.5" width="140.5" height="140.5" rx="20" fill="#fff"/></svg> olywork</span>
-      <div class="note">100% open source</div>
+<footer class="ow-footer">
+  <div class="ow-footer-inner">
+    <div class="ow-footer-brand-wrap">
+      <a class="ow-footer-brand" href="/" aria-label="olywork">
+        <img src="/media/brand/olywork_Official.svg" alt="olywork" style="height:28px;width:auto;display:block;">
+      </a>
+      <p class="ow-footer-tagline">The OpenRouter for AI Agent Tools.<br>One token for 2,800+ endpoints. Zero key management.</p>
     </div>
-    <nav class="bf-cols" aria-label="Site">
-      <div class="bf-col"><div class="lab">Explore</div>
-        <a href="/catalog">Catalog</a><a href="/use-cases">Use cases</a><a href="/workflows">Workflows</a><a href="/agents/claude-code">Agents</a></div>
-      <div class="bf-col"><div class="lab">Build</div>
-        <a href="/tutorial">Docs</a><a href="/docs">API</a><a href="/llms.txt">llms.txt</a><a href="https://github.com/olyworkdev/olywork" target="_blank" rel="noopener">GitHub ↗</a></div>
-      <div class="bf-col"><div class="lab">Company</div>
-        <a href="/resources">Resources</a><a href="/support">Support</a><a href="/terms">Terms</a><a href="/privacy">Privacy</a></div>
+    <nav class="ow-footer-nav" aria-label="Site navigation">
+      <div class="ow-footer-col">
+        <div class="ow-footer-head">Explore</div>
+        <a href="/catalog">Catalog</a>
+        <a href="/pricing">Pricing</a>
+        <a href="/use-cases">Use cases</a>
+        <a href="/workflows">Workflows</a>
+        <a href="/agents">Agents</a>
+      </div>
+      <div class="ow-footer-col">
+        <div class="ow-footer-head">Build</div>
+        <a href="/docs">API Reference</a>
+        <a href="/tutorial">Tutorial</a>
+        <a href="/llms.txt">llms.txt</a>
+      </div>
+      <div class="ow-footer-col">
+        <div class="ow-footer-head">Resources</div>
+        <a href="/resources">Workflows</a>
+        <a href="/use-cases/seo-data-for-ai-agents">Use Cases</a>
+        <a href="/agents/claude-code">Agents</a>
+      </div>
+      <div class="ow-footer-col">
+        <div class="ow-footer-head">Company</div>
+        <a href="/blog">Blog</a>
+        <a href="/support">Support</a>
+        <a href="/terms">Terms</a>
+        <a href="/privacy">Privacy</a>
+        <a href="https://github.com/meettaqi/olywork-new" target="_blank" rel="noopener">GitHub ↗</a>
+      </div>
     </nav>
   </div>
-  <div class="bf-tag">© 2026 olywork — OpenRouter for agent tools</div>
+  <div class="ow-footer-bottom">
+    <span class="ow-footer-copy">&copy; 2026 Olywork. All rights reserved.</span>
+    <span class="ow-footer-note">Open source · Pay-per-call · No markup</span>
+  </div>
 </footer>
 
 <!-- sign-in modal: shown when a Setup CTA is clicked while signed out -->
@@ -789,7 +880,8 @@
   });
 })();
 </script>
-<script src="sitetrack.js"></script>
+<script src="/sitetrack.js"></script>
+<script src="/adtrack.js"></script>
 <script src="/gtag.js"></script>
 </body>
 </html>

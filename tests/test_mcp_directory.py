@@ -179,16 +179,20 @@ async def test_v2_no_slash_path_rejects_a_v1_token_with_the_v2_challenge(monkeyp
 async def test_v2_declares_exact_directory_contract():
     tools = {tool.name: tool for tool in await mcp.directory_mcp.list_tools()}
     assert list(tools) == [
-        "catalog_search", "catalog_get", "catalog_call_read", "catalog_call_write", "balance",
-        "catalog_request",
+        "catalog_search", "catalog_get", "catalog_call_read", "catalog_call_write",
+        "catalog_call_media", "resources_list", "balance", "catalog_request", "feedback", "review",
     ]
     expected_titles = {
         "catalog_search": "Search Olywork Catalog",
         "catalog_get": "Get Catalog Endpoint",
         "catalog_call_read": "Call a Read Endpoint",
         "catalog_call_write": "Call a Write Endpoint",
+        "catalog_call_media": "Call an Audio Endpoint",
+        "resources_list": "List Team Resources",
         "balance": "Check Olywork Balance",
         "catalog_request": "Request a Catalog Capability",
+        "feedback": "Submit Feedback",
+        "review": "Review a Catalog Call",
     }
     assert {name: tool.title for name, tool in tools.items()} == expected_titles
     assert {name: tool.annotations.title for name, tool in tools.items()} == expected_titles
@@ -261,6 +265,28 @@ async def test_v1_and_v2_access_tokens_are_not_interchangeable():
     assert mcp_oauth.mcp_resource_version(v2_aud.rstrip("/")) == "v2"
 
 
+async def test_managed_api_key_authenticates_on_both_mcp_surfaces(clients):
+    """A managed key is a normal team bearer; OAuth bridge tokens remain a separate path."""
+    org_id = (await clients.get("/auth/me")).json()["org_id"]
+    created = (await clients.post(
+        f"/orgs/{org_id}/api-keys", json={"name": "MCP client"},
+    )).json()
+    token = created["secret"]
+    async with paired_mcp_session() as client:
+        for path in ("/mcp/", "/mcp/v2/"):
+            result = await _call_tool(client, "balance", {}, token, path=path)
+            assert "balance_micro" in result, (path, result)
+
+    assert (await clients.post(
+        f"/orgs/{org_id}/api-keys/{created['id']}/disable",
+    )).status_code == 200
+    async with paired_mcp_session() as client:
+        for path in ("/mcp/", "/mcp/v2/"):
+            result = await _call_tool(client, "balance", {}, token, path=path)
+            assert "error" in result, (path, result)
+            assert "not signed in" in str(result).lower(), (path, result)
+
+
 async def test_v2_transport_challenges_with_v2_metadata():
     async with directory_session() as client:
         response = await _rpc(client, "tools/list")
@@ -286,8 +312,12 @@ async def test_v2_serializes_the_scanner_facing_contract(clients):
         "catalog_get": "Get Catalog Endpoint",
         "catalog_call_read": "Call a Read Endpoint",
         "catalog_call_write": "Call a Write Endpoint",
+        "catalog_call_media": "Call an Audio Endpoint",
+        "resources_list": "List Team Resources",
         "balance": "Check Olywork Balance",
         "catalog_request": "Request a Catalog Capability",
+        "feedback": "Submit Feedback",
+        "review": "Review a Catalog Call",
     }
     assert set(tools) == set(expected_titles)
     assert {name: tool["annotations"]["title"] for name, tool in tools.items()} == expected_titles
@@ -375,7 +405,10 @@ async def test_team_and_directory_catalog_call_results_match_except_attribution(
         directory = await _call_tool(client, "catalog_call_read", args, token)
     await audit.drain()
 
-    assert team == directory
+    assert team["call_id"] != directory["call_id"]
+    assert {k: v for k, v in team.items() if k != "call_id"} == {
+        k: v for k, v in directory.items() if k != "call_id"
+    }
     assert team["status"] == 200
     assert team["body"]["auth"] == "Bearer PAIRED-KEY"
     assert team["body"]["headers"]["x-paired-test"] == "same"
@@ -615,3 +648,104 @@ def test_transport_factory_refuses_a_server_audience_mismatch():
         mcp.build_mcp_app(server=mcp.directory_mcp, resource_version="v1")
     with pytest.raises(ValueError, match="same public surface"):
         mcp.build_mcp_app(server=mcp.mcp, resource_version="v2")
+
+
+@pytest.mark.parametrize(('path', 'tool'), [('/mcp/', 'call'), ('/mcp/v2/', 'catalog_call_read')])
+@pytest.mark.parametrize('sampled', [False, True])
+async def test_feedback_hint_only_wraps_successful_sampled_calls(clients, monkeypatch, path, tool, sampled):
+    from olywork import analytics, hints
+    from olywork.application.call import service as call_service
+    from test_marketplace_call import _fake_relay
+
+    monkeypatch.setenv('OLYWORK_PLATFORM_KEY_TIKHUB', 'SYNTHETIC-PLATFORM-KEY')
+    monkeypatch.setenv('OLYWORK_PLATFORM_PROVIDERS', 'tikhub')
+    get_settings.cache_clear()
+    monkeypatch.setattr(hints, 'sampled', lambda kind, _: sampled if kind == 'feedback' else False)
+    events = []
+    monkeypatch.setattr(analytics, 'capture', lambda *args, **kw: events.append((args, kw)))
+    body = b'{"data":{"items":[]}}'
+    monkeypatch.setattr(call_service, 'relay', _fake_relay(200, body))
+    token = clients.headers['X-Olywork-Token']
+    args = {'endpoint_id': 'tikhub.tiktok.video.comments', 'params': {'aweme_id': '7'},
+            'idempotency_key': 'feedback-hint-test'}
+    try:
+        async with paired_mcp_session() as client:
+            first = await _call_tool(client, tool, args, token, path=path)
+            replay = await _call_tool(client, tool, args, token, path=path)
+            monkeypatch.setattr(call_service, 'relay', _fake_relay(503, b'{"error":"unavailable"}'))
+            failed = await _call_tool(client, tool, {**args, 'idempotency_key': 'failed'}, token, path=path)
+        assert first['status'] == 200
+        assert first['body'] == json.loads(body)
+        assert first.get('hint') == (hints.HINT if sampled else None)
+        assert first['call_id']
+        assert replay['replayed'] is True
+        assert 'stored answer' in replay['hint']
+        assert replay['call_id'] == first['call_id']
+        assert failed['status'] == 503
+        assert failed.get('hint') != hints.HINT
+        exposures = [a for a, _ in events if a[1] == 'hint_attached']
+        assert len(exposures) == int(sampled)
+        if sampled:
+            assert exposures[0][2]['call_id'] == first['call_id']
+            assert 'body' not in exposures[0][2]
+    finally:
+        get_settings.cache_clear()
+
+
+@pytest.mark.parametrize(('path', 'tool'), [('/mcp/', 'call'), ('/mcp/v2/', 'catalog_call_read')])
+async def test_review_hint_wins_over_feedback_and_replay_wins_over_review(clients, monkeypatch, path, tool):
+    from olywork import hints
+    from olywork.application.call import service as call_service
+    from test_marketplace_call import _fake_relay
+
+    monkeypatch.setenv('OLYWORK_PLATFORM_KEY_TIKHUB', 'SYNTHETIC-PLATFORM-KEY')
+    monkeypatch.setenv('OLYWORK_PLATFORM_PROVIDERS', 'tikhub')
+    get_settings.cache_clear()
+    monkeypatch.setattr(hints, 'sampled', lambda kind, ref: True)
+    monkeypatch.setattr(call_service, 'relay', _fake_relay(200, b'{"data":{"items":[]}}'))
+    args = {'endpoint_id': 'tikhub.tiktok.video.comments', 'params': {'aweme_id': '7'},
+            'idempotency_key': 'review-hint-test'}
+    try:
+        async with paired_mcp_session() as client:
+            first = await _call_tool(client, tool, args, clients.headers['X-Olywork-Token'], path=path)
+            replay = await _call_tool(client, tool, args, clients.headers['X-Olywork-Token'], path=path)
+        assert first['hint'] == hints.review_hint(first['call_id'])
+        assert replay['replayed'] is True
+        assert 'stored answer' in replay['hint']
+    finally:
+        get_settings.cache_clear()
+
+
+@pytest.mark.parametrize(('path', 'tool'), [('/mcp/', 'call'), ('/mcp/v2/', 'catalog_call_read')])
+async def test_balance_hint_wins_with_all_sampling_enabled(clients, monkeypatch, path, tool):
+    from olywork import hints
+    from olywork.application.call import service as call_service
+    from test_marketplace_call import _fake_relay
+
+    monkeypatch.setenv('OLYWORK_PLATFORM_KEY_TIKHUB', 'SYNTHETIC-PLATFORM-KEY')
+    monkeypatch.setenv('OLYWORK_PLATFORM_PROVIDERS', 'tikhub')
+    get_settings.cache_clear()
+    monkeypatch.setattr(hints, 'sampled', lambda kind, ref: True)
+    monkeypatch.setattr(call_service, 'relay', _fake_relay(402, b'{"error":"payment required"}'))
+    try:
+        async with paired_mcp_session() as client:
+            result = await _call_tool(client, tool, {
+                'endpoint_id': 'tikhub.tiktok.video.comments', 'params': {'aweme_id': '7'},
+            }, clients.headers['X-Olywork-Token'], path=path)
+        assert result['status'] == 402
+        assert result['hint'] == "the team's prepaid balance is not enough for this call"
+    finally:
+        get_settings.cache_clear()
+
+
+@pytest.mark.parametrize('path', ['/mcp/', '/mcp/v2/'])
+async def test_server_instructions_explain_review_invitations(clients, path):
+    async with paired_mcp_session() as client:
+        response = await _rpc(client, 'initialize', {
+            'protocolVersion': '2025-06-18', 'capabilities': {},
+            'clientInfo': {'name': 'review-instructions', 'version': '1'},
+        }, clients.headers['X-Olywork-Token'], path=path)
+    assert response.status_code == 200
+    assert response.json()['result']['instructions'].endswith(
+        'If a call result invites a review, rate that one call with review(call_id, usefulness, reason?) after using it, then continue.'
+    )

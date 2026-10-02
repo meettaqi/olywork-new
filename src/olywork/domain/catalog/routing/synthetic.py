@@ -9,7 +9,6 @@ ROUTED_KIND = "routed"
 _EXAMPLE_VALUES = {"full_name": "Patrick Collison", "first_name": "Patrick", "last_name": "Collison",
                    "domain": "stripe.com", "linkedin_url": "https://www.linkedin.com/in/patrickcollison"}
 ROUTED_PROVIDER = "olywork"
-LEGACY_ROUTED_PROVIDER = "olywork"
 
 
 def _best_variant(contract: Contract, kids: list[dict], adapters: dict[str, Adapter]) -> tuple[str, ...]:

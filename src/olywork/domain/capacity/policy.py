@@ -19,16 +19,44 @@ AGGREGATORS = ("orthogonal", "monid")
 # capacity_type / funding_mode / source. Anything not listed imports as unknown/unknown and is
 # flagged by the sweep — a policy row must be classified by a person, never guessed by code.
 _KNOWN: dict[str, tuple[str, str, str]] = {
+    "adyntel": ("credits", "manual", "manual"),
+    "dropleads": ("credits", "manual", "api"),
+    "trykitt": ("cash", "manual", "api"),
+    "harvestapi": ("cash", "auto_recharge", "api"),  # Owner will enable vendor auto top-up for production.
+    "fetchinio": ("credits", "manual", "api"),
     "dataforseo": ("cash", "auto_recharge", "api"),
     "tikhub": ("cash", "auto_recharge", "api"),
+    "tinyfish": ("cash", "manual", "api"),
     "lusha": ("credits", "auto_recharge", "api"),
     "scrapecreators": ("credits", "manual", "api"),
+    "contactout": ("credits", "unknown", "api"),  # independent pools; overages unconfirmed
     "leadmagic": ("credits", "manual", "api"),
     "findymail": ("credits", "manual", "api"),
     "leadsforge": ("credits", "manual", "api"),
     "thecompaniesapi": ("credits", "manual", "api"),
     "tomba": ("monthly_quota", "quota_reset", "api"),
     "hunter": ("monthly_quota", "quota_reset", "api"),
+    "quickenrich": ("monthly_quota", "quota_reset", "api"),
+    "prospeo": ("monthly_quota", "quota_reset", "api"),
+    "aiark": ("monthly_quota", "quota_reset", "api"),
+    "wiza": ("credits", "manual", "api"),
+    "limadata": ("credits", "auto_recharge", "manual"),
+    # Manually verified in the Developer Portal: vendor auto-recharge is enabled. olywork neither
+    # reads nor changes that setting, so the observation source remains manual.
+    "trestleiq": ("cash", "auto_recharge", "manual"),
+    "tavily": ("credits", "manual", "api"),
+    # The API supplies the exact credit balance; vendor auto recharge was manually enabled and
+    # verified in the Serper dashboard.
+    "serper": ("credits", "auto_recharge", "api"),
+    "keenable": ("requests", "manual", "manual"),
+    "olostep": ("credits", "manual", "api"),
+    # The shared account uses subscription funding; the API supplies its exact credit balance.
+    "scrapegraphai": ("credits", "subscription", "api"),
+    "getleadsio": ("credits", "manual", "api"),
+    "sumble": ("monthly_quota", "quota_reset", "api"),
+    "moltsets": ("rolling_quota", "subscription", "api"),
+    "openmart": ("credits", "subscription", "api"),
+    "scrubby": ("credits", "manual", "manual"),
     "predictleads": ("monthly_quota", "quota_reset", "api"),
     "companyenrich": ("credits", "manual", "api"),
     "apollo": ("credits", "manual", "api"),
@@ -47,6 +75,13 @@ _KNOWN: dict[str, tuple[str, str, str]] = {
     "diffbot": ("monthly_quota", "quota_reset", "api"),
     "apify": ("cash", "manual", "api"),
     "twelvedata": ("requests", "subscription", "api"),
+    "financialdatasets": ("credits", "auto_recharge", "manual"),
+    "fishaudio": ("cash", "manual", "api"),
+    "bounceban": ("credits", "manual", "api"),
+    # The free API reports only the current balance, not whether vendor Auto-Pay is enabled.
+    # Treat replenishment as manual until that account setting is explicitly verified.
+    "zerobounce": ("credits", "manual", "api"),
+    "datagma": ("credits", "manual", "api"),
     # Neither aggregator exposes a balance endpoint at its documented path (plan §7).
     "overflow:orthogonal": ("cash", "manual", "manual"),
     "overflow:monid": ("cash", "manual", "manual"),
@@ -56,12 +91,66 @@ _KNOWN: dict[str, tuple[str, str, str]] = {
 _QUOTAS: dict[str, dict] = {
     "lusha": {"limit": None, "period": "day", "resets_at_rule": "local_midnight"},
     "hunter": {"limit": None, "period": "billing", "resets_at_rule": "account.reset_date"},
+    "quickenrich": {"limit": None, "period": "billing", "resets_at_rule": "subscription renewal; no reset timestamp in API"},
+    "prospeo": {"limit": None, "period": "billing", "resets_at_rule": "account.next_quota_renewal_date"},
+    "aiark": {"limit": 15000, "period": "billing", "resets_at_rule": "monthly subscription; date not reported by API"},
 }
 _RATE_LIMITS: dict[str, dict] = {
+    # The account reports 5 requests/s, but /post/engagement consumes two rate-limit units. The
+    # provider-wide limiter cannot weight one endpoint, so two calls/s is the safe shared-key pace.
+    "fetchinio": {"limit": 2, "window_s": 1, "source": "policy"},
+    "adyntel": {"limit": 5, "window_s": 1, "source": "docs"},
+    # Search's documented burst allowance is the strictest request-count limit shared by these
+    # hosts. Fetch additionally meters URLs and Agent limits concurrency; upstream remains the
+    # authority for those differently-shaped limits.
+    "tinyfish": {"limit": 30, "window_s": 60, "source": "docs"},
+    # The only platform-served tool is standard single verification, documented at 100/s. Keep
+    # the shared key at one quarter of that allowance; BYOK calls bypass this limiter.
+    "bounceban": {"limit": 25, "window_s": 1, "source": "docs"},
+    # The public allowance is far higher; keep a conservative shared-key pace.
+    "zerobounce": {"limit": 25, "window_s": 1, "source": "policy"},
+    "datagma": {"limit": 10, "window_s": 1, "source": "docs"},
+    # One shared key serves both 5/s enrichment and 1/s search routes. Until smoothing becomes
+    # endpoint-aware, protect the stricter search allowance and accept conservative enrichment.
+    "prospeo": {"limit": 1, "window_s": 1, "source": "docs"},
+    "aiark": {"limit": 5, "window_s": 1, "source": "docs"},
+    # Provisional: Wiza publishes 30/min for company enrichment, but not for search or autocomplete.
+    # Reuse that ceiling provider-wide because smoothing is not endpoint-aware yet. This spaces
+    # sequential platform calls by about 2s; the limiter's bounded wait is not a strict quota gate.
+    # Relax this after real 429 evidence, or when smoothing can vary by endpoint. BYOK bypasses it.
+    "wiza": {"limit": 30, "window_s": 60, "source": "docs"},
+    # The Basic v2 docs set a shared one-request/second default. Several routes are exempt, but
+    # provider-wide smoothing cannot express that difference, so shared-key service stays at 1/s.
+    "limadata": {"limit": 1, "window_s": 1, "source": "docs"},
+    "trestleiq": {"limit": 10, "window_s": 1, "source": "docs"},
+    # Development keys allow 100/minute; production keys allow 1,000/minute. Use the lower
+    # documented tier until the shared key's environment is verified. Crawl has the same 100/minute
+    # ceiling on both tiers, so this provider-wide pace is safe for all four catalog tools.
+    "tavily": {"limit": 100, "window_s": 60, "source": "docs"},
+    # GET /account reports 50 queries/s for the current shared account. Pace the platform key to
+    # that live account allowance; BYOK bypasses this limiter.
+    "serper": {"limit": 50, "window_s": 1, "source": "api"},
+    "keenable": {"limit": 10, "window_s": 1, "source": "docs"},
+    # Olostep publishes 429 guidance but no numeric general API ceiling, and successful live calls
+    # returned no rate-limit headers. Smooth the shared key conservatively until the vendor supplies
+    # a contract value or production traffic establishes a safer bound. BYOK bypasses this policy.
+    "olostep": {"limit": 5, "window_s": 1, "source": "policy"},
+    # Deployment allowance supplied for the shared account. Live responses did not include usable
+    # rate headers, so keep the configured 500/min ceiling explicit instead of inferring from them.
+    "scrapegraphai": {"limit": 500, "window_s": 60, "source": "policy"},
+    # Routing-friendly shared-key pace. The 5,000-request/5h rolling allowance is capacity, not a
+    # burst rate; encoding it here would make the spacer add 3.6s before every routed attempt.
+    "moltsets": {"limit": 10, "window_s": 1, "source": "policy"},
+    # The provider publishes 15-25 requests/s by endpoint family. Use the strictest ceiling while
+    # smoothing remains provider-wide. All direct tools are BYOK-only today.
+    "openmart": {"limit": 15, "window_s": 1, "source": "docs"},
+    "sumble": {"limit": 10, "window_s": 1, "source": "docs"},
+    "scrubby": {"limit": 25, "window_s": 1, "source": "docs"},
     "leadsforge": {"limit": 120, "window_s": 60, "source": "headers"},
     "leadmagic": {"limit": 300, "window_s": 60, "source": "docs"},
     "crustdata": {"limit": 30, "window_s": 60, "source": "headers"},
     "tikhub": {"limit": 30, "window_s": 1, "source": "docs"},
+    "getleadsio": {"limit": 100, "window_s": 60, "source": "docs"},
 }
 
 
@@ -159,6 +248,11 @@ def latest_state(policy: CapacityPolicy, snap: CapacitySnapshot | None,
     if snap is None:
         return LatestState(policy.provider, None, "", None, "stale", health="unknown",
                            note="no observation yet", rate_limit=rl)
+    if snap.confidence == "informational" and not snap.error:
+        old = now - snap.observed_at > STALE_AFTER
+        return LatestState(policy.provider, None, snap.unit, snap.observed_at,
+                           "stale" if old else "informational", health="stale" if old else "unknown",
+                           note=snap.note, rate_limit=rl)
     if snap.error or snap.remaining is None:
         return LatestState(policy.provider, None, snap.unit, snap.observed_at, "stale",
                            health="stale", note=snap.error or snap.note, rate_limit=rl)

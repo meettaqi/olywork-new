@@ -6,7 +6,7 @@ import asyncio
 import logging
 import time
 from collections.abc import Sequence
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, nullcontext
 from copy import copy
 from typing import Literal
 
@@ -19,6 +19,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.routing import BaseRoute, Mount
 
 from . import adsconv, analytics, archive, audit
+from .application import arena
 from .application.call import route as routed_call
 from . import bootstrap_handlers
 from .bootstrap_http import (
@@ -27,6 +28,7 @@ from .bootstrap_http import (
     _SecurityHeadersMiddleware,
 )
 from .config import get_settings
+from .infra import kv
 from .infra.db import background_session_maker, verify_db
 from .infra.catalog_observations import (
     CachedEndpointObservationReader,
@@ -41,15 +43,36 @@ RouteKey = tuple[str, tuple[str, ...], str]
 # Every HTTP route has one workload owner. A new decorator in api.py fails app creation until its
 # key is placed here, so the dataplane cannot silently acquire a management or runner endpoint.
 _CONTROL_ROUTE_KEYS: frozenset[RouteKey] = frozenset({
+    ('/enrich-arena', ('GET',), 'enrich_arena_page'),
+    ('/enrich-arena/people-search-bench', ('GET',), 'enrich_arena_page'),
+    ('/enrich-arena/leaderboard', ('GET',), 'enrich_arena_page'),
+    ('/enrich-arena/{asset}', ('GET',), 'enrich_arena_asset'),
+    ('/arena/tasks', ('GET',), 'arena_tasks'),
+    ('/arena/insights', ('GET',), 'arena_insights_data'),
+    ('/arena/plans', ('POST',), 'arena_plan'),
+    ('/arena/runs/{run_id}/start', ('POST',), 'arena_start'),
+    ('/arena/runs', ('GET',), 'arena_history'),
+    ('/arena/runs/{run_id}', ('GET',), 'arena_run'),
+    ('/arena/runs/{run_id}/cancel', ('POST',), 'arena_cancel'),
+    ('/arena/runs/{run_id}/evaluations', ('POST',), 'arena_evaluate'),
+    ('/arena/runs/{run_id}/reveal', ('POST',), 'arena_reveal'),
+    ('/arena/runs/{run_id}/attempts/{attempt_id}/report', ('POST',), 'arena_report'),
+    ('/arena/runs/{run_id}/attempts/{attempt_id}/rating', ('POST',), 'arena_rate'),
+    ('/arena/runs/{run_id}/attempts/{attempt_id}/verification/plan', ('POST',), 'arena_verification_plan'),
+    ('/arena/runs/{run_id}/attempts/{attempt_id}/verification/start', ('POST',), 'arena_verification_start'),
+    ('/arena/runs/{run_id}/attempts/{attempt_id}/plan', ('POST',), 'arena_manual_plan'),
+    ('/arena/runs/{run_id}/attempts/{attempt_id}/start', ('POST',), 'arena_manual_start'),
     ('/meta', ('GET',), 'meta'),
     ('/providers.json', ('GET',), 'providers_catalog'),
     ('/catalog/platforms', ('GET',), 'catalog_platforms'),
     ('/catalog/platforms/{slug}', ('GET',), 'catalog_platform'),
     ('/catalog/search', ('GET',), 'catalog_search'),
+    ('/catalog/find', ('GET',), 'catalog_find'),
     ('/catalog/endpoints/{endpoint_id}', ('GET',), 'catalog_endpoint'),
     ('/catalog/examples/{endpoint_id}', ('GET',), 'catalog_example'),
     ('/catalog', ('GET',), 'catalog_index'),
     ('/catalog/{slug}', ('GET',), 'catalog_page'),
+    ('/search', ('GET',), 'search_page'),
     ('/agents', ('GET',), 'agents_hub'),
     ('/agents/{agent}', ('GET',), 'agent_page'),
     ('/agents/{agent}.md', ('GET',), 'agent_page'),
@@ -63,12 +86,18 @@ _CONTROL_ROUTE_KEYS: frozenset[RouteKey] = frozenset({
     ('/workflows/{slug}.md', ('GET',), 'workflow_page'),
     ('/workflows', ('GET',), 'workflows_hub'),
     ('/catalog.css', ('GET',), 'catalog_css'),
-    ('/olywork.css', ('GET',), 'olywork_css'),
     ('/tools/{service}', ('GET',), 'tools_provider'),
     ('/pricing', ('GET',), 'pricing_page'),
     ('/sitetrack.js', ('GET',), 'sitetrack_js'),
     ('/docs', ('GET',), 'docs_page'),
     ('/tool-requests', ('POST',), 'create_tool_request'),
+    ('/feedback', ('POST',), 'submit_feedback'),
+    ('/feedback/{feedback_id}', ('GET',), 'get_feedback'),
+    ('/reviews', ('POST',), 'submit_review'),
+    ('/media', ('POST',), 'host_media'),
+    ('/m/{token}', ('GET',), 'serve_media'),
+    ('/admin/feedback', ('GET',), 'admin_feedback'),
+    ('/admin/reviews', ('GET',), 'admin_reviews'),
     ('/auth/github', ('GET',), 'auth_github'),
     ('/auth/github/callback', ('GET',), 'auth_github_callback'),
     ('/auth/google', ('GET',), 'auth_google'),
@@ -88,6 +117,8 @@ _CONTROL_ROUTE_KEYS: frozenset[RouteKey] = frozenset({
     ('/auth/invite-signin', ('POST',), 'auth_invite_signin_confirm'),
     ('/', ('GET',), 'landing'),
     ('/app', ('GET',), 'dashboard'),
+    ('/app/legacy/assets/{path:path}', ('GET',), 'legacy_dashboard_asset'),
+    ('/app/ui/assets/{name}', ('GET',), 'dashboard_asset'),
     ('/app/marketplace/{service}', ('GET',), 'dashboard_marketplace'),
     ('/app/skills/{name}', ('GET',), 'dashboard_skill_page'),
     ('/app/tools/{name}', ('GET',), 'dashboard_tool_page'),
@@ -105,6 +136,8 @@ _CONTROL_ROUTE_KEYS: frozenset[RouteKey] = frozenset({
     ('/vendor-listing', ('GET',), 'vendor_listing_md'),
     ('/integrate.md', ('GET',), 'integrate_md'),
     ('/skill.md', ('GET',), 'skill_md'),
+    ('/skills/ugc/SKILL.md', ('GET',), 'make_ugc_skill_md'),
+    ('/feedback.md', ('GET',), 'feedback_md'),
     ('/favicon.ico', ('GET',), 'favicon'),
     ('/favicon.svg', ('GET',), 'favicon'),
     ('/tutorial.js', ('GET',), 'tutorial_js'),
@@ -112,12 +145,24 @@ _CONTROL_ROUTE_KEYS: frozenset[RouteKey] = frozenset({
     ('/terms', ('GET',), 'terms_page'),
     ('/privacy', ('GET',), 'privacy_page'),
     ('/connectors/claude', ('GET',), 'claude_connector_page'),
+    ('/claude-connector', ('GET',), 'claude_connector_alias'),
+    ('/agent-setup.js', ('GET',), 'agent_setup_js'),
     ('/adtrack.js', ('GET',), 'adtrack_js'),
     ('/gtag.js', ('GET',), 'gtag_js'),
     ('/resources', ('GET',), 'resources_page'),
     ('/grokbot', ('GET',), 'grokbot_page'),
     ('/fable', ('GET',), 'fable_page'),
+    ('/fable-gtm', ('GET',), 'fable_gtm_alias'),
     ('/people-search', ('GET',), 'people_search_page'),
+    ('/blog', ('GET',), 'blog_index'),
+    ('/blog/people-search-bench', ('GET',), 'blog_people_search_bench'),
+    ('/blog/work-email-finding-bench', ('GET',), 'blog_work_email_finding_bench'),
+    ('/astra', ('GET',), 'astra_page'),
+    ('/gpt6', ('GET',), 'gpt6_page'),
+    ('/ugc', ('GET',), 'ugc_page'),
+    ('/jev', ('GET',), 'jev_page'),
+    ('/jev/xboost.json', ('GET',), 'jev_xboost_json'),
+    ('/jev/xboost/judge', ('POST',), 'jev_xboost_judge'),
     ('/usecase.css', ('GET',), 'usecase_css'),
     ('/oauth/register', ('POST',), 'oauth_register'),
     ('/oauth/authorize', ('GET',), 'oauth_authorize'),
@@ -129,6 +174,7 @@ _CONTROL_ROUTE_KEYS: frozenset[RouteKey] = frozenset({
     ('/.well-known/openai-apps-challenge', ('GET',), 'openai_apps_challenge'),
     ('/.well-known/skills/index.json', ('GET',), 'well_known_skills_index'),
     ('/.well-known/skills/olywork/SKILL.md', ('GET',), 'well_known_skill_md'),
+    ('/.well-known/skills/make-ugc/SKILL.md', ('GET',), 'well_known_make_ugc_md'),
     ('/connect-demo', ('GET',), 'connect_demo_page'),
     ('/connect-demo/callback', ('GET',), 'connect_demo_callback'),
     ('/help', ('GET',), 'support_page'),
@@ -186,6 +232,7 @@ _CONTROL_ROUTE_KEYS: frozenset[RouteKey] = frozenset({
     ('/orgs/{org_id}/members/{user_id}', ('PATCH',), 'set_member_role'),
     ('/orgs/{org_id}/leave', ('POST',), 'leave_org'),
     ('/orgs/{org_id}', ('DELETE',), 'delete_org'),
+    ('/orgs/{org_id}', ('PATCH',), 'rename_org'),
     ('/orgs/{org_id}/public-token', ('POST',), 'create_public_token'),
     ('/orgs/{org_id}/public-token', ('DELETE',), 'delete_public_token'),
     ('/orgs/{org_id}/agents', ('POST',), 'create_agent'),
@@ -193,6 +240,16 @@ _CONTROL_ROUTE_KEYS: frozenset[RouteKey] = frozenset({
     ('/agents/checkin', ('POST',), 'agent_checkin'),
     ('/orgs/{org_id}/agents/observed', ('GET',), 'list_observed_agents'),
     ('/orgs/{org_id}/agents/{user_id}', ('DELETE',), 'revoke_agent'),
+    ('/orgs/{org_id}/api-keys', ('GET',), 'list_api_keys'),
+    ('/orgs/{org_id}/api-keys', ('POST',), 'create_api_key'),
+    ('/orgs/{org_id}/api-keys/{key_id}', ('PATCH',), 'rename_api_key'),
+    ('/orgs/{org_id}/api-keys/{key_id}/disable', ('POST',), 'disable_api_key'),
+    ('/orgs/{org_id}/api-keys/{key_id}/enable', ('POST',), 'enable_api_key'),
+    ('/orgs/{org_id}/api-keys/{key_id}/revoke', ('POST',), 'revoke_api_key'),
+    ('/orgs/{org_id}/api-keys/{key_id}/rotate', ('POST',), 'rotate_api_key'),
+    ('/orgs/{org_id}/api-keys/{key_id}/hide', ('POST',), 'hide_api_key'),
+    ('/orgs/{org_id}/api-keys/{key_id}/events', ('GET',), 'list_api_key_events'),
+    ('/orgs/{org_id}/provider-resources', ('GET',), 'list_provider_resources'),
     ('/orgs/{org_id}/projects', ('POST',), 'create_project'),
     ('/orgs/{org_id}/projects', ('GET',), 'list_projects'),
     ('/orgs/{org_id}/projects/{project_id}', ('DELETE',), 'delete_project'),
@@ -246,6 +303,7 @@ _CONTROL_ROUTE_KEYS: frozenset[RouteKey] = frozenset({
     ('/admin/calls', ('GET',), 'admin_calls'),
     ('/admin/errors', ('GET',), 'admin_errors'),
     ('/admin/health', ('GET',), 'admin_health'),
+    ('/admin/kv', ('GET',), 'admin_kv'),
     ('/admin/users/{user_id}/superadmin', ('POST',), 'admin_set_superadmin'),
     ('/admin/users/{user_id}/suspend', ('POST',), 'admin_suspend_user'),
     ('/admin/users/{user_id}', ('DELETE',), 'admin_delete_user'),
@@ -314,6 +372,16 @@ class _ImmutableStatic(StaticFiles):
         return response
 
 
+class _DayStatic(StaticFiles):
+    """Static files kept under stable names (vendor and platform logos): a day's cache, so a page
+    that shows every logo (/search) does not revalidate each one on every visit."""
+
+    def file_response(self, *args, **kwargs):
+        response = super().file_response(*args, **kwargs)
+        response.headers["Cache-Control"] = "public, max-age=86400"
+        return response
+
+
 def _route_key(route: APIRoute) -> RouteKey:
     return route.path, tuple(sorted(route.methods)), route.name
 
@@ -354,7 +422,7 @@ def _include_routes(app: FastAPI, routes: Sequence[APIRoute]) -> None:
 
 def _mount_static(app: FastAPI, api_module) -> None:
     if api_module._LOGO_DIR.exists():
-        app.mount("/logos", StaticFiles(directory=str(api_module._LOGO_DIR)), name="logos")
+        app.mount("/logos", _DayStatic(directory=str(api_module._LOGO_DIR)), name="logos")
     if api_module._MEDIA_DIR.exists():
         app.mount("/media", StaticFiles(directory=str(api_module._MEDIA_DIR)), name="media")
     if api_module._TOUR_DIR.exists():
@@ -456,80 +524,110 @@ async def pool_gauge(*, sample_s: float = _POOL_GAUGE_SAMPLE_S,
         await asyncio.sleep(sample_s)
 
 
+def configure_archive_object_store(store) -> None:
+    """Composition seam shared by startup and in-memory tests."""
+    from . import archive_bodies
+    archive_bodies.configure(store)
+
+
+@asynccontextmanager
+async def _archive_object_store(app):
+    from . import archive_bodies
+    from .infra.object_store import open_r2
+
+    enabled = archive_bodies.validate_configuration()
+    injected = getattr(app.state, "archive_object_store", None)
+    opener = open_r2(get_settings()) if enabled and injected is None else nullcontext(injected)
+    async with opener as store:
+        configure_archive_object_store(store)
+        try:
+            yield
+        finally:
+            configure_archive_object_store(None)
+
+
 def _lifespan(role: AppRole):
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        await verify_db()
+        async with _archive_object_store(app):
+            await verify_db()
+            if kv.configured() and not await kv.store().ping():
+                # Not fatal: the store's tenants fail closed (infra/kv.py). Loud, because until it
+                # answers no team receives a review invitation. /admin/kv shows the live state.
+                logging.getLogger("olywork").warning("kv configured but unreachable at startup")
 
-        limits = httpx.Limits(max_keepalive_connections=100, max_connections=200)
-        app.state.http = httpx.AsyncClient(
-            limits=limits,
-            timeout=httpx.Timeout(float(get_settings().call_timeout_s)),
-        )
-        ads_task = (
-            asyncio.create_task(adsconv.worker(background_session_maker, app.state.http))
-            if ROLE_BACKGROUND_TASKS[role] and adsconv.enabled()
-            else None
-        )
-        gauge_task = asyncio.create_task(pool_gauge()) if analytics.enabled() else None
-        # The archive's refresh worker (docs/context/architecture/archive.md): serve mode only,
-        # and a zero daily cap disables it without touching serving. Same discipline as the ads
-        # task — in-process, cancelled on shutdown, a bad pass never kills the loop.
-        archive_task = (
-            asyncio.create_task(archive.refresh_worker(app.state.http))
-            if ROLE_BACKGROUND_TASKS[role] and archive.worker_enabled()
-            else None
-        )
-        # The pruner (profit-shaped shelf clearing — see archive.prune_once): runs wherever the
-        # archive records, bounded per pass; archive_prune_batch=0 disables it.
-        prune_task = (
-            asyncio.create_task(archive.prune_worker())
-            if ROLE_BACKGROUND_TASKS[role] and archive.prune_enabled()
-            else None
-        )
-        endpoint_observations = app.state.endpoint_observation_reader
-        routed_call.configure_endpoint_observation_reader(endpoint_observations)
-        mcp_reader_bound = role != "control" and _mcp is not None
-        if mcp_reader_bound:
-            _mcp.configure_endpoint_observation_reader(endpoint_observations)
-        fault_handler = analytics.install_fault_handler()
-        try:
-            if role == "control" or _mcp is None:
-                yield
-            elif get_settings().claude_connector_enabled:
-                async with _mcp.all_mcp_lifespans():
-                    yield
-            else:
-                async with _mcp.mcp_lifespan():
-                    yield
-        finally:
+            limits = httpx.Limits(max_keepalive_connections=100, max_connections=200)
+            app.state.http = httpx.AsyncClient(
+                limits=limits,
+                timeout=httpx.Timeout(float(get_settings().call_timeout_s)),
+            )
+            ads_task = (
+                asyncio.create_task(adsconv.worker(background_session_maker, app.state.http))
+                if ROLE_BACKGROUND_TASKS[role] and adsconv.enabled()
+                else None
+            )
+            gauge_task = asyncio.create_task(pool_gauge()) if analytics.enabled() else None
+            # The archive's refresh worker (docs/context/architecture/archive.md): serve mode only,
+            # and a zero daily cap disables it without touching serving. Same discipline as the ads
+            # task — in-process, cancelled on shutdown, a bad pass never kills the loop.
+            archive_task = (
+                asyncio.create_task(archive.refresh_worker(app.state.http))
+                if ROLE_BACKGROUND_TASKS[role] and archive.worker_enabled()
+                else None
+            )
+            # The pruner (profit-shaped shelf clearing — see archive.prune_once): runs wherever the
+            # archive records, bounded per pass; archive_prune_batch=0 disables it.
+            prune_task = (
+                asyncio.create_task(archive.prune_worker())
+                if ROLE_BACKGROUND_TASKS[role] and archive.prune_enabled()
+                else None
+            )
+            endpoint_observations = app.state.endpoint_observation_reader
+            routed_call.configure_endpoint_observation_reader(endpoint_observations)
+            mcp_reader_bound = role != "control" and _mcp is not None
+            if mcp_reader_bound:
+                _mcp.configure_endpoint_observation_reader(endpoint_observations)
+            fault_handler = analytics.install_fault_handler()
+            analytics.capture_service_started(role)
             try:
-                if gauge_task is not None:
-                    gauge_task.cancel()
-                if ads_task is not None:
-                    ads_task.cancel()
-                if archive_task is not None:
-                    archive_task.cancel()
-                if prune_task is not None:
-                    prune_task.cancel()
-                if mcp_reader_bound:
-                    _mcp.clear_endpoint_observation_reader(endpoint_observations)
-                routed_call.clear_endpoint_observation_reader(endpoint_observations)
-                await endpoint_observations.aclose()
-                # analytics LAST: it is the sink the other two report their losses into, and a
-                # drop during their drain is the one most worth hearing about. Draining it first
-                # left those events queued behind a cancelled flusher.
-                await audit.drain()
-                await archive.drain()
-                await analytics.drain()
-                await app.state.http.aclose()
+                if role == "control" or _mcp is None:
+                    yield
+                elif get_settings().claude_connector_enabled:
+                    async with _mcp.all_mcp_lifespans():
+                        yield
+                else:
+                    async with _mcp.mcp_lifespan():
+                        yield
             finally:
-                analytics.remove_fault_handler(fault_handler)
+                try:
+                    workers = [task for task in (
+                        gauge_task, ads_task, archive_task, prune_task,
+                    ) if task is not None]
+                    for task in workers:
+                        task.cancel()
+                    # Wait for session rollback/close before the event loop or shared client closes.
+                    # A second cancellation during asyncio.run() teardown can interrupt that cleanup.
+                    await asyncio.gather(*workers, return_exceptions=True)
+                    if mcp_reader_bound:
+                        _mcp.clear_endpoint_observation_reader(endpoint_observations)
+                    routed_call.clear_endpoint_observation_reader(endpoint_observations)
+                    await arena.shutdown()
+                    await endpoint_observations.aclose()
+                    # analytics LAST: it is the sink the other two report their losses into, and a
+                    # drop during their drain is the one most worth hearing about. Draining it first
+                    # left those events queued behind a cancelled flusher.
+                    await audit.drain()
+                    await archive.drain()
+                    await analytics.drain()
+                    await app.state.http.aclose()
+                    await kv.close()
+                finally:
+                    analytics.remove_fault_handler(fault_handler)
 
     return lifespan
 
 
-def create_app(role: AppRole = "all") -> FastAPI:
+def create_app(role: AppRole = "all", *, archive_object_store=None) -> FastAPI:
     """Assemble one role from api.py's route definitions through an explicit factory."""
     if role not in ("all", "dataplane", "control"):
         raise ValueError(f"unknown app role: {role!r}")
@@ -582,4 +680,5 @@ def create_app(role: AppRole = "all") -> FastAPI:
         "background_tasks": list(ROLE_BACKGROUND_TASKS[role]),
         "startup_checks": startup_checks,
     }
+    app.state.archive_object_store = archive_object_store
     return app

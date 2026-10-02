@@ -16,7 +16,8 @@ the user, and it asks for authority the capability doesn't need.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from urllib.parse import urlsplit
 
 from .config import platform_setting_name, get_settings
 from .domain.connections import authorization as connection_authorization
@@ -24,6 +25,22 @@ from .domain.connections import authorization as connection_authorization
 
 # Compatibility name for callers that still import provider definitions from this legacy module.
 OAuthAuthorizationMethod = connection_authorization.AuthorizationMethod
+
+
+@dataclass(frozen=True)
+class CatalogTarget:
+    """An additional approved upstream root for this provider's catalog endpoints.
+
+    Catalog YAML may select one by exact hostname, but cannot introduce a new credential target.
+    Empty auth fields inherit the provider's normal injection profile.
+    """
+
+    host: str
+    base_url: str
+    token_location: str = ""
+    token_header: str = ""
+    token_param: str = ""
+    token_format: str = ""
 
 
 @dataclass(frozen=True)
@@ -66,8 +83,8 @@ class OAuthProvider:
     # Where the pasted credential rides. "header" (default) injects it as token_header; "query"
     # injects it as the token_param query parameter — Semrush authenticates the classic API with
     # `?key=…`, not a header. Drives both the connect-time probe and the provisioned tool's binding.
-    token_location: str = "header"  # "header" | "query"
-    token_param: str = ""  # query-param name when token_location == "query" (Semrush: "key")
+    token_location: str = "header"  # "header" | "query" | "json"
+    token_param: str = ""  # query/JSON field name outside the default header shape
     # Provider protocol headers that are required on EVERY request but are not credentials. The
     # provisioner turns these into ordinary constant-format bindings, so the generic proxy still
     # only applies bindings and never learns provider-specific behavior. A tuple keeps this frozen
@@ -88,6 +105,10 @@ class OAuthProvider:
     # perfectly well-scoped token.
     token_scopes_header: str = ""
     base_url: str = ""  # upstream API root, so a successful connect can auto-provision the tool
+    # A provider's catalog can span additional API roots. These roots are executable policy, not
+    # catalog data: a YAML `host` only selects an exact entry from this allow-list, so a catalog
+    # edit cannot redirect an injected team or platform credential to an arbitrary host.
+    catalog_targets: tuple[CatalogTarget, ...] = ()
     # Copy-paste sample calls stamped onto the provisioned tool's `examples`, surfaced by
     # `tool ls`. The single most useful thing to carry here is the API VERSION: Google's REST APIs
     # version the URL path (v25/...) and a wrong guess returns an HTML 404, not a hint — agents
@@ -115,6 +136,10 @@ class OAuthProvider:
     # limits call). `probe_method` defaults to GET; `probe_json` is sent as the JSON body when set.
     probe_method: str = "GET"
     probe_json: dict | None = None
+    # Provider-wallet cost of one successful pasted-key verification. Zero is the normal case.
+    # A positive value makes the probe connect-only: it is disclosed from typed data in the UI and
+    # is never persisted as a Tool health check, so `health --run` cannot quietly spend BYOK funds.
+    probe_cost_micro: int = 0
     # Encode the pasted secret before storing: "base64" turns a pasted `login:password` into the Base64
     # blob HTTP Basic needs (DataForSEO, Moz), so `token_format="Basic {secret}"` renders correctly and
     # the stored value injects the same way on every proxy call.
@@ -127,6 +152,10 @@ class OAuthProvider:
     # free probe, so we POST an empty body: a valid key answers 400/422 (bad request, no charge) while
     # an invalid key answers 401 — so only 401/403 should count as a bad-key rejection there.
     probe_reject_statuses: tuple[int, ...] = ()
+    # Some APIs authenticate with a credential pair in the request body. The first connect step
+    # cannot prove the primary half until the user supplies the second; these statuses mean
+    # "store it as unchecked and continue the pair setup", never "verified".
+    probe_deferred_statuses: tuple[int, ...] = ()
 
     # Per-provider auth quirks. Defaults match Google, which is the common case.
     auth_params: dict[str, str] | None = None  # extra ?query on the consent URL
@@ -168,6 +197,8 @@ class OAuthProvider:
     extra_credential_note: str = ""
     extra_credential_label: str = ""  # what to call it in the UI, e.g. "Developer token"
     extra_credential_header: str = ""  # the header it's injected as, e.g. "developer-token"
+    extra_credential_location: str = "header"  # "header" | "query" | "json"
+    extra_credential_param: str = ""  # query/JSON name; header remains the compatibility default
     # Settings attribute holding OLYWORK's own value for it. When set, users supply nothing and the
     # tool is provisioned with a platform binding; the per-user prompt is only the fallback.
     extra_credential_setting: str = ""
@@ -191,7 +222,11 @@ class OAuthProvider:
 
     @property
     def needs_extra_credential(self) -> bool:
-        return bool(self.extra_credential_header)
+        return bool(self.extra_credential_header or self.extra_credential_param)
+
+    @property
+    def extra_credential_name(self) -> str:
+        return self.extra_credential_param or self.extra_credential_header
 
     @property
     def platform_extra_credential(self) -> str:
@@ -363,6 +398,23 @@ class OAuthProvider:
 
     def profile_for_authorization(self, method: str) -> "OAuthProvider":
         return connection_authorization.provider_profile(self, method)
+
+    def profile_for_catalog_host(self, host: str) -> "OAuthProvider":
+        """Select an explicitly approved catalog target and its credential injection profile."""
+        wanted = str(host or "").strip().lower()
+        matches = [target for target in self.catalog_targets if target.host == wanted]
+        if len(matches) != 1:
+            raise ValueError(f"catalog host {wanted!r} is not uniquely approved for {self.service}")
+        target = matches[0]
+        parsed = urlsplit(target.base_url)
+        if (parsed.scheme != "https" or parsed.netloc != wanted or parsed.hostname != wanted
+                or parsed.username or parsed.password or parsed.query or parsed.fragment):
+            raise ValueError(f"catalog target for {wanted!r} is not a safe HTTPS base URL")
+        overrides = {"base_url": target.base_url}
+        for field in ("token_location", "token_header", "token_param", "token_format"):
+            if value := getattr(target, field):
+                overrides[field] = value
+        return replace(self, **overrides)
 
     def authorization_method_name(self, stored: str) -> str:
         return connection_authorization.method_name(self, stored)
@@ -1256,6 +1308,441 @@ HUNTER = OAuthProvider(
     probe_path="/account",  # free — consumes no search/verification/enrichment credits
 )
 
+ANYAPI = OAuthProvider(
+    service="anyapi",
+    display_name="AnyAPI",
+    auth_kind="key",
+    token_label="API key",
+    token_placeholder="your AnyAPI key",
+    # AnyAPI accepts the key as `X-API-Key` or `Authorization: Bearer`. Use the header form so the
+    # key never lands in a URL; the query-param form does not exist here at all.
+    token_header="X-API-Key",
+    token_format="{secret}",
+    setup_url="https://getanyapi.com/dashboard",
+    setup_action_label="Get your AnyAPI key",
+    setup_steps=(
+        "Sign in at getanyapi.com/dashboard and open API keys.",
+        "Copy your key (it starts with aa_live_).",
+        "No card is needed to start: POST https://api.getanyapi.com/agent/signup returns a "
+        "free trial key with starter credit and no account at all.",
+    ),
+    setup_note=(
+        "One USD wallet, pay per request, no subscription. Every run reports its exact charge as "
+        "`costUsd`; a request that no source could serve is not charged. `GET /v1/balance` is free."
+    ),
+    auth_uri="", token_uri="",
+    scopes={},
+    client_id_setting="", client_secret_setting="",
+    category="Social media",
+    summary=(
+        "Normalized social, search, maps, commerce and web-scrape data across 362 endpoints, "
+        "priced per request in USD with automatic failover between sources."
+    ),
+    base_url="https://api.getanyapi.com",
+    docs_url="https://getanyapi.com/docs",
+    probe_path="/v1/balance",  # free — reads the wallet, runs nothing and charges nothing
+)
+
+SUMBLE = OAuthProvider(
+    service="sumble", display_name="Sumble", auth_kind="key",
+    token_label="API key", token_placeholder="your Sumble API key",
+    token_header="Authorization", token_format="Bearer {secret}",
+    setup_url="https://sumble.com/account/api-keys",
+    setup_action_label="Get your Sumble API key",
+    setup_steps=("Sign in to Sumble and open Account → API keys.",
+                 "Create an API key and copy it before closing the dialog."),
+    setup_note="Connect your own key for the full API, including workspace lists, signals and asynchronous people requests. Connection verification uses a free technology-search miss.",
+    auth_uri="", token_uri="", scopes={}, client_id_setting="", client_secret_setting="",
+    category="Enrichment",
+    summary="Find organizations, people, jobs and teams, and explore company technologies and signals.",
+    base_url="https://api.sumble.com/v9", docs_url="https://docs.sumble.com/api/api",
+    probe_path="/technologies/find", probe_method="POST",
+    probe_json={"query": "olywork-nonexistent-probe-20260909"},
+    # Live 2026-09-09: bogus Bearer 401; valid key 200 with credits_used=0.
+)
+
+MOLTSETS = OAuthProvider(
+    service="moltsets", display_name="MoltSets", auth_kind="key",
+    token_label="API key", token_placeholder="ms_…",
+    token_header="Authorization", token_format="Bearer {secret}",
+    # Required on every API call as of 2026-09-16. Pin a descriptive value for connection
+    # probes and all BYOK/platform calls instead of relying on httpx's incidental default.
+    required_headers=(("User-Agent", "olywork/1.0 (+https://olywork.com)"),),
+    setup_url="https://app.moltsets.com/dashboard/api_keys",
+    setup_action_label="Get your MoltSets API key",
+    setup_steps=("Sign in to MoltSets and open the API Keys dashboard.",
+                 "Create an API key and copy it."),
+    setup_note="Successful data matches consume enrichment or search records; misses and connection verification are free. Phone hits also consume a phone token.",
+    auth_uri="", token_uri="", scopes={}, client_id_setting="", client_secret_setting="",
+    category="Enrichment",
+    summary="Search and enrich people and companies, resolve contact details, and create audience identifiers.",
+    base_url="https://api.moltsets.com/api/v1/tools",
+    docs_url="https://docs.moltsets.com/",
+    probe_path="/get_account", probe_method="POST", probe_json={},
+    # Live 2026-09-16: bogus Bearer 401; valid key 200. Account calls consume no records.
+)
+
+OPENMART = OAuthProvider(
+    service="openmart", display_name="Openmart", auth_kind="key",
+    token_label="API key", token_placeholder="your Openmart API key",
+    token_header="Authorization", token_format="Bearer {secret}",
+    setup_url="https://app.openmart.com/",
+    setup_action_label="Get your Openmart API key",
+    setup_steps=("Sign in to Openmart and open the API settings.",
+                 "Create an API key and copy it."),
+    setup_note="Searches and enrichment consume account credits. Batch tasks can charge after submission; connection verification is free.",
+    auth_uri="", token_uri="", scopes={}, client_id_setting="", client_secret_setting="",
+    category="Enrichment",
+    summary="Search and enrich businesses, find decision makers and contact details, and detect technologies.",
+    base_url="https://api.openmart.ai", docs_url="https://app.openmart.com/api-docs",
+    probe_path="/api/v2/credit-balance", probe_method="GET",
+    # Live 2026-09-17: missing and bogus Bearer keys returned 401; a valid key returned 200.
+)
+
+HARVESTAPI = OAuthProvider(
+    service="harvestapi", display_name="HarvestAPI", auth_kind="key",
+    token_label="API key", token_placeholder="your HarvestAPI API key",
+    token_header="X-API-Key", token_format="{secret}",
+    setup_url="https://harvestapi.io/",
+    setup_action_label="Get your HarvestAPI API key",
+    setup_steps=("Sign in to HarvestAPI and open Dashboard → API keys.",
+                 "Create an API key and paste it here."),
+    setup_note="LinkedIn data and enrichment using an API key. Connection verification is free.",
+    auth_uri="", token_uri="", scopes={}, client_id_setting="", client_secret_setting="",
+    category="Enrichment",
+    summary="Retrieve LinkedIn profiles, companies, jobs, posts and ads, and find leads and emails.",
+    base_url="https://api.harvestapi.io", docs_url="https://docs.harvestapi.io",
+    probe_path="/users/my-api-user",  # Internal only; live bad key 401, valid key 200.
+)
+
+FETCHINIO = OAuthProvider(
+    service="fetchinio", display_name="Fetchin", auth_kind="key",
+    token_label="API key", token_placeholder="your Fetchin API key",
+    token_header="X-API-Key", token_format="{secret}",
+    setup_url="https://fetchin.io/dashboard",
+    setup_action_label="Get your Fetchin API key",
+    setup_steps=("Sign in to Fetchin and open the API keys section.",
+                 "Create or copy an API key and paste it here."),
+    setup_note=("LinkedIn profile, company, post and engagement calls consume account credits. "
+                "Connection verification reads the free subscription endpoint."),
+    auth_uri="", token_uri="", scopes={}, client_id_setting="", client_secret_setting="",
+    category="Enrichment",
+    summary="Retrieve public LinkedIn profiles, companies, posts, comments and reactions.",
+    base_url="https://api.fetchin.io", docs_url="https://docs.fetchin.io/",
+    probe_path="/api/v1/subscription",
+)
+
+DROPLEADS = OAuthProvider(
+    service="dropleads", display_name="Dropleads", auth_kind="key",
+    token_label="API key", token_placeholder="your Dropleads API key",
+    token_header="X-API-Key", token_format="{secret}",
+    setup_url="https://app.dropleads.io/",
+    setup_action_label="Get your Dropleads API key",
+    setup_steps=("Sign in to Dropleads and open the API section.",
+                 "Create or copy an API key and paste it here."),
+    setup_note=("People and company searches, enrichment, email finding and verification, and "
+                "mobile finding share the account's credit balance. Connection verification is free."),
+    auth_uri="", token_uri="", scopes={}, client_id_setting="", client_secret_setting="",
+    category="Enrichment",
+    summary="Search and enrich people and companies, find work emails and mobiles, and verify emails.",
+    base_url="https://prime.dropleads.io",
+    docs_url="https://dropleads.readme.io/",
+    probe_path="/api/v2/prime-db/credits/balance",
+    catalog_targets=(
+        CatalogTarget(host="api.dropleads.io", base_url="https://api.dropleads.io"),
+    ),
+    extra_tools=(
+        {"suffix": "contact",
+         "base_url": "https://api.dropleads.io",
+         "examples": [
+             {"method": "POST", "path": "/email-finder",
+              "note": "Find a work email from first_name, last_name and company_domain or company_name."},
+             {"method": "POST", "path": "/mobile-finder",
+              "note": "Find a mobile number from linkedin_url."},
+             {"method": "POST", "path": "/email-verifier",
+              "note": "Verify one email address."},
+         ]},
+    ),
+)
+
+QUICKENRICH = OAuthProvider(
+    service="quickenrich", display_name="QuickEnrich", auth_kind="key",
+    token_label="API key", token_placeholder="your QuickEnrich API key",
+    token_header="Authorization", token_format="Bearer {secret}",
+    setup_url="https://app.quickenrich.io/docs",
+    setup_action_label="Get your QuickEnrich API key",
+    setup_steps=("Sign in to QuickEnrich and copy your API key.",
+                 "If no key is available, contact QuickEnrich support as described in its API docs."),
+    setup_note="Free contact discovery, then selective email or phone enrichment. Free, Starter and Growth API credits reset monthly; GTM Unlimited includes unlimited API credits. Connection verification is free.",
+    auth_uri="", token_uri="", scopes={}, client_id_setting="", client_secret_setting="",
+    category="Enrichment",
+    summary="Discover business contacts for free, find emails and phones, and search companies.",
+    base_url="https://app.quickenrich.io", docs_url="https://app.quickenrich.io/docs",
+    probe_path="/api/employees/contact-finder", probe_method="POST",
+    probe_json={"company_url": {"include": ["olywork-probe-nonexistent.invalid"], "exclude": []}, "per_page": 1},
+    # Live 2026-09-08: bad key 401; valid free key 200, credits_used=0.
+)
+
+PROSPEO = OAuthProvider(
+    service="prospeo", display_name="Prospeo", auth_kind="key",
+    token_label="API key", token_placeholder="your Prospeo API key",
+    token_header="X-KEY", token_format="{secret}",
+    setup_url="https://app.prospeo.io/",
+    setup_action_label="Get your Prospeo API key",
+    setup_steps=("Sign in to Prospeo and open the API key settings.",
+                 "Create or copy an API key and paste it here."),
+    setup_note=("People and company search and enrichment share the account's monthly credits. "
+                "Connection verification reads account information for free."),
+    auth_uri="", token_uri="", scopes={}, client_id_setting="", client_secret_setting="",
+    category="Enrichment",
+    summary="Search and enrich people and companies, including verified work emails and mobiles.",
+    base_url="https://api.prospeo.io", docs_url="https://prospeo.io/api-docs",
+    # Live 2026-09-16: GET returned 200 for the platform key and 400 INVALID_API_KEY for garbage.
+    # The same free route is the capacity collector; Prospeo's data routes are POST, this one is GET.
+    probe_path="/account-information", probe_method="GET",
+)
+
+AIARK = OAuthProvider(
+    service="aiark", display_name="AI Ark", auth_kind="key",
+    token_label="API key", token_placeholder="your AI Ark API key",
+    token_header="X-TOKEN", token_format="{secret}",
+    setup_url="https://app.ai-ark.com/settings/api-management/dashboard",
+    setup_action_label="Get your AI Ark API key",
+    setup_steps=("Sign in to AI Ark and open the API Management dashboard.",
+                 "Create or copy an API key and paste it here."),
+    setup_note=("Search and synchronous enrichment use monthly credits. Connection verification "
+                "reads the remaining balance for free."),
+    auth_uri="", token_uri="", scopes={}, client_id_setting="", client_secret_setting="",
+    category="Enrichment",
+    summary="Search people and companies, find verified emails and mobiles, and enrich profiles.",
+    base_url="https://api.ai-ark.com/api/developer-portal",
+    docs_url="https://docs.ai-ark.com/",
+    # Live 2026-09-17: missing and bogus keys returned 401; the assigned key returned 200.
+    probe_path="/v1/payments/credits", probe_method="GET",
+)
+
+WIZA = OAuthProvider(
+    service="wiza", display_name="Wiza", auth_kind="key",
+    token_label="API key", token_placeholder="your Wiza API key",
+    token_header="Authorization", token_format="Bearer {secret}",
+    setup_url="https://wiza.co/app/settings/api",
+    setup_action_label="Get your Wiza API key",
+    setup_steps=("Sign in to Wiza and open Settings → API.",
+                 "Generate or copy an API key and paste it here."),
+    setup_note=("Search and enrich people and companies with prepaid API credits. "
+                "Connection verification reads the API credit balance for free."),
+    auth_uri="", token_uri="", scopes={}, client_id_setting="", client_secret_setting="",
+    category="Enrichment",
+    summary="Search professional profiles and companies, enrich company data, and run contact reveal jobs.",
+    base_url="https://wiza.co", docs_url="https://docs.wiza.co/",
+    # Live 2026-09-16: a bogus Bearer key returned 401; the assigned key returned 200.
+    # This route is internal and is also the free capacity collector.
+    probe_path="/api/meta/credits", probe_method="GET",
+)
+
+LIMADATA = OAuthProvider(
+    service="limadata", display_name="LimaData", auth_kind="key",
+    token_label="API key", token_placeholder="your LimaData API key",
+    token_header="x-api-key", token_format="{secret}",
+    setup_url="https://app.limadata.com/",
+    setup_action_label="Get your LimaData API key",
+    setup_steps=("Sign in to LimaData and open the API key settings.",
+                 "Create or copy an API key and paste it here."),
+    setup_note=("Search, enrichment, contact lookup and research use one credit balance. "
+                "Connection verification sends an invalid empty search request, which costs no credits."),
+    auth_uri="", token_uri="", scopes={}, client_id_setting="", client_secret_setting="",
+    category="Enrichment",
+    summary="Enrich people and companies, find contact details, search a B2B database, and research the web.",
+    base_url="https://api.limadata.com", docs_url="https://api.limadata.com/docs/basic_v2",
+    # Live 2026-09-17: POST with {} is a free 400 for the assigned key and 401 for a bogus key.
+    probe_path="/api/v1/search/web", probe_method="POST", probe_json={},
+    probe_reject_statuses=(401, 403),
+)
+
+GETLEADSIO = OAuthProvider(
+    service="getleadsio", display_name="GetLeads.io", auth_kind="key",
+    token_label="API key", token_placeholder="your GetLeads.io API key",
+    token_header="Authorization", token_format="Bearer {secret}",
+    setup_url="https://app.getleads.io/",
+    setup_action_label="Get your GetLeads.io API key",
+    setup_steps=("Sign in to GetLeads.io and open the API-key settings.",
+                 "Create or copy an API key and paste it here."),
+    setup_note=("Search, enrichment and lookups use plan credits. Connection verification reads "
+                "the fair-use and remaining-credit status for free."),
+    auth_uri="", token_uri="", scopes={}, client_id_setting="", client_secret_setting="",
+    category="Enrichment",
+    summary="Search a business-contact database, enrich people, and find company contacts and signals.",
+    base_url="https://app.getleads.io", docs_url="https://www.getleads.io/docs/",
+    # Live 2026-09-16: bogus Bearer 401; valid key 200; the documented route costs zero credits.
+    probe_path="/api/v1/usage/fair-use", probe_method="GET",
+)
+
+SCRUBBY = OAuthProvider(
+    service="scrubby", display_name="Scrubby", auth_kind="key",
+    token_label="API key", token_placeholder="your Scrubby API key",
+    token_header="x-api-key", token_format="{secret}",
+    # Live: Scrubby's edge rejected Python's default urllib User-Agent before the request reached
+    # the API. Pin a descriptive value for probes and all BYOK/platform calls; required_headers
+    # intentionally overwrites any caller-supplied User-Agent.
+    required_headers=(("User-Agent", "olywork/1.0 (+https://olywork.com)"),),
+    setup_url="https://app.scrubby.io/",
+    setup_action_label="Get your Scrubby API key",
+    setup_steps=("Sign in to Scrubby and open the API settings.",
+                 "Copy your API key and paste it here."),
+    setup_note=("Quick verification costs one credit per fresh address; deep verification costs "
+                "three. Connection verification uses a free nonexistent-result lookup."),
+    auth_uri="", token_uri="", scopes={}, client_id_setting="", client_secret_setting="",
+    category="Enrichment",
+    summary="Verify email deliverability with quick or 72-hour deep verification.",
+    base_url="https://api.scrubby.io", docs_url="https://docs.scrubby.io/",
+    probe_path="/fetch_bulk_results", probe_method="POST",
+    probe_json={"identifier": "olywork-probe-not-found"},
+    token_ok_field="detail",
+    token_ok_value="No results found for this identifier.",
+    probe_reject_statuses=(401, 403),
+)
+
+ZEROBOUNCE = OAuthProvider(
+    service="zerobounce", display_name="ZeroBounce", auth_kind="key",
+    token_label="API key", token_placeholder="your ZeroBounce API key",
+    token_location="query", token_param="api_key", token_format="{secret}",
+    setup_url="https://www.zerobounce.net/members/api",
+    setup_action_label="Get your ZeroBounce API key",
+    setup_steps=("Sign in to ZeroBounce and open the API section.",
+                 "Create or copy an API key and paste it here."),
+    setup_note=("Single email validation uses one credit for a non-unknown result. Unknown results "
+                "are not charged. Connection verification reads API usage for free."),
+    auth_uri="", token_uri="", scopes={}, client_id_setting="", client_secret_setting="",
+    category="Enrichment",
+    summary="Verify email deliverability and inspect validation usage and credit balance.",
+    base_url="https://api.zerobounce.net",
+    docs_url="https://www.zerobounce.net/docs/email-validation-api-quickstart",
+    # Live 2026-09-17: no/bogus key returned 403; the assigned key returned 200. Use usage rather
+    # than getcredits for connection verification because getcredits reports a bad key as the
+    # HTTP-200 sentinel {"Credits": -1}. Dates are a valid closed historical range.
+    probe_path="/v2/getapiusage?start_date=2026-01-01&end_date=2026-12-31",
+)
+
+DATAGMA = OAuthProvider(
+    service="datagma", display_name="Datagma", auth_kind="key",
+    token_label="API ID", token_placeholder="your Datagma API ID",
+    token_location="query", token_param="apiId", token_format="{secret}",
+    setup_url="https://app.datagma.com/user-api",
+    setup_action_label="Get your Datagma API ID",
+    setup_steps=("Sign in to Datagma and open the API page.",
+                 "Copy your API ID and paste it here."),
+    setup_note=("Person, company, email, phone and job-change lookups use prepaid credits. "
+                "Connection verification reads the balance internally and exposes no account details."),
+    auth_uri="", token_uri="", scopes={}, client_id_setting="", client_secret_setting="",
+    category="Enrichment",
+    summary="Find work emails and mobile numbers, enrich people and companies, and detect job changes.",
+    base_url="https://gateway.datagma.net",
+    docs_url="https://datagmaapi.readme.io/reference/getting-started-with-your-api",
+    # Live 2026-09-18: the assigned key returned 200 and a bogus key returned 401. This free
+    # account route remains internal; catalog callers never receive its account payload.
+    probe_path="/api/ingress/v1/mine", probe_method="GET",
+)
+
+TRYKITT = OAuthProvider(
+    service="trykitt",
+    display_name="Kitt AI",
+    auth_kind="key",
+    token_label="API key",
+    token_placeholder="your Kitt AI API key",
+    token_header="x-api-key",
+    token_format="{secret}",
+    setup_url="https://admin.trykitt.ai/",
+    setup_action_label="Get your Kitt AI API key",
+    setup_steps=("Sign in to Kitt AI and open API Key in the sidebar.", "Copy your API key."),
+    setup_note="Find verified work emails or verify an existing address. Free API access has variable capacity; PAYG charges per found email and per verification, including unknown/catchall results.",
+    auth_uri="", token_uri="", scopes={},
+    client_id_setting="", client_secret_setting="",
+    category="Enrichment",
+    summary="Find verified work emails and verify email deliverability, including catch-all addresses.",
+    base_url="https://api.trykitt.ai",
+    docs_url="https://documenter.getpostman.com/view/479833/2s93m62NHf",
+    probe_path="/credit",  # Live: valid zero balance is 200; garbage key is 401.
+)
+
+CONTACTOUT = OAuthProvider(
+    service="contactout", display_name="ContactOut", auth_kind="key",
+    token_label="API token", token_placeholder="your ContactOut API token",
+    token_header="token", token_format="{secret}",
+    setup_url="https://contactout.com/meeting",
+    setup_action_label="Get your ContactOut API token",
+    setup_steps=("Request API access from ContactOut and copy your API token.",),
+    setup_note="Your own key is billed by ContactOut, never metered by olywork. Connection checks use the account stats endpoint.",
+    auth_uri="", token_uri="", scopes={}, client_id_setting="", client_secret_setting="",
+    category="Enrichment",
+    summary="Find work emails, personal emails and phones from LinkedIn; search people and companies.",
+    base_url="https://api.contactout.com", docs_url="https://api.contactout.com/",
+    probe_path="/v1/stats", token_ok_field="status_code", token_ok_value="200",
+    # Live: garbage token returns HTTP 401; the supplied platform token returns 200.
+)
+
+MILLIONVERIFIER = OAuthProvider(
+    service="millionverifier",
+    display_name="MillionVerifier",
+    auth_kind="key",
+    token_label="API key",
+    token_placeholder="your MillionVerifier API key",
+    token_location="query",
+    token_param="api",
+    token_format="{secret}",
+    setup_url="https://app.millionverifier.com/api",
+    setup_action_label="Get your MillionVerifier API key",
+    setup_steps=(
+        "Sign in to MillionVerifier and open Account settings → API Keys.",
+        "Add an API key if needed, make sure it is active, and copy it.",
+    ),
+    setup_note="Prepaid credits never expire. Risky (unknown and catch-all) results receive automatic credit returns for eligible accounts; the credits check is free.",
+    auth_uri="", token_uri="",
+    scopes={},
+    client_id_setting="", client_secret_setting="",
+    category="Enrichment",
+    summary="Verify email deliverability and identify catch-all, disposable and role addresses.",
+    base_url="https://api.millionverifier.com",
+    docs_url="https://developer.millionverifier.com/",
+    probe_path="/api/v3/credits",
+    # Live 2026-09-08: HTTP 200 {result: error, error: apikey_not_found} for a garbage key.
+    # Do not require a truthy credits balance: a valid exhausted account can still connect.
+    token_reject_field="error",
+)
+
+BOUNCEBAN = OAuthProvider(
+    service="bounceban",
+    display_name="BounceBan",
+    auth_kind="key",
+    token_label="API key",
+    token_placeholder="your BounceBan API key",
+    token_header="Authorization",
+    token_format="{secret}",
+    setup_url="https://bounceban.com/app/api/settings",
+    setup_action_label="Get your BounceBan API key",
+    setup_steps=(
+        "Sign in to BounceBan and open API settings.",
+        "Create or copy an API key and paste it here.",
+    ),
+    setup_note=("Each completed API verification normally uses one prepaid credit. "
+                "The free account probe checks the verification-credit balance."),
+    auth_uri="", token_uri="", scopes={},
+    client_id_setting="", client_secret_setting="",
+    category="Enrichment",
+    summary="Verify email deliverability, including catch-all and protected mailboxes.",
+    base_url="https://api.bounceban.com",
+    docs_url="https://bounceban.com/public/doc/api.html",
+    probe_path="/v1/account",
+    catalog_targets=(
+        CatalogTarget(host="api-waterfall.bounceban.com",
+                      base_url="https://api-waterfall.bounceban.com"),
+    ),
+    extra_tools=(
+        {"suffix": "waterfall", "base_url": "https://api-waterfall.bounceban.com",
+         "examples": [{"method": "GET", "path": "/v1/verify/single",
+                       "note": "Wait for one email verification result; BYOK only in the catalog."}]},
+    ),
+)
+
 MINIMAX = OAuthProvider(
     service="minimax",
     display_name="MiniMax",
@@ -1272,12 +1759,35 @@ MINIMAX = OAuthProvider(
     auth_uri="", token_uri="", scopes={},
     client_id_setting="", client_secret_setting="",
     category="AI generation",
-    summary="Generate images and create videos from text or source images.",
+    summary="Generate voice, images, and videos from text or source images.",
     base_url="https://api.minimax.io",
     docs_url="https://platform.minimax.io/docs/api-reference/api-overview",
     probe_path="/v2/video_generation",
     probe_method="POST",
     probe_json={},
+    probe_reject_statuses=(401, 403),
+)
+
+FISHAUDIO = OAuthProvider(
+    service="fishaudio",
+    display_name="Fish Audio",
+    auth_kind="token",
+    token_label="API key",
+    token_placeholder="your Fish Audio API key",
+    setup_url="https://fish.audio/app/api/",
+    setup_action_label="Get your Fish Audio API key",
+    setup_steps=(
+        "Sign in to Fish Audio and open the API page.",
+        "Create an API key and copy it.",
+    ),
+    setup_note="Speech generation is usage-priced; private voice models belong to your Fish account.",
+    auth_uri="", token_uri="", scopes={},
+    client_id_setting="", client_secret_setting="",
+    category="AI generation",
+    summary="Generate speech, design voices from descriptions, and create reusable private voices.",
+    base_url="https://api.fish.audio",
+    docs_url="https://docs.fish.audio/api-reference/introduction",
+    probe_path="/model?self=true&page_size=1",
     probe_reject_statuses=(401, 403),
 )
 
@@ -1323,6 +1833,90 @@ REPLICATE = OAuthProvider(
     base_url="https://api.replicate.com/v1",
     docs_url="https://replicate.com/docs/reference/http",
     probe_path="/account",
+)
+
+REAPI = OAuthProvider(
+    service="reapi",
+    display_name="reAPI",
+    auth_kind="token",
+    token_label="API key",
+    token_placeholder="your reAPI API key",
+    setup_url="https://reapi.ai/dashboard/api-keys",
+    setup_action_label="Get your reAPI API key",
+    setup_steps=(
+        "Sign in to reAPI and open Dashboard → API Keys.",
+        "Create a key and copy it (it is shown once).",
+    ),
+    setup_note="Generations spend prepaid credits (1 credit = $0.001); the task probe is free.",
+    auth_uri="", token_uri="", scopes={},
+    client_id_setting="", client_secret_setting="",
+    category="AI generation",
+    summary="Generate Seedance 2.5 video (with a relaxed content filter) and GPT Image / Gemini images through one async API.",
+    base_url="https://reapi.ai/api/v1",
+    docs_url="https://reapi.ai/docs",
+    # No free account route: a valid key answers the unknown task id with 404, a bad one with 401
+    # ({"error":{"code":10003,"message":"Invalid API key."}}, observed 2026-09-14).
+    probe_path="/tasks/probe",
+    probe_reject_statuses=(401, 403),
+)
+
+PIAPI = OAuthProvider(
+    service="piapi",
+    display_name="PiAPI",
+    auth_kind="key",
+    token_label="API key",
+    token_placeholder="your PiAPI API key",
+    token_header="X-API-Key",
+    token_format="{secret}",
+    setup_url="https://piapi.ai/workspace/key",
+    setup_action_label="Get your PiAPI API key",
+    setup_steps=(
+        "Sign in to PiAPI and open the workspace API key page.",
+        "Copy your API key.",
+    ),
+    setup_note="Generations are paid per task; the account-info probe is free.",
+    auth_uri="", token_uri="", scopes={},
+    client_id_setting="", client_secret_setting="",
+    category="AI generation",
+    summary="Generate Seedance 2.5 video (default or less-restriction) and Nano Banana Pro / GPT Image images through one task API.",
+    base_url="https://api.piapi.ai",
+    docs_url="https://piapi.ai/docs/overview",
+    probe_path="/account/info",  # free; a bad key answers 401 {"message":"Failed to verify api key"}
+)
+
+TINYFISH = OAuthProvider(
+    service="tinyfish",
+    display_name="TinyFish",
+    auth_kind="key",
+    token_label="API key",
+    token_placeholder="your TinyFish API key",
+    token_header="X-API-Key",
+    token_format="{secret}",
+    setup_url="https://agent.tinyfish.ai/api-keys",
+    setup_action_label="Get your TinyFish API key",
+    setup_steps=(
+        "Sign in to TinyFish and open API keys.",
+        "Create or copy an API key and paste it here.",
+    ),
+    setup_note=(
+        "Search and Fetch are free within TinyFish's published limits. Agent runs cost $0.016 "
+        "per reported step; olywork reads the terminal step count before settling a platform call."
+    ),
+    auth_uri="", token_uri="", scopes={},
+    client_id_setting="", client_secret_setting="",
+    category="SEO",
+    summary="Search and fetch the web, or run an asynchronous browser agent toward a stated goal.",
+    base_url="https://agent.tinyfish.ai",
+    catalog_targets=(
+        CatalogTarget(host="api.search.tinyfish.ai", base_url="https://api.search.tinyfish.ai"),
+        CatalogTarget(host="api.fetch.tinyfish.ai", base_url="https://api.fetch.tinyfish.ai"),
+    ),
+    extra_tools=(
+        {"suffix": "search", "base_url": "https://api.search.tinyfish.ai"},
+        {"suffix": "fetch", "base_url": "https://api.fetch.tinyfish.ai"},
+    ),
+    docs_url="https://docs.tinyfish.ai/",
+    probe_path="/v1/wallet",
 )
 
 TIKHUB = OAuthProvider(
@@ -1690,7 +2284,7 @@ DIFFBOT = OAuthProvider(
     auth_kind="key",
     token_label="API token",
     token_placeholder="your Diffbot token",
-    token_location="query",  # token is a query param on every call
+    token_location="query",  # normal Diffbot calls use ?token=; Web Search overrides this below
     token_param="token",
     token_format="{secret}",
     setup_url="https://app.diffbot.com/get-started/",
@@ -1704,6 +2298,14 @@ DIFFBOT = OAuthProvider(
     # Enhance/enrich + DQL live on the KG host; the free account probe lives on the api host, so verify
     # off-host. The provisioned tool points at the KG host (the enrichment value).
     base_url="https://kg.diffbot.com/kg/v3",
+    catalog_targets=(
+        CatalogTarget(host="api.diffbot.com", base_url="https://api.diffbot.com"),
+        CatalogTarget(
+            host="llm.diffbot.com", base_url="https://llm.diffbot.com",
+            token_location="header", token_header="Authorization", token_format="Bearer {secret}",
+        ),
+        CatalogTarget(host="nl.diffbot.com", base_url="https://nl.diffbot.com"),
+    ),
     docs_url="https://docs.diffbot.com/reference/authentication",
     probe_url="https://api.diffbot.com/v4/account",  # token injected as ?token=…
 )
@@ -1872,6 +2474,189 @@ EXA = OAuthProvider(
     probe_json={"urls": ["https://example.com"], "text": {"maxCharacters": 1}},
 )
 
+TAVILY = OAuthProvider(
+    service="tavily",
+    display_name="Tavily",
+    auth_kind="key",
+    token_label="API key",
+    token_placeholder="tvly-…",
+    setup_url="https://app.tavily.com/home",
+    setup_action_label="Get your Tavily API key",
+    setup_steps=(
+        "Sign in to Tavily and open the API Keys section.",
+        "Create or copy a key.",
+    ),
+    setup_note=(
+        "Search, Extract, Map and Crawl spend Tavily API credits. olywork checks the free Usage "
+        "endpoint when you connect the key."
+    ),
+    auth_uri="", token_uri="",
+    scopes={},
+    client_id_setting="", client_secret_setting="",
+    category="SEO",
+    summary="Search the open web, extract pages, map sites and crawl page content.",
+    base_url="https://api.tavily.com",
+    docs_url="https://docs.tavily.com/documentation/api-reference",
+    probe_path="/usage",
+)
+
+SERPER = OAuthProvider(
+    service="serper",
+    display_name="Serper",
+    auth_kind="key",
+    token_label="API key",
+    token_placeholder="your Serper API key",
+    token_header="X-API-KEY",
+    token_format="{secret}",
+    setup_url="https://serper.dev/api-keys",
+    setup_action_label="Get your Serper API key",
+    setup_steps=(
+        "Sign in to Serper and open API keys.",
+        "Create or copy an API key and paste it here.",
+    ),
+    setup_note=(
+        "Search calls spend Serper credits. olywork checks the free Account endpoint when you "
+        "connect the key; the separate Webpage tool uses the same key on Serper's scrape host."
+    ),
+    auth_uri="", token_uri="", scopes={},
+    client_id_setting="", client_secret_setting="",
+    category="SEO",
+    summary="Search Google result verticals and extract a web page as text or Markdown.",
+    base_url="https://google.serper.dev",
+    catalog_targets=(
+        CatalogTarget(host="scrape.serper.dev", base_url="https://scrape.serper.dev"),
+    ),
+    extra_tools=(
+        {"suffix": "scrape", "base_url": "https://scrape.serper.dev"},
+    ),
+    docs_url="https://serper.dev/playground",
+    probe_path="/account",
+)
+
+KEENABLE = OAuthProvider(
+    service="keenable",
+    display_name="Keenable",
+    auth_kind="key",
+    token_label="API key",
+    token_placeholder="keen_…",
+    token_header="X-API-Key",
+    token_format="{secret}",
+    setup_url="https://app.keenable.ai/console",
+    setup_action_label="Get your Keenable API key",
+    setup_steps=(
+        "Sign in to Keenable and open the console.",
+        "Create or copy an API key.",
+    ),
+    setup_note=(
+        "Search and Fetch each spend one request from the Keenable organization. Connecting checks "
+        "the key with one $0.004 fetch because Keenable exposes no free authenticated account route."
+    ),
+    auth_uri="", token_uri="",
+    scopes={},
+    client_id_setting="", client_secret_setting="",
+    category="SEO",
+    summary="Search the web and fetch indexed or live pages as clean Markdown.",
+    base_url="https://api.keenable.ai",
+    docs_url="https://docs.keenable.ai/api-reference",
+    probe_path="/v1/fetch?url=https%3A%2F%2Fdocs.keenable.ai%2F&max_chars=1",
+    token_verify_field="url",
+    probe_cost_micro=4_000,
+)
+
+OLOSTEP = OAuthProvider(
+    service="olostep",
+    display_name="Olostep",
+    auth_kind="key",
+    token_label="API key",
+    token_placeholder="sk_…",
+    setup_url="https://www.olostep.com/dashboard/api-keys",
+    setup_action_label="Get your Olostep API key",
+    setup_steps=(
+        "Sign in to Olostep and open API Keys.",
+        "Create or copy an API key.",
+    ),
+    setup_note=(
+        "Olostep meters tools in credits: standard Scrape and bounded Map cost one credit, "
+        "Search costs five, Answer costs twenty, and Crawl costs one per completed page. "
+        "Connecting checks the free credit-balance endpoint."
+    ),
+    auth_uri="", token_uri="",
+    scopes={},
+    client_id_setting="", client_secret_setting="",
+    category="SEO",
+    summary="Scrape pages, search the web, answer questions, map sites and run bounded crawls.",
+    base_url="https://api.olostep.com",
+    docs_url="https://docs.olostep.com/",
+    probe_path="/user/credits/info",
+)
+
+SCRAPEGRAPHAI = OAuthProvider(
+    service="scrapegraphai",
+    display_name="ScrapeGraphAI",
+    auth_kind="key",
+    token_label="API key",
+    token_placeholder="sgai-…",
+    token_header="SGAI-APIKEY",
+    token_format="{secret}",
+    setup_url="https://scrapegraphai.com/dashboard",
+    setup_action_label="Get your ScrapeGraphAI API key",
+    setup_steps=(
+        "Sign in to ScrapeGraphAI and open the dashboard.",
+        "Create or copy an API key and paste it here.",
+    ),
+    setup_note=(
+        "Scrape, Extract, Search and Crawl spend API credits. olywork checks the free Credits "
+        "endpoint when you connect the key."
+    ),
+    auth_uri="", token_uri="",
+    scopes={},
+    client_id_setting="", client_secret_setting="",
+    category="SEO",
+    summary="Scrape and extract pages, search the web, crawl sites, and monitor pages for changes.",
+    base_url="https://v2-api.scrapegraphai.com",
+    docs_url="https://docs.scrapegraphai.com/api-reference/introduction",
+    probe_path="/api/credits",
+)
+
+CLORO = OAuthProvider(
+    service="cloro",
+    display_name="cloro",
+    auth_kind="key",
+    token_label="API key",
+    token_placeholder="sk_live_…",
+    # cloro reads the key from Authorization. It accepts "Bearer <key>", "ApiKey <key>" and the bare
+    # key; Bearer is the documented form, so that is the one olywork sends. Header, so the key never
+    # lands in a logged URL. Keys are `sk_live_` / `sk_test_` + 32 hex characters.
+    setup_url="https://dashboard.cloro.dev",
+    setup_action_label="Get your cloro API key",
+    setup_steps=(
+        "Sign in to the cloro dashboard and open API keys.",
+        "Create a key and copy it — the full key is shown only once.",
+    ),
+    setup_note=(
+        "Every monitor call spends credits from your cloro balance (Google 5, AI Mode / Gemini / "
+        "Perplexity 6, ChatGPT / Copilot 7, each including the +2 sync surcharge; optional "
+        "include flags and US state targeting add more). The free plan grants 500 credits a "
+        "month. Connecting spends nothing — the probe is the free credit-balance route."
+    ),
+    auth_uri="", token_uri="",
+    scopes={},
+    client_id_setting="", client_secret_setting="",
+    category="SEO",
+    summary=(
+        "Ask ChatGPT, Gemini, Copilot, Perplexity and Google AI Mode a prompt from any country and "
+        "read the answer, its cited sources and its shopping cards as structured data — plus "
+        "Google Search and Google News SERPs."
+    ),
+    base_url="https://api.cloro.dev",
+    docs_url="https://cloro.dev/docs/api-reference/introduction",
+    # Credit balance: free, charges nothing, and separates a bad key from a good one distinctly.
+    # A well-formed but unknown key answers 401 INVALID_OR_EXPIRED_API_KEY, a malformed one 401
+    # INVALID_API_KEY_FORMAT, and no header at all 401 MISSING_API_KEY (all verified live
+    # 2026-09-05). A valid key answers 200 with the balance.
+    probe_path="/v1/credits",
+)
+
 
 # ---- more Enrichment API-key providers (2026-08 category expansion) ---------------------------
 # Eight providers added together to deepen Enrichment: company/people enrichment with prospecting
@@ -1959,6 +2744,48 @@ OCEANIO = OAuthProvider(
 )
 
 
+ADYNTEL = OAuthProvider(
+    service="adyntel",
+    display_name="Adyntel",
+    auth_kind="key",
+    token_label="API key",
+    token_placeholder="your Adyntel API key",
+    token_location="json",
+    token_param="api_key",
+    token_format="{secret}",
+    extra_credential_label="Account email",
+    extra_credential_location="json",
+    extra_credential_param="email",
+    platform_extra_setting="platform_email_adyntel",
+    extra_credential_note=(
+        "Adyntel authenticates every request with both your API key and account email in the JSON "
+        "body. Add the email after the key; olywork injects both values server-side."
+    ),
+    setup_url="https://platform.adyntel.com/",
+    setup_action_label="Get your Adyntel API key",
+    setup_steps=(
+        "Sign in to Adyntel and copy your API key.",
+        "Paste the API key here, then add the email address for the same Adyntel account.",
+    ),
+    setup_note=(
+        "Successful ad-library pages spend credits. Empty and rejected requests are not billed. "
+        "Catalog tools expose controlled page-by-page calls; your own raw tool can use the full API."
+    ),
+    auth_uri="", token_uri="",
+    scopes={},
+    client_id_setting="", client_secret_setting="",
+    category="Advertising",
+    summary="Search public ads on Meta, LinkedIn, Google and TikTok, plus paid keyword data.",
+    base_url="https://api.adyntel.com",
+    docs_url="https://docs.adyntel.com/",
+    probe_path="/facebook",
+    probe_method="POST",
+    probe_json={"company_domain": "olywork-credential-check.invalid"},
+    probe_reject_statuses=(401, 403),
+    probe_deferred_statuses=(422,),
+)
+
+
 TOMBA = OAuthProvider(
     service="tomba",
     display_name="Tomba",
@@ -2007,6 +2834,35 @@ TOMBA = OAuthProvider(
     # /v1/me or /v1/account: /v1/me 400s without the secret (and its body leaks the account's
     # secret_token), and /v1/account 401s with "Invalid or expired JWT" even for a good pair.
     probe_path="/v1/usage",
+)
+
+TRESTLEIQ = OAuthProvider(
+    service="trestleiq",
+    display_name="TrestleIQ",
+    auth_kind="key",
+    token_label="API key",
+    token_placeholder="your TrestleIQ API key",
+    token_header="x-api-key",
+    token_format="{secret}",
+    setup_url="https://portal.trestleiq.com/",
+    setup_action_label="Get your TrestleIQ API key",
+    setup_steps=(
+        "Sign in to the Trestle Developer Portal and open API keys.",
+        "Create or copy an API key and paste it here.",
+    ),
+    setup_note=(
+        "Phone, contact, and address validation are billed for every HTTP 200 response, including "
+        "negative results. Missing required inputs are rejected by olywork before reaching Trestle."
+    ),
+    auth_uri="", token_uri="", scopes={}, client_id_setting="", client_secret_setting="",
+    category="Enrichment",
+    summary="Validate phone numbers, contact details, and US postal addresses.",
+    base_url="https://api.trestleiq.com",
+    docs_url="https://docs.trestleiq.com/api-reference",
+    # Live 2026-09-21: a bogus key returned 403; this provider-owned invalid-number sandbox
+    # fixture returned 200. Trestle bills the probe as one Phone Validation query.
+    probe_path="/3.0/phone_intel?phone=%2B13005550100&is_sandbox=true",
+    probe_cost_micro=15_000,
 )
 
 
@@ -2474,6 +3330,48 @@ TIINGO = OAuthProvider(
 )
 
 
+FINANCIALDATASETS = OAuthProvider(
+    service="financialdatasets",
+    display_name="Financial Datasets",
+    auth_kind="key",
+    token_label="API key",
+    token_placeholder="your Financial Datasets API key",
+    token_header="X-API-KEY",
+    token_format="{secret}",
+    setup_url="https://www.financialdatasets.ai/",
+    setup_action_label="Get your Financial Datasets API key",
+    setup_steps=(
+        "Create or sign in to a Financial Datasets account.",
+        "Open the dashboard, create an API key, and copy it.",
+    ),
+    setup_note=(
+        "Financial Datasets uses prepaid Credits. Connecting checks one real-time US stock "
+        "snapshot, which is listed at $0.02; an empty-Credits 402 still proves the key is valid."
+    ),
+    auth_uri="", token_uri="",
+    scopes={},
+    client_id_setting="", client_secret_setting="",
+    category="Market data",
+    summary=(
+        "US public-company financial statements, metrics, filings, ownership, earnings, news "
+        "and stock prices, plus major-central-bank interest rates."
+    ),
+    base_url="https://api.financialdatasets.ai",
+    docs_url="https://docs.financialdatasets.ai/",
+    # Discovery helpers accept anonymous requests and cannot validate a pasted key. A snapshot is
+    # the smallest authenticated data request. Keep this absolute and probe_path empty: connect-time
+    # verification only, with no recurring health check saved onto the provisioned tool.
+    probe_url="https://api.financialdatasets.ai/prices/snapshot?ticker=AAPL",
+    probe_path="",
+    # 402 means the key was accepted but its prepaid Credits are empty. Use the existing reject-list
+    # metadata to accept exactly the two observed valid-key outcomes, without changing shared probe
+    # behavior or the recurring health-check schema.
+    probe_reject_statuses=tuple(
+        status for status in range(100, 600) if status not in (200, 402)
+    ),
+)
+
+
 # Alpha Vantage is DELIBERATELY absent. Its API served real quote data to a garbage key (verified
 # live 2026-08-14: bogus key -> HTTP 200 with the IBM quote; even premium endpoints answer 200 with
 # an upsell note), so a pasted key can never be validated at connect — the ScrapeCreators rule:
@@ -2672,17 +3570,24 @@ REGISTRY: dict[str, OAuthProvider] = {
         GOOGLE_ADS, YOUTUBE,
         LINKEDIN, SLACK, X, TIKTOK, FACEBOOK, INSTAGRAM, META_ADS,
         # API-key providers
-        APOLLO, PDL, AKTA, HUNTER, CRUNCHBASE, MINIMAX, OPENROUTER, REPLICATE,
+        ANYAPI, APOLLO, PDL, AKTA, HUNTER, SUMBLE, MOLTSETS, OPENMART, HARVESTAPI, FETCHINIO, DROPLEADS,
+        QUICKENRICH, PROSPEO, AIARK, WIZA, LIMADATA, GETLEADSIO, SCRUBBY, ZEROBOUNCE, DATAGMA,
+        TRYKITT, CONTACTOUT, MILLIONVERIFIER, BOUNCEBAN, CRUNCHBASE, MINIMAX, FISHAUDIO,
+        OPENROUTER,
+        REPLICATE,
+        REAPI, PIAPI, TINYFISH,
         TIKHUB, BRIGHTDATA, SEMRUSH, JUSTONEAPI,
         SCRAPECREATORS,
         # SEO API-key providers
-        DATAFORSEO, SERANKING, MOZ, MAJESTIC, SERPSTAT, EXA,
+        DATAFORSEO, SERANKING, MOZ, MAJESTIC, SERPSTAT, EXA, TAVILY, KEENABLE, OLOSTEP,
+        SCRAPEGRAPHAI, SERPER, CLORO,
         # more Enrichment API-key providers
         LUSHA, CORESIGNAL, DIFFBOT, THECOMPANIESAPI, LEADMAGIC, FIBER_AI, CRUSTDATA, AVIATO,
-        COMPANYENRICH, OCEANIO, TOMBA, PREDICTLEADS, FINDYMAIL, BRANDDEV, ICYPEAS, LEADSFORGE,
+        COMPANYENRICH, OCEANIO, ADYNTEL, TOMBA, TRESTLEIQ, PREDICTLEADS, FINDYMAIL, BRANDDEV, ICYPEAS, LEADSFORGE,
         INFLUENCERSCLUB,
         # Market data API-key providers
         COINGECKO, POLYGON, FINNHUB, TWELVEDATA, FMP, EODHD, MARKETSTACK, TIINGO,
+        FINANCIALDATASETS,
         # Advertising: API-key ad intelligence + unconfigured OAuth ad platforms
         SPYFU, APIFY, META_AD_LIBRARY, SERPAPI,
         MICROSOFT_ADS, SNAPCHAT_ADS, TIKTOK_ADS, PINTEREST_ADS,
@@ -2909,6 +3814,7 @@ def listing() -> list[dict]:
             "setup_action_label": p.setup_action_label,
             "setup_steps": list(p.setup_steps),
             "setup_note": p.setup_note,
+            "probe_cost_micro": p.probe_cost_micro,
             "extra_credential_note": p.extra_credential_note,
             "extra_credential_label": p.extra_credential_label,
             "needs_extra_credential": p.needs_extra_credential,
@@ -2948,8 +3854,8 @@ def platform_bindings(provider) -> list[dict]:
     never written to a Secret row (unreadable by the tenant, unexportable by a local run, and
     `api.py`'s cross-org secret check would reject it anyway)."""
     setting = platform_setting_name(provider.service)
-    if provider.token_location == "query":
-        bindings = [{"platform_setting": setting, "injector": "env", "location": "query",
+    if provider.token_location in {"query", "json"}:
+        bindings = [{"platform_setting": setting, "injector": "env", "location": provider.token_location,
                      "name": provider.token_param, "format": provider.token_format}]
     else:
         bindings = [{"platform_setting": setting, "injector": "env", "location": "header",
@@ -2966,6 +3872,7 @@ def platform_bindings(provider) -> list[dict]:
     # ride user connects, pairing a user's key with olywork's secret — a pair the provider rejects.
     if provider.needs_extra_credential and provider.platform_extra_setting:
         bindings.append({"platform_setting": provider.platform_extra_setting, "injector": "env",
-                         "location": "header", "name": provider.extra_credential_header,
+                         "location": provider.extra_credential_location,
+                         "name": provider.extra_credential_name,
                          "format": "{secret}"})
     return bindings

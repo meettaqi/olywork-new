@@ -31,6 +31,7 @@ import signal
 import subprocess
 import sys
 import tempfile
+import textwrap
 import threading
 import time
 import webbrowser
@@ -41,18 +42,15 @@ from urllib.parse import parse_qsl, quote, urlsplit
 import httpx
 
 from . import agents as _agents
+from .feedback_contract import FEEDBACK_CATEGORIES, FEEDBACK_DESCRIPTION, REVIEW_USEFULNESS, REVIEW_DESCRIPTION
 # One source of truth for the proxy's default port (help text below). Importing the module is cheap —
 # it pulls only stdlib plus httpx, which the CLI already has; `cryptography` stays lazy inside it.
 from .localproxy import DEFAULT_PORT as _PROXY_DEFAULT_PORT
 
-# OLYWORK_CONFIG or OLYWORK_CONFIG points the CLI at an alternate config file (CI, agents, tests).
-# Default checks ~/.olywork/config.json then falls back to ~/.olywork/config.json.
-_default_cfg = Path.home() / ".olywork" / "config.json"
-if not _default_cfg.exists() and (Path.home() / ".olywork" / "config.json").exists():
-    _default_cfg = Path.home() / ".olywork" / "config.json"
-
-_env_cfg = os.environ.get("OLYWORK_CONFIG") or os.environ.get("OLYWORK_CONFIG")
-CONFIG_PATH = Path(_env_cfg).expanduser() if _env_cfg else _default_cfg
+# OLYWORK_CONFIG points the CLI at an alternate config file (CI, agents, tests — anywhere isolating
+# by faking $HOME is the wrong tool). The default stays ~/.olywork/config.json.
+CONFIG_PATH = Path(os.environ["OLYWORK_CONFIG"]).expanduser() if os.environ.get("OLYWORK_CONFIG") \
+    else Path.home() / ".olywork" / "config.json"
 
 # Per-invocation `--org <slug>` override (stripped from argv in main); overrides the active org.
 _ORG_OVERRIDE: str | None = None
@@ -81,12 +79,14 @@ def _load_config() -> dict:
 
 
 def _save_config(cfg: dict) -> None:
-    CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    CONFIG_PATH.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     # Write-then-rename so an interrupted save (kill / full disk) can't leave a truncated,
     # unparseable config that bricks every subsequent command.
     tmp = CONFIG_PATH.with_name(CONFIG_PATH.name + ".tmp")
     tmp.write_text(json.dumps(cfg, indent=2))
+    tmp.chmod(0o600)
     os.replace(tmp, CONFIG_PATH)
+    CONFIG_PATH.chmod(0o600)
 
 
 def _token_org_claim(token: str | None) -> str | None:
@@ -101,7 +101,17 @@ def _token_org_claim(token: str | None) -> str | None:
         return None
 
 
-def _pick_active_org(cfg: dict) -> None:
+def _token_scope_claim(token: str | None) -> str | None:
+    """Read the signed token's local scope hint; the server remains the authority."""
+    try:
+        payload = token.split(".", 1)[0]
+        claims = json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))
+        return claims.get("scp") or None
+    except Exception:
+        return None
+
+
+def _pick_active_org(cfg: dict, *, pin: bool = True) -> None:
     """Best-effort: set the active org from GET /orgs. The token is already persisted by the
     caller, so a transient failure here (proxy hiccup, cold restart) must never lose it."""
     try:
@@ -122,39 +132,57 @@ def _pick_active_org(cfg: dict) -> None:
         pass
     # Bake the chosen team into the token so it also works OUTSIDE the CLI (curl, MCP, an agent env),
     # where no X-Olywork-Org header travels.
-    _pin_token_to_active_org(cfg)
+    if pin:
+        _pin_token_to_active_org(cfg)
 
 
-def _pin_token_to_active_org(cfg: dict) -> None:
-    """Re-mint the stored identity token with the ACTIVE ORG baked into its claim.
+def _default_token_for_org(cfg: dict, org: str, *, session_cookies=None) -> tuple[str | None, str]:
+    """Get one active team Default key without changing the local configuration."""
+    try:
+        with _client(cfg, auth=session_cookies is None) as c:
+            r = c.get("/auth/cli-token", headers={"X-Olywork-Org": org}, cookies=session_cookies)
+    except Exception:  # noqa: BLE001 — the caller decides whether this optional exchange is required
+        return None, "could not reach the registry"
+    try:
+        data = r.json()
+    except Exception:  # noqa: BLE001 — an edge/proxy response need not be JSON
+        data = {}
+    if r.status_code != 200:
+        return None, data.get("detail") or f"the registry returned {r.status_code}"
+    if data.get("org") != org or not data.get("token"):
+        return None, "the registry did not return this team's Default key"
+    state = data.get("default_key_state")
+    if state not in (None, "active"):  # None keeps compatibility with servers before managed keys
+        return None, f"this team's Default key is {state}"
+    return data["token"], ""
+
+
+def _pin_token_to_active_org(cfg: dict, *, session_cookies=None) -> None:
+    """Replace the stored identity credential with the active team's Default key.
 
     A plain identity token names a person, not a team, so olywork cannot know which team to bill and
     answers `choose an org (send X-Olywork-Org)`. The CLI hides that by sending the header itself — but
     the token is the thing people copy OUT of the CLI: into curl, into an MCP client's Authorization,
     into an agent's env. There it fails, confusingly, and the fix is invisible.
 
-    `GET /auth/cli-token` with `X-Olywork-Org` returns the same identity token with the org pinned, which
-    is exactly how the dashboard's "your API key" works as a bare bearer. Switching teams still works:
-    an explicit `X-Olywork-Org` header always beats the claim, and `olywork org use` re-pins.
+    `GET /auth/cli-token` with `X-Olywork-Org` returns the deterministic Default key that the dashboard
+    shows for that membership. A direct email login uses its fresh browser session cookie for this
+    exchange; an ordinary `org use` authenticates with the current stored credential.
 
-    Best-effort by design — the caller has already persisted a working token, and an older server
+    Best-effort by design — the caller has already persisted a credential, and an older server
     without this route must not turn a successful login into a failure.
     """
     org = cfg.get("active_org")
     if not org or not cfg.get("identity"):
         return
-    try:
-        with _client(cfg) as c:
-            r = c.get("/auth/cli-token", headers={"X-Olywork-Org": org})
-        if r.status_code == 200 and r.json().get("org") == org:
-            cfg["token"] = r.json()["token"]
-            _save_config(cfg)
-    except Exception:  # noqa: BLE001 — a pin is an upgrade, never a reason to lose the session
-        pass
+    token, _ = _default_token_for_org(cfg, org, session_cookies=session_cookies)
+    if token:
+        cfg["token"] = token
+        _save_config(cfg)
 
 
 def _effective_org(cfg: dict) -> str | None:
-    return _ORG_OVERRIDE or os.environ.get("OLYWORK_ORG") or os.environ.get("OLYWORK_ORG") or cfg.get("active_org")
+    return _ORG_OVERRIDE or os.environ.get("OLYWORK_ORG") or cfg.get("active_org")
 
 
 def _is_loopback_url(url: str) -> bool:
@@ -177,11 +205,9 @@ class _RegistryClient(httpx.Client):
         body = request.content or b""
         if (resp.status_code != 403 or not body
                 or "html" not in resp.headers.get("content-type", "").lower()
-                or request.headers.get("x-olywork-body-encoding")
                 or request.headers.get("x-olywork-body-encoding")):
             return resp  # not a WAF block (olywork's 403s are JSON), nothing to encode, or already retried
         retry = self.build_request(request.method, request.url, content=base64.b64encode(body))
-        retry.headers["x-olywork-body-encoding"] = "base64"
         retry.headers["x-olywork-body-encoding"] = "base64"
         if "content-type" in request.headers:  # preserve JSON so the server still parses it after decode
             retry.headers["content-type"] = request.headers["content-type"]
@@ -191,9 +217,9 @@ class _RegistryClient(httpx.Client):
 
 def _detect_runtime() -> str:
     """Which coding agent this CLI is running inside, from environment fingerprints. Sent as
-    X-Olywork-Client and X-Olywork-Client so the registry can attribute traffic per runtime ("sam / claude-code") —
-    attribution only, never authentication. OLYWORK_CLIENT / OLYWORK_CLIENT overrides for anything we can't sniff."""
-    override = (os.environ.get("OLYWORK_CLIENT") or os.environ.get("OLYWORK_CLIENT", "")).strip()
+    X-Olywork-Client so the registry can attribute traffic per runtime ("sam / claude-code") —
+    attribution only, never authentication. OLYWORK_CLIENT overrides for anything we can't sniff."""
+    override = os.environ.get("OLYWORK_CLIENT", "").strip()
     if override:
         return override
     for env_var, name in (
@@ -213,23 +239,21 @@ def _detect_runtime() -> str:
 
 
 def _client(cfg: dict, *, auth: bool = True) -> httpx.Client:
-    runtime = _detect_runtime()
-    headers = {"ngrok-skip-browser-warning": "1", "X-Olywork-Client": runtime, "X-Olywork-Client": runtime}
-    # OLYWORK_TOKEN / OLYWORK_TOKEN (+ optional OLYWORK_ORG / OLYWORK_ORG) beats the config file: per-PROCESS identity, so each coding
+    headers = {"ngrok-skip-browser-warning": "1", "X-Olywork-Client": _detect_runtime(),
+               "X-Olywork-Key-Protocol": "1"}
+    # OLYWORK_TOKEN (+ optional OLYWORK_ORG) beats the config file: per-PROCESS identity, so each coding
     # agent on one machine can act as its own scoped agent while ~/.olywork/config.json stays the
     # human's. Per-process env is the standard way a runtime carries its own identity — and
     # because it never touches the config file, `olywork login` cannot accidentally persist it.
-    token = (os.environ.get("OLYWORK_TOKEN") or os.environ.get("OLYWORK_TOKEN") or cfg.get("token")) if auth else None
+    token = (os.environ.get("OLYWORK_TOKEN") or cfg.get("token")) if auth else None
     if token:
-        headers["X-Olywork-Token"] = token
         headers["X-Olywork-Token"] = token
         org = _effective_org(cfg)
         if org:
-            headers["X-Olywork-Org"] = org
             headers["X-Olywork-Org"] = org  # ignored for per-org tokens; picks the org for identity tokens
-    # OLYWORK_URL / OLYWORK_URL rides with OLYWORK_TOKEN / OLYWORK_TOKEN: an agent identity names its registry too, or a per-process
+    # OLYWORK_URL rides with OLYWORK_TOKEN: an agent identity names its registry too, or a per-process
     # token would be sent to whatever base_url the machine owner's config points at.
-    base = os.environ.get("OLYWORK_URL") or os.environ.get("OLYWORK_URL") or cfg["base_url"]
+    base = os.environ.get("OLYWORK_URL") or cfg["base_url"]
     # Read timeout 190s: relayed upstreams legitimately run long (BrightData sync scrapes ~20-35s,
     # merchant routes up to ~105s) and the SERVER's upstream timeout is 180 — the client must
     # outlive it so the caller gets the server's real error, not a client-side cutoff. Connect
@@ -240,8 +264,7 @@ def _client(cfg: dict, *, auth: bool = True) -> httpx.Client:
 
 def _admin_client(cfg: dict) -> httpx.Client:
     token = cfg.get("admin_token") or cfg.get("token") or ""
-    headers = {"X-Olywork-Token": token, "X-Olywork-Token": token, "ngrok-skip-browser-warning": "1"}
-    return httpx.Client(base_url=cfg["base_url"], headers=headers, timeout=30.0)
+    return httpx.Client(base_url=cfg["base_url"], headers={"X-Olywork-Token": token, "ngrok-skip-browser-warning": "1"}, timeout=30.0)
 
 
 def _active_org_id(cfg: dict, c: httpx.Client, *, strict: bool = True) -> int | None:
@@ -297,6 +320,7 @@ def _show(resp: httpx.Response) -> None:
         print(resp.text)
     if resp.status_code < 400:
         _show_charge_line(resp)
+        _show_hint_line(resp)
     if resp.status_code >= 400:
         _show_failure_diagnostics(resp)
         # 402 = the team balance can't cover a call on olywork's key. The JSON above already carries the
@@ -316,21 +340,46 @@ def _show(resp: httpx.Response) -> None:
 
 
 def _show_charge_line(resp: httpx.Response) -> None:
-    """The bill for a metered call, on stderr, next to the answer: `X-Olywork-Cost-Micro` is the settled
-    charge and `X-Olywork-Call-Id` the record to quote — neither is in the provider's body, which is all
-    stdout carries. A customer who saw only `results` and `next_token` could not tell whether a
-    $0.13 estimate or a $0.0067 row had been charged and stopped testing (2026-09-04). Silent for an
-    unmetered call (no header) — a team's own key is never billed — and for every non-call response."""
+    """The bill for a metered call, on stderr, next to the answer. Async submissions are the one
+    exception: their cost header is a hold pending terminal settlement, so say `reserved` rather
+    than falsely claiming the ceiling was charged. `X-Olywork-Call-Id` is the record to quote; neither
+    field is in the provider body, which is all stdout carries. Silent for an unmetered call (no
+    header) — a team's own key is never billed — and for every non-call response."""
     headers = getattr(resp, "headers", {}) or {}
     cost = headers.get("X-Olywork-Cost-Micro")
     if cost is None:
         return
-    line = f"olywork: charged ${int(cost) / 1_000_000:g}"
+    asynchronous = bool(headers.get("X-Olywork-Async"))
+    line = (f"olywork: reserved up to ${int(cost) / 1_000_000:g} for async settlement"
+            if asynchronous else f"olywork: charged ${int(cost) / 1_000_000:g}")
     if headers.get("X-Olywork-Idempotent-Replay"):
-        line += " by the original call (this is a replay — nothing new charged)"
+        line += (" by the original call (this is a replay — nothing new reserved)"
+                 if asynchronous else " by the original call (this is a replay — nothing new charged)")
     if call_id := headers.get("X-Olywork-Call-Id"):
         line += f" · call id {call_id}"
     print(line, file=sys.stderr)
+
+
+def _show_hint_line(resp: httpx.Response) -> None:
+    """The server's optional invitation (`X-Olywork-Hint: review|feedback`), one stderr line beside the
+    charge line. `X-Olywork-Review: requested` is the older review-only header a pre-0.19 registry
+    still sends. stdout stays the exact body."""
+    headers = getattr(resp, "headers", {}) or {}
+    call_id = headers.get("X-Olywork-Call-Id")
+    kind = headers.get("X-Olywork-Hint")
+    if kind is None and headers.get("X-Olywork-Review") == "requested":
+        kind = "review"
+    if not call_id:
+        return
+    if kind == "review":
+        print(f'olywork: after using this result, run olywork review {call_id} '
+              '<useful|partly|not_useful|not_sure> [--reason "..."]; '
+              'omit private data, then keep going with the task.', file=sys.stderr)
+    elif kind == "feedback":
+        print('olywork: anything confusing or wrong about this call, even if it worked? '
+              'olywork feedback submit <quality|pricing|friction|other> "what you saw" '
+              f'--call-id {call_id}; omit private data, then keep going with the task.',
+              file=sys.stderr)
 
 
 def _show_failure_diagnostics(resp: httpx.Response) -> None:
@@ -362,7 +411,7 @@ def _as_list(resp: httpx.Response) -> list[dict]:
 def _detail_url(cfg: dict, kind: str, name: str) -> str:
     """The shareable dashboard page for a registered skill/tool. Printed after every registration so
     sharing is just forwarding the link — the page carries the preview + the agent install prompt."""
-    base = (cfg.get("base_url") or PRODUCTION_BASE_URL).rstrip("/")
+    base = (cfg.get("base_url") or "https://olywork.com").rstrip("/")
     return f"{base}/app/{'skills' if kind == 'skill' else 'tools'}/{quote(str(name), safe='')}"
 
 
@@ -377,7 +426,13 @@ def cmd_config(args, cfg) -> None:
 
 def cmd_login(args, cfg) -> None:
     if args.token:  # agent / CI: a token directly (a per-org token, or a dashboard identity token)
-        cfg.update(token=args.token, active_org=None, identity=False)  # drop any stale active_org
+        # A typed human Default/bootstrap is still an identity credential and may participate in
+        # the CLI's deliberate team-selection flow. Opaque Additional/Agent keys stay fixed to the
+        # membership they authenticate and must not be exchanged as a human.
+        cfg.update(
+            token=args.token, active_org=None,
+            identity=_token_scope_claim(args.token) in ("team", "bootstrap"),
+        )  # drop any stale active_org
         # VERIFY before claiming success — a rejected token used to print "Token saved" and only fail on
         # the first real call ("misleading"). /auth/me needs no org, so it validates either token kind.
         try:
@@ -401,7 +456,7 @@ def cmd_login(args, cfg) -> None:
         return
     if getattr(args, "email", None):  # email one-time-code (register-or-login by proving an email)
         base = cfg["base_url"].rstrip("/")
-        h = {"ngrok-skip-browser-warning": "1"}
+        h = {"ngrok-skip-browser-warning": "1", "X-Olywork-Key-Protocol": "1"}
         r = httpx.post(f"{base}/auth/email/start", json={"email": args.email}, headers=h, timeout=15)
         if r.status_code >= 400:
             _show(r)
@@ -417,7 +472,8 @@ def cmd_login(args, cfg) -> None:
         d = r.json()
         cfg.update(token=d["token"], email=d["email"], identity=True)
         _save_config(cfg)  # persist the freshly-minted token BEFORE the optional org lookup
-        _pick_active_org(cfg)
+        _pick_active_org(cfg, pin=False)
+        _pin_token_to_active_org(cfg, session_cookies=r.cookies)
         print(f"✓ Logged in as {cfg['email']}. Active org: {cfg.get('active_org')}")
         _maybe_offer_onboarding(cfg)
         return
@@ -1340,7 +1396,7 @@ def _run_demo(cfg: dict, args) -> None:
     yes = getattr(args, "yes", False)
     _brand("demo — the whole loop (a walkthrough; nothing is changed)")
 
-    # Was: a read-only scan of the user's folder. Taqi found it confusing, and rightly — a demo that
+    # Was: a read-only scan of the user's folder. Jason found it confusing, and rightly — a demo that
     # opens by reading your disk shows you your OWN files before it has shown you anything olywork does.
     # The catalog is the shorter answer to "what is this?": it needs nothing of yours at all.
     _section("① Call a tool you don't have a key for")
@@ -1399,7 +1455,8 @@ def cmd_accept(args, cfg) -> None:
             sys.exit(f"no pending invite for '{args.org}' — run `olywork invites`")
         r = c.post(f"/invites/{inv['id']}/accept")
         if r.status_code == 200:
-            cfg["active_org"] = inv["org"]
+            data = r.json()
+            cfg.update(token=data["token"], active_org=data["org"], identity=True)
             _save_config(cfg)
         _show(r)
 
@@ -1978,7 +2035,7 @@ def _llm_chat(base_url: str, token: str, model: str, system: str, user: str) -> 
 def _import_llm(c, unknowns: list, env_path: str, args) -> None:
     """Resolve unknown_secret vars via an LLM, then confirm + register each (LLM suggests, user confirms)."""
     from . import providers as prov
-    token = args.llm_token or os.environ.get("OLYWORK_LLM_TOKEN") or os.environ.get("OLYWORK_LLM_TOKEN")
+    token = args.llm_token or os.environ.get("OLYWORK_LLM_TOKEN")
     if not token:
         print("\n[--llm needs an API token: pass --llm-token <key> or set OLYWORK_LLM_TOKEN]"); return
     names = [d.vars[0] for d in unknowns]
@@ -2414,10 +2471,11 @@ def await_async_task(descriptor: dict, submission: httpx.Response, call_fn, cloc
             if found["ttl_note"]:
                 result["ttl_note"] = found["ttl_note"]
             return result
-        if outcome == "failure":
+        if outcome in ("failure", "billed_failure"):
             return {"code": 2, "task_id": str(task_id), "recovery": recovery,
                     "response": response, "status": status}
-        if status not in warned:
+        progress = {str(item) for item in descriptor["status"].get("progress", [])}
+        if status not in progress and status not in warned:
             warned.add(status)
             _clock_report(clock, f"warning: unknown async status {_shown(status)!r}; continuing to wait")
         _clock_report(clock, f"async task {_shown(task_id)}: {_shown(status)} "
@@ -2439,6 +2497,7 @@ def _show_call_response(response: httpx.Response) -> None:
             _show_failure_diagnostics(response)
             raise SystemExit(1)
         _show_charge_line(response)
+        _show_hint_line(response)
         return
     _show(response)
 
@@ -2736,8 +2795,8 @@ def _run_helper(tool, user_args, cfg) -> None:
     # The isolated runner proves itself with a value only olywork-run can read (installed by
     # setup-local-run, exported by the runner script) — lets the server release a SHARED key to the
     # runner but refuse a direct member call. Absent on the best-effort path (owned keys only).
-    proof = os.environ.get("OLYWORK_RUN_PROOF") or os.environ.get("OLYWORK_RUN_PROOF", "")
-    headers = {"X-Olywork-Run-Proof": proof, "X-Olywork-Run-Proof": proof} if proof else {}
+    proof = os.environ.get("OLYWORK_RUN_PROOF", "")
+    headers = {"X-Olywork-Run-Proof": proof} if proof else {}
     with _client(cfg) as c:
         r = c.post(f"/tools/{quote(tool, safe='')}/grant", json={"argv": user_args}, headers=headers)
     if r.status_code >= 400:
@@ -2770,7 +2829,7 @@ def _run_helper(tool, user_args, cfg) -> None:
     # --fs-jail (opt-in): confine the CLI's writes to a private per-run scratch (0700, olywork-run-owned, so
     # the member can't read into it), pointed at as HOME. Closes the file-drop exfil channel. Removed after.
     fsjail_dir = None
-    if os.environ.get("OLYWORK_RUN_FSJAIL") == "1" or os.environ.get("OLYWORK_RUN_FSJAIL") == "1":
+    if os.environ.get("OLYWORK_RUN_FSJAIL") == "1":
         if sys.platform == "darwin":
             from . import fsjail
             fsjail_dir = tempfile.mkdtemp(prefix="olywork-fsjail-")
@@ -2900,7 +2959,6 @@ def _run_local(args, cfg) -> None:
     if user_args and user_args[0] == "--":
         user_args = user_args[1:]
     if getattr(args, "fs_jail", False):
-        os.environ["OLYWORK_RUN_FSJAIL"] = "1"
         os.environ["OLYWORK_RUN_FSJAIL"] = "1"  # read by _run_helper; survives sudo via the runner's env_keep
     isolatable = sys.platform.startswith("linux") or sys.platform == "darwin"
     if isolatable and os.path.exists(_RUNNER_PATH):
@@ -2920,15 +2978,9 @@ def _run_local(args, cfg) -> None:
         # The member's OWN token travels via env (preserved by the install-time sudoers rule) so the
         # runner can fetch the vendor credential itself — the member never holds that credential.
         env = dict(os.environ)
-        _t = cfg.get("token") or ""
-        _b = cfg.get("base_url") or ""
-        _o = _effective_org(cfg) or ""
-        env["OLYWORK_RUN_TOKEN"] = _t
-        env["OLYWORK_RUN_TOKEN"] = _t
-        env["OLYWORK_RUN_BASE"] = _b
-        env["OLYWORK_RUN_BASE"] = _b
-        env["OLYWORK_RUN_ORG"] = _o
-        env["OLYWORK_RUN_ORG"] = _o
+        env["OLYWORK_RUN_TOKEN"] = cfg.get("token") or ""
+        env["OLYWORK_RUN_BASE"] = cfg.get("base_url") or ""
+        env["OLYWORK_RUN_ORG"] = _effective_org(cfg) or ""
         try:
             os.execvpe("sudo", ["sudo", "-u", _RUN_USER, "--", _RUNNER_PATH, args.tool, "--", *user_args], env)
         except OSError:
@@ -2943,9 +2995,9 @@ def cmd_run_helper(args, cfg) -> None:
     """Internal (`__run-helper`): invoked as the olywork-run user by the installed runner. Rebuilds the
     caller's config from the env the member passed through sudo, then runs the CLI so the credential
     only ever exists under olywork-run. Not meant to be called directly."""
-    hcfg = {"token": os.environ.get("OLYWORK_RUN_TOKEN") or os.environ.get("OLYWORK_RUN_TOKEN", ""),
-            "base_url": os.environ.get("OLYWORK_RUN_BASE") or os.environ.get("OLYWORK_RUN_BASE", ""),
-            "active_org": os.environ.get("OLYWORK_RUN_ORG") or os.environ.get("OLYWORK_RUN_ORG", "")}
+    hcfg = {"token": os.environ.get("OLYWORK_RUN_TOKEN", ""),
+            "base_url": os.environ.get("OLYWORK_RUN_BASE", ""),
+            "active_org": os.environ.get("OLYWORK_RUN_ORG", "")}
     if not hcfg["token"] or not hcfg["base_url"]:
         sys.exit("olywork: run-helper is missing its context (do not call __run-helper directly)")
     user_args = list(args.args)
@@ -3068,7 +3120,7 @@ def cmd_setup_local_run(args, cfg) -> None:
     # 2) the isolated-runner PROOF — a value only olywork-run can read. The server releases a SHARED key
     #    (one the member doesn't own) only when the runner presents it, so a direct member `/grant` call
     #    can't read someone else's key. Root-owned dir + file, mode 0400 owner olywork-run.
-    proof = args.run_proof or os.environ.get("OLYWORK_RUN_PROOF") or os.environ.get("OLYWORK_RUN_PROOF") or ""
+    proof = args.run_proof or os.environ.get("OLYWORK_RUN_PROOF") or ""
     if proof:
         os.makedirs(os.path.dirname(_RUN_PROOF_PATH), exist_ok=True)
         Path(_RUN_PROOF_PATH).write_text(proof)
@@ -3083,14 +3135,14 @@ def cmd_setup_local_run(args, cfg) -> None:
     #    the proof (if installed) so the helper can present it — the member's shell never sees that value.
     Path(_RUNNER_PATH).write_text(
         '#!/bin/sh\nexport HOME=/tmp\n'
-        f'[ -r {_RUN_PROOF_PATH} ] && export OLYWORK_RUN_PROOF="$(cat {_RUN_PROOF_PATH})" && export OLYWORK_RUN_PROOF="$(cat {_RUN_PROOF_PATH})"\n'
+        f'[ -r {_RUN_PROOF_PATH} ] && export OLYWORK_RUN_PROOF="$(cat {_RUN_PROOF_PATH})"\n'
         f'exec "{olywork_bin}" __run-helper "$@"\n')
     os.chmod(_RUNNER_PATH, 0o755)  # we are root -> root-owned; the member cannot modify it
     print(f"installed runner at {_RUNNER_PATH}")
 
     # 3) a narrow sudoers rule: the member may run ONLY that runner, ONLY as olywork-run, no password;
-    #    preserve just the context vars the runner needs (the member's own token + base + org).
-    rule = (f'Defaults!{_RUNNER_PATH} env_keep += "OLYWORK_RUN_TOKEN OLYWORK_RUN_BASE OLYWORK_RUN_ORG OLYWORK_RUN_FSJAIL OLYWORK_RUN_TOKEN OLYWORK_RUN_BASE OLYWORK_RUN_ORG OLYWORK_RUN_FSJAIL"\n'
+    #    preserve just the three context vars the runner needs (the member's own token + base + org).
+    rule = (f'Defaults!{_RUNNER_PATH} env_keep += "OLYWORK_RUN_TOKEN OLYWORK_RUN_BASE OLYWORK_RUN_ORG OLYWORK_RUN_FSJAIL"\n'
             f'{member} ALL=({_RUN_USER}) NOPASSWD: {_RUNNER_PATH}\n')
     os.makedirs("/etc/sudoers.d", exist_ok=True)  # present on Linux; on macOS it's the @includedir target
     tmp = "/etc/sudoers.d/.olywork-run.tmp"
@@ -3212,13 +3264,13 @@ def _start_proxy_handle(cfg, tools: list[dict], *, port: int | None = None, rene
     except lpx.ProxyDependencyError as exc:
         sys.exit(f"olywork: {exc}")
     hosts = frozenset(t["host"].lower() for t in tools if t.get("host"))
-    base = os.environ.get("OLYWORK_URL") or os.environ.get("OLYWORK_URL") or cfg["base_url"]
+    base = os.environ.get("OLYWORK_URL") or cfg["base_url"]
     pcfg = lpx.ProxyConfig(
         token=lpx.mint_token(),
         port=port or lpx.DEFAULT_PORT,
         ca=ca,
         base_url=base,
-        olywork_token=os.environ.get("OLYWORK_TOKEN") or os.environ.get("OLYWORK_TOKEN") or cfg.get("token") or "",
+        olywork_token=os.environ.get("OLYWORK_TOKEN") or cfg.get("token") or "",
         org=_effective_org(cfg) or "",
         client_name=_detect_runtime(),
         hosts=hosts,
@@ -3248,7 +3300,7 @@ def _start_local_proxy(args, cfg, tools: list[dict]):
 def _proxy_tools(cfg) -> list[dict]:
     """The tools whose hosts the proxy should capture. A registry we cannot reach is a plain sentence,
     not a traceback: the user has done nothing wrong and there is an obvious thing to check."""
-    base = os.environ.get("OLYWORK_URL") or os.environ.get("OLYWORK_URL") or cfg.get("base_url", "")
+    base = os.environ.get("OLYWORK_URL") or cfg.get("base_url", "")
     try:
         with _client(cfg) as c:
             r = c.get("/tools")
@@ -3281,7 +3333,7 @@ def _serve_daemon(args, cfg) -> None:
     ensure_proxy_dependency()
     handle, hosts, olywork_host = _start_proxy_handle(
         cfg, _proxy_tools(cfg), port=args.port, renew_ca=args.renew_ca)
-    base = os.environ.get("OLYWORK_URL") or os.environ.get("OLYWORK_URL") or cfg["base_url"]
+    base = os.environ.get("OLYWORK_URL") or cfg["base_url"]
     lpx.write_state(handle.port, handle.token, os.getpid(), base, _effective_org(cfg) or "", hosts)
     done = threading.Event()
 
@@ -3747,9 +3799,12 @@ def cmd_mcp_install(args, cfg) -> None:
     `olywork skill bootstrap` — install.sh calls it after login, and it is runnable by hand. Needs a
     token: run `olywork login` first (or `olywork login --token <key>`)."""
     from . import mcp_install
-    token = os.environ.get("OLYWORK_TOKEN") or os.environ.get("OLYWORK_TOKEN") or cfg.get("token")
+    token = os.environ.get("OLYWORK_TOKEN") or cfg.get("token")
     if not token:
         sys.exit("no token — run `olywork login` first (or `olywork login --token <key>`), then retry")
+    if _token_scope_claim(token) == "bootstrap":
+        sys.exit("This temporary login token cannot be installed into MCP — nothing was written. "
+                 "Choose or create a team first, then retry with its Default or Agent key.")
     # VERIFY before fanning the token out into every agent config on this machine — the same check
     # `olywork login --token` runs. Without it, a garbage token (a stale OLYWORK_TOKEN, a mangled paste)
     # is written silently into Claude/Cursor/opencode, and the failure surfaces days later inside
@@ -3785,7 +3840,7 @@ def cmd_mcp_install(args, cfg) -> None:
                  "dashboard), then retry.")
     if who.status_code >= 400:
         sys.exit(f"Token check failed ({who.status_code}): {who.text[:120]} — nothing was written.")
-    base_url = (cfg.get("base_url") or PRODUCTION_BASE_URL).rstrip("/")
+    base_url = (cfg.get("base_url") or "https://olywork.com").rstrip("/")
     name = getattr(args, "name", None) or "olywork"
     out = mcp_install.install_mcp(base_url=base_url, token=token, server_name=name)
     ok = 0
@@ -3809,7 +3864,7 @@ def cmd_skill_bootstrap(args, cfg) -> None:
     skills dir, so whatever agent the user runs already knows how to use olywork. install.sh calls this
     right after installing the CLI; it's also runnable by hand. Global (per-user) scope by default —
     it runs outside any project — with `--project` to target repo-local dirs instead."""
-    base_url = (cfg.get("base_url") or PRODUCTION_BASE_URL).rstrip("/")
+    base_url = (cfg.get("base_url") or "https://olywork.com").rstrip("/")
     try:
         resp = httpx.get(f"{base_url}/skill.md", timeout=15, follow_redirects=True)
         resp.raise_for_status()
@@ -4087,9 +4142,8 @@ def cmd_version(args, cfg) -> None:
 def cmd_update(args, cfg) -> None:
     """Re-run the server's install.sh to upgrade the CLI in place (uv/pipx/pip, from the git repo)."""
     import subprocess
-    base = (cfg.get("base_url") or PRODUCTION_BASE_URL).rstrip("/")
-    prog = _prog_name()
-    print(f"Updating {prog} from {base}/install.sh …")
+    base = (cfg.get("base_url") or "https://olywork.com").rstrip("/")
+    print(f"Updating olywork from {base}/install.sh …")
     with _client(cfg, auth=False) as c:
         r = c.get("/install.sh")
     if r.status_code >= 400:
@@ -4104,9 +4158,7 @@ def cmd_org_create(args, cfg) -> None:
         r = c.post("/orgs", json={"name": args.name})
     if r.status_code == 200:
         d = r.json()
-        cfg["active_org"] = d["org"]
-        if not cfg.get("identity"):  # per-org-token mode needs the new org's token to act in it
-            cfg["token"] = d["token"]
+        cfg.update(token=d["token"], active_org=d["org"], identity=True)
         _save_config(cfg)
     _show(r)
 
@@ -4125,8 +4177,8 @@ def cmd_org_ls(args, cfg) -> None:
 
 def cmd_org_use(args, cfg) -> None:
     # Validate BEFORE persisting: a typo'd slug used to save silently and then fail every later
-    # command with the server's bare "choose an org (send X-Olywork-Org)". Offline/older servers
-    # degrade to the old behavior (set + warn) rather than blocking the switch.
+    # command with the server's bare "choose an org (send X-Olywork-Org)". The Default-key exchange
+    # below is also required before the local team and token can change.
     try:
         with _client(cfg) as c:
             r = c.get("/orgs")
@@ -4140,9 +4192,20 @@ def cmd_org_use(args, cfg) -> None:
                      f"see `olywork org ls`; active org unchanged.")
     else:
         print("warning: could not verify the team against the registry", file=sys.stderr)
-    cfg["active_org"] = args.slug
+    if cfg.get("identity"):
+        # Get the new credential before changing either local value. A team-scoped Default key and
+        # a different active_org are an unusable pair, so this exchange is required during a switch.
+        token, detail = _default_token_for_org(cfg, args.slug)
+        if not token:
+            sys.exit(f"could not switch to {args.slug!r}: {detail}. Active team unchanged.")
+        cfg.update(token=token, active_org=args.slug)
+    else:
+        # Opaque Additional and Agent keys are fixed to their configured membership. They may
+        # confirm that team, but they must not be presented as human team-switching credentials.
+        if cfg.get("active_org") != args.slug:
+            sys.exit("this key cannot switch teams; run `olywork login` as a human first. "
+                     "Active team unchanged.")
     _save_config(cfg)
-    _pin_token_to_active_org(cfg)  # re-pin, so the copyable token follows the switch
     print(f"active org: {args.slug}")
 
 
@@ -4204,7 +4267,7 @@ def cmd_org_invite(args, cfg) -> None:
         r = c.post(f"/orgs/{org_id}/invites", json=body)
         _show(r)
     if landing is not None:  # _show exits on error, so this only prints on success
-        base = (cfg.get("base_url") or PRODUCTION_BASE_URL).rstrip("/")
+        base = (cfg.get("base_url") or "https://olywork.com").rstrip("/")
         print(f"↗ share link: {base}{landing}?invite={quote(args.email, safe='')}")
         print("  One click for them: sign in as that email → invite auto-accepts → this page opens."
               "  (The invite email's button does the same.)")
@@ -4558,7 +4621,7 @@ def cmd_org_join(args, cfg) -> None:
         r = c.post("/invites/accept", json={"code": args.code, "email": args.email})
     if r.status_code == 200:
         d = r.json()
-        cfg.update(token=d["token"], active_org=d["org"], email=args.email, identity=False)
+        cfg.update(token=d["token"], active_org=d["org"], email=args.email, identity=True)
         _save_config(cfg)
     _show(r)
 
@@ -4593,6 +4656,28 @@ def cmd_org_delete(args, cfg) -> None:
         r = c.delete(f"/orgs/{org_id}", params={"confirm": args.slug})
     if r.status_code == 200:
         _clear_active_if_targeted(cfg)
+    _show(r)
+
+
+def cmd_org_rename(args, cfg) -> None:
+    if not args.name and not args.slug:
+        sys.exit("nothing to change: pass --name and/or --slug")
+    body = {k: v for k, v in (("name", args.name), ("slug", args.slug)) if v}
+    with _client(cfg) as c:
+        org_id = _active_org_id(cfg, c)
+        if org_id is None:
+            sys.exit("no active org")
+        r = c.patch(f"/orgs/{org_id}", json=body)
+    if r.status_code == 200 and not _JSON_OVERRIDE:
+        o = r.json()
+        # The server keeps the old slug as an alias, so the pinned token stays valid; only the
+        # local active_org needs to follow the rename.
+        if o.get("previous_slug") and cfg.get("active_org") == o["previous_slug"]:
+            cfg["active_org"] = o["org"]
+            _save_config(cfg)
+        print(f"team: {o['name']}  slug: {o['org']}"
+              + (f"  (was {o['previous_slug']}; existing keys keep working)" if o.get("previous_slug") else ""))
+        return
     _show(r)
 
 
@@ -4665,6 +4750,9 @@ def _cost_label(cost) -> str:
     """A price you can scan in a column: "$0.001/success", "free", "quota rows"."""
     if not isinstance(cost, dict):
         return "-"
+    if cost.get("display_unit") and cost.get("display_usd") is not None:
+        return (cost.get("display_prefix", "") + f"${cost['display_usd']:.3g}" + cost.get("display_suffix", "")
+                + "/" + cost["display_unit"])
     kind = (cost.get("type") or "").replace("_", " ")
     value, currency = cost.get("value"), cost.get("currency") or ""
     if value in (None, "") and isinstance(cost.get("table"), list):
@@ -4886,6 +4974,9 @@ def _cost_usd(cost: dict | None) -> str:
     column, so USD stands alone here; `olywork catalog get` carries the native amount alongside it."""
     if not isinstance(cost, dict):
         return "-"
+    if cost.get("display_unit") and cost.get("display_usd") is not None:
+        return (cost.get("display_prefix", "") + f"${cost['display_usd']:.3g}" + cost.get("display_suffix", "")
+                + "/" + cost["display_unit"])
     usd = cost.get("usd")
     if usd is None:
         # no rate for this unit (a provider that publishes no per-credit price): the native
@@ -4897,6 +4988,12 @@ def _cost_usd(cost: dict | None) -> str:
     # value (plus the provider's own currency) is one `olywork catalog get` away
     if not usd:
         return "free"
+    rate = cost.get("rate_usd")  # a duration-priced table: quoted per second, as the model is sold
+    if isinstance(rate, (int, float)) and cost.get("rate_unit"):
+        low = cost.get("rate_usd_min")
+        if isinstance(low, (int, float)) and low < rate:
+            return f"${low:.3g}-${rate:.3g}/{cost['rate_unit']}"
+        return f"${rate:.3g}/{cost['rate_unit']}"
     low = cost.get("usd_min")  # a price table: the cheapest row up to the validated ceiling
     if isinstance(low, (int, float)) and low < usd:
         return f"${low:.3g}-${usd:.3g}/{unit}"
@@ -4963,6 +5060,121 @@ def _catalog_search(query: str, args, cfg) -> None:
               f"{'●' if e['provider'] in connected else ' '}  {_clip(e.get('summary', ''), 78)}")
     _close_group()
     _dim(f"\nolywork catalog get {rows[0]['id']}   # params, cost, example response")
+
+
+def _feedback_error(code: str, message: str, **details) -> None:
+    print(json.dumps({"error": code, "message": message, **details}))
+    raise SystemExit(1)
+
+
+def _feedback_request(cfg, method: str, path: str, **kwargs) -> None:
+    submitting = method == "POST"
+    uncertain = "Could not confirm whether feedback was saved. Check connectivity before submitting again."
+    try:
+        with _client(cfg) as client:
+            response = client.request(method, path, **kwargs)
+    except httpx.RequestError:
+        _feedback_error("submission_unconfirmed" if submitting else "request_failed",
+                        uncertain if submitting else "Could not retrieve feedback. Check connectivity and retry.")
+    # Validation responses can echo rejected input. Never print arbitrary response bodies on errors.
+    if response.status_code >= 400:
+        errors = {
+            401: ("authentication_required", "Sign in with `olywork login`, or check the configured token."),
+            403: ("access_denied", "Check the active team and your token's permissions."),
+            404: ("not_found", "No feedback is available with this ID in the active team. Check the ID and team."),
+            422: ("invalid_feedback", "Check the fields with `olywork feedback submit --help`. "
+                  "Messages must contain 1-2000 characters; at most 100 call IDs are allowed."),
+            429: ("rate_limited", "This team has reached its feedback submission limit. Try again later."),
+        }
+        code, message = errors.get(response.status_code, (
+            "submission_unconfirmed" if submitting else "request_failed",
+            uncertain if submitting else "Could not retrieve feedback. Try again later.",
+        ))
+        _feedback_error(code, message, http_status=response.status_code)
+    try:
+        body = response.json()
+    except ValueError:
+        _feedback_error("invalid_response", uncertain if submitting else "Invalid response. Retry the lookup later.")
+    print(json.dumps(body, indent=2))
+
+
+def cmd_review(args, cfg) -> None:
+    call_id = args.call_id.strip()
+    if not re.fullmatch(r"[A-Za-z0-9_-]{1,128}", call_id):
+        _feedback_error("invalid_call_id", "Use the call ID from the catalog call response.")
+    reason = args.reason.strip() if args.reason is not None else None
+    if reason is not None and not 1 <= len(reason) <= 200:
+        _feedback_error("invalid_reason", "Reason must contain 1-200 characters after trimming. Omit private data.")
+    body = {"call_id": call_id, "usefulness": args.usefulness}
+    if reason is not None:
+        body["reason"] = reason
+    uncertain = "Could not confirm whether the review was saved. Retry with the same call ID to confirm."
+    try:
+        with _client(cfg) as client:
+            response = client.post("/reviews", json=body)
+    except httpx.RequestError:
+        _feedback_error("submission_unconfirmed", uncertain)
+    if response.status_code >= 400:
+        errors = {
+            400: ("not_catalog_call", "Reviews require a catalog call, not a team's own tool."),
+            401: ("authentication_required", "Sign in with `olywork login`, or check the configured token."),
+            403: ("access_denied", "Check the active team and your token's permissions."),
+            404: ("not_found", "Call record not found in the active team; it may not be written yet. Retry shortly."),
+            422: ("invalid_review", "Check the fields with `olywork review --help`. Omit private data."),
+        }
+        code, message = errors.get(response.status_code, ("submission_unconfirmed", uncertain))
+        _feedback_error(code, message, http_status=response.status_code)
+    try:
+        receipt = response.json()
+    except ValueError:
+        _feedback_error("invalid_response", uncertain)
+    print(json.dumps(receipt, indent=2))
+
+
+def cmd_host(args, cfg) -> None:
+    """`olywork host <file>`: host a reference image / audio / video so a vendor can fetch it by URL.
+    AIGC endpoints take references as public URLs; paste hosts fail vendor probes at random, and an
+    agent on a laptop has nothing better. Prints the URL alone so it drops straight into --data."""
+    import mimetypes
+    p = Path(args.file).expanduser()
+    if not p.is_file():
+        sys.exit(f"olywork host: file not found: {p}")
+    ctype = args.content_type or mimetypes.guess_type(p.name)[0] or ""
+    if not ctype:
+        sys.exit(f"olywork host: cannot guess the media type of {p.name}; pass --content-type image/png (or audio/*, video/*)")
+    with _client(cfg) as c:
+        r = c.post("/media", content=p.read_bytes(), headers={"content-type": ctype})
+    if r.status_code >= 400:
+        _show(r)
+        sys.exit(1)
+    body = r.json()
+    if _JSON_OVERRIDE:  # the global --json: main() pops it from argv before argparse sees it
+        print(json.dumps(body, indent=2))
+    else:
+        print(body["url"])
+        print(f"  {body['content_type']}, {body['size']} bytes, expires {body['expires_at']}", file=sys.stderr)
+
+
+def cmd_feedback(args, cfg) -> None:
+    if args.message == "-" and sys.stdin.isatty():
+        _feedback_error("stdin_required", "Pipe sanitized text or redirect a file into stdin when using '-'.")
+    message = sys.stdin.read() if args.message == "-" else args.message
+    length = len(message.strip())
+    if not 1 <= length <= 2000:
+        _feedback_error("invalid_message", "Message must contain 1-2000 characters after trimming. "
+                        "Edit the description and submit again.", actual_length=length, max_length=2000)
+    body = {"category": args.category, "message": message}
+    if args.call_id:
+        body["call_ids"] = args.call_id
+    if args.endpoint_id:
+        body["endpoint_id"] = args.endpoint_id
+    _feedback_request(cfg, "POST", "/feedback", json=body)
+
+
+def cmd_feedback_get(args, cfg) -> None:
+    if args.feedback_id < 1:
+        _feedback_error("invalid_id", "Feedback ID must be a positive integer from a submission receipt.")
+    _feedback_request(cfg, "GET", f"/feedback/{args.feedback_id}")
 
 
 def _catalog_request(text: str, cfg) -> None:
@@ -5280,6 +5492,22 @@ def cmd_connections_rm(args, cfg) -> None:
         _show(c.delete(f"/connections/{args.id}"))
 
 
+def cmd_resources_list(args, cfg) -> None:
+    """List provider resources through the server's unified BYOK/platform view."""
+    with _client(cfg) as c:
+        org_id = _active_org_id(cfg, c)
+        if org_id is None:
+            sys.exit("no active org — run `olywork org use <slug>`")
+        params = {
+            key: value for key, value in {
+                "provider": args.provider,
+                "kind": args.kind,
+                "include_deleted": args.include_deleted,
+            }.items() if value not in (None, "", False)
+        }
+        _show(c.get(f"/orgs/{org_id}/provider-resources", params=params))
+
+
 def _byo_body(args) -> dict:
     """Bring-your-own-app: read the provider's OAuth client JSON off disk."""
     if not args.name:
@@ -5346,8 +5574,11 @@ HELP_GROUPS: list[tuple[str, list[tuple[str, str]]]] = [
     ("THE CATALOG — tools you don't have a key for", [
         ("catalog", "Find a tool by what you want to DO. ~2,600 endpoints, each with its price."),
         ("call", "Call a tool: a catalog endpoint by id, or one of your own by URL."),
+        ("host", "Host a reference image / audio / video at a public URL for a vendor to fetch."),
         ("balance", "Prepaid balance: credit left, calls in flight, recent spend."),
         ("topup", "Add funds, or set up automatic top-ups."),
+        ("feedback", "Share a problem or suggestion about olywork."),
+        ("review", "Rate a catalog call after using its result."),
     ]),
     ("YOUR OWN TOOLS — what your team already has", [
         ("tool", "Manage tools (endpoint or CLI)."),
@@ -5439,27 +5670,23 @@ def _pop_org_flag(argv: list[str]) -> str | None:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    prog_name = "olywork"
-    if sys.argv and Path(sys.argv[0]).name in ("olywork", "olywork"):
-        prog_name = Path(sys.argv[0]).name
-
     p = _GroupedHelpParser(
-        prog=prog_name, formatter_class=_RAWFMT,
+        prog="olywork", formatter_class=_RAWFMT,
         # Hard-wrapped: _RAWFMT is RawDescriptionHelpFormatter, so argparse will NOT wrap this for
         # us and an unwrapped paragraph runs off the edge of a narrow terminal.
-        description=(f"{prog_name} — the tool catalog for your agent.\n"
+        description=("olywork — the tool catalog for your agent.\n"
                      "Call the tool a job needs without owning its API key: ~2,600 catalogued\n"
                      "endpoints priced per call, plus your team's own keys, skills and CLIs.\n"
                      "Credentials are injected server-side, never on your machine."),
         epilog=_ex(
-            f"{prog_name} login                                              # sign in; first login registers you",
-            f"{prog_name} catalog search \"backlinks for a domain\"            # find a tool by what it DOES",
-            f"{prog_name} call tikhub.tiktok.user.profile --query uniqueId=tiktok",
-            f"{prog_name} balance                                            # what you have, what you spent",
-            f"{prog_name} claude                                             # run any command with the team's keys",
-            f"{prog_name} upload                                             # register your own .env + skills",
-        ) + f"\n\n`{prog_name} <command> -h` for details.")
-    p.add_argument("--version", action="version", version=f"{prog_name} {cli_version()}", help=f"print the {prog_name} version and exit")
+            "olywork login                                              # sign in; first login registers you",
+            "olywork catalog search \"backlinks for a domain\"            # find a tool by what it DOES",
+            "olywork call tikhub.tiktok.user.profile --query uniqueId=tiktok",
+            "olywork balance                                            # what you have, what you spent",
+            "olywork claude                                             # run any command with the team's keys",
+            "olywork upload                                             # register your own .env + skills",
+        ) + "\n\n`olywork <command> -h` for details.")
+    p.add_argument("--version", action="version", version=f"olywork {cli_version()}", help="print the olywork version and exit")
     # parser_class: without it argparse clones OUR class into every subparser, so `olywork call -h`
     # would print the top-level grouped page instead of its own help.
     sub = p.add_subparsers(dest="cmd", required=True, metavar="<command>",
@@ -5476,8 +5703,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     # ---- setup / auth ----
     c = mk(sub, "config", "Show or set the registry this CLI talks to (base URL).",
-           f"{prog_name} config                                    # show current base URL",
-           f"{prog_name} config --base-url https://olywork.com")
+           "olywork config                                    # show current base URL",
+           "olywork config --base-url https://olywork.com")
     c.add_argument("--base-url", help="point the CLI at this registry URL")
     c.set_defaults(fn=cmd_config)
 
@@ -5514,18 +5741,18 @@ def build_parser() -> argparse.ArgumentParser:
     mk(sub, "invites", "List invites addressed to your email (accept with `olywork accept`).",
        "olywork invites").set_defaults(fn=cmd_invites)
     acp = mk(sub, "accept", "Accept an invite addressed to your email (no code needed).",
-             "olywork accept olywork")
+             "olywork accept acme")
     acp.add_argument("org", help="org slug (or invite id) to accept")
     acp.set_defaults(fn=cmd_accept)
 
     # ---- teams ----
     og = mk(sub, "org", "Manage teams (orgs): create, switch, invite, members, join, leave, delete.",
-            "olywork org ls", 'olywork org create "Olywork"', "olywork org use olywork",
+            "olywork org ls", 'olywork org create "Acme"', "olywork org use acme",
             ).add_subparsers(dest="sub", required=True, metavar="<subcommand>")
-    oc2 = mk(og, "create", "Create a team and become its owner.", 'olywork org create "Olywork"')
+    oc2 = mk(og, "create", "Create a team and become its owner.", 'olywork org create "Acme"')
     oc2.add_argument("name", help="the team's display name"); oc2.set_defaults(fn=cmd_org_create)
     mk(og, "ls", "List the teams you belong to (marks the active one).", "olywork org ls").set_defaults(fn=cmd_org_ls)
-    ou = mk(og, "use", "Switch the active team (used by later commands).", "olywork org use olywork")
+    ou = mk(og, "use", "Switch the active team (used by later commands).", "olywork org use acme")
     ou.add_argument("slug", help="the org slug to make active"); ou.set_defaults(fn=cmd_org_use)
     oi = mk(og, "invite", "Invite someone to the active team by email (choose their tool access).",
             "olywork org invite bob@company.com --role member",
@@ -5650,8 +5877,12 @@ def build_parser() -> argparse.ArgumentParser:
     oj = mk(og, "join", "Join a team using an invite code.", "olywork org join <code> --email you@company.com")
     oj.add_argument("code", help="the one-time invite code"); oj.add_argument("--email", required=True, help="your email (creates you if new)"); oj.set_defaults(fn=cmd_org_join)
     mk(og, "leave", "Remove yourself from the active team.", "olywork org leave").set_defaults(fn=cmd_org_leave)
-    od = mk(og, "delete", "Delete a team you own (confirms by name).", "olywork org delete olywork")
+    od = mk(og, "delete", "Delete a team you own (confirms by name).", "olywork org delete acme")
     od.add_argument("slug", help="the org slug to delete"); od.set_defaults(fn=cmd_org_delete)
+    orn = mk(og, "rename", "Rename the active team and/or change its slug (admin+). Existing keys keep working.",
+             'olywork org rename --name "Acme"', "olywork org rename --slug acme")
+    orn.add_argument("--name", help="new display name"); orn.add_argument("--slug", help="new slug (lowercase letters, digits, hyphens)")
+    orn.set_defaults(fn=cmd_org_rename)
 
     # ---- secrets ----
     s = mk(sub, "secret", "Manage stored credentials (encrypted server-side, never returned).",
@@ -5719,7 +5950,8 @@ def build_parser() -> argparse.ArgumentParser:
     # ---- calling ----
     cl = mk(sub, "call", "Call a tool through the proxy: `call <tool> <path>` or `call <full-url>`. Key injected server-side.",
             "olywork call stripe v1/charges", "olywork call https://api.stripe.com/v1/charges",
-            "olywork call posthog api/events --query limit=5", "olywork call slack chat.postMessage --method POST --data '{\"channel\":\"C1\"}'")
+            "olywork call posthog api/events --query limit=5", "olywork call slack chat.postMessage --method POST --data '{\"channel\":\"C1\"}'",
+            "olywork call reapi.tasks.get --query id=task_01a09ddf   # a catalog id: path/query params go in --query, never in a path")
     cl.add_argument("target", help="a tool name, or a full upstream URL")
     cl.add_argument("path", nargs="?", default="", help="the path when using a tool name")
     cl.add_argument("--method", default=None,
@@ -5915,7 +6147,7 @@ def build_parser() -> argparse.ArgumentParser:
     mk(mc, "grants", "List the MCP connections you've authorised and which team each one spends from.",
        "olywork mcp grants").set_defaults(fn=cmd_mcp_grants)
     mcu = mk(mc, "use-team", "Point an authorised MCP connection at another of your teams (no reconnect).",
-             "olywork mcp use-team a1b2c3d4 olywork")
+             "olywork mcp use-team a1b2c3d4 acme")
     mcu.add_argument("grant", help="the grant id from `olywork mcp grants`")
     mcu.add_argument("team", help="the team slug to spend from")
     mcu.set_defaults(fn=cmd_mcp_use_team)
@@ -5977,6 +6209,66 @@ def build_parser() -> argparse.ArgumentParser:
     im = sub.add_parser("import", description="(deprecated) old name for `olywork upload`.", formatter_class=_RAWFMT)
     _upload_args(im)
 
+    review = mk(sub, "review", REVIEW_DESCRIPTION,
+                'olywork review CALL_ID useful --reason "Helped answer the question."')
+    review.add_argument("call_id", help="the call ID from a catalog call response")
+    review.add_argument("usefulness", choices=REVIEW_USEFULNESS, help="how the result helped your task")
+    review.add_argument("--reason", help="optional sanitized reason, 1-200 characters")
+    review.set_defaults(fn=cmd_review)
+
+    ho = mk(sub, "host", "Host a reference file (image / audio / video) at a public URL that a vendor can fetch: "
+            "the image_urls / audio_urls an AIGC endpoint takes. 30 MB per file, 7-day TTL, free.",
+            "olywork host face.jpg", "olywork host voice.mp3 --content-type audio/mpeg",
+            "olywork host face.jpg --json   # the full response: url, token, content_type, size, expires_at",
+            "olywork call reapi.video-gen.seedance-2-5 --data \"{\\\"image_urls\\\":[\\\"$(olywork host face.jpg)\\\"], …}\"")
+    ho.add_argument("file", help="the local file to host")
+    ho.add_argument("--content-type", dest="content_type", metavar="TYPE", help="override the type guessed from the extension")
+    ho.set_defaults(fn=cmd_host)
+
+    fb = mk(sub, "feedback", "Submit or retrieve private team feedback.",
+            'olywork feedback submit friction "The pagination example is unclear."',
+            'olywork feedback submit quality "The result is outdated." --call-id CALL_ID --endpoint-id PROVIDER.ENDPOINT',
+            'olywork feedback submit other - < sanitized-feedback.txt',
+            'olywork feedback get 123')
+    fb.description = textwrap.fill(FEEDBACK_DESCRIPTION, width=88)
+    feedback_fields = (
+        "\n\nSubmission fields:\n"
+        "  category       Required: quality (results), pricing (charges/prices),\n"
+        "                 friction (using olywork), other (requests/suggestions).\n"
+        "  message        Required: what you needed and what happened, 1-2000 characters.\n"
+        "                 State uncertainty; use - to read sanitized text from stdin.\n"
+        "  --call-id ID   Optional: the olywork call ID returned with the relevant call.\n"
+        "                 Repeat for multiple calls (up to 100); sent as call_ids.\n"
+        "                 IDs written only in message are not linked automatically.\n"
+        "  --endpoint-id ID\n"
+        "                 Optional: public catalog endpoint ID; sent as endpoint_id.\n"
+        "\nReceipt: JSON with feedback_id and status=received. Retrieve with:\n"
+        "  olywork feedback get FEEDBACK_ID\n"
+        "Reports go to your configured registry and active team, cost nothing, and\n"
+        "are visible to that team and registry administrators. No automatic reply.\n"
+    )
+    fb.epilog += feedback_fields + "\nFull syntax: olywork feedback submit --help"
+    fb.set_defaults(fn=lambda args, cfg: fb.print_help())
+    feedback_commands = fb.add_subparsers(dest="sub", metavar="<subcommand>")
+    submit = mk(feedback_commands, "submit", "Submit a problem or suggestion.",
+                'olywork feedback submit friction "The pagination example is unclear."',
+                'olywork feedback submit quality "The returned data is outdated." --call-id CALL_ID',
+                'olywork feedback submit other - < sanitized-feedback.txt')
+    submit.description = textwrap.fill(FEEDBACK_DESCRIPTION, width=88)
+    submit.add_argument("category", choices=FEEDBACK_CATEGORIES,
+                        help="quality: results; pricing: charges/prices; friction: using olywork; other: requests/suggestions")
+    submit.add_argument("message",
+                        help="what you needed and observed, 1-2000 characters; state uncertainty; - reads stdin")
+    submit.add_argument("--call-id", action="append",
+                        help="returned olywork call ID; repeat up to 100; sent as call_ids, not extracted from message")
+    submit.add_argument("--endpoint-id", help="public catalog endpoint ID, if known")
+    submit.epilog += feedback_fields + "\nMore: <your registry base URL>/feedback.md"
+    submit.set_defaults(fn=cmd_feedback)
+    get = mk(feedback_commands, "get", "Retrieve a feedback report from the active team.",
+             "olywork feedback get 123")
+    get.add_argument("feedback_id", type=int, help="the feedback ID from the submission receipt")
+    get.set_defaults(fn=cmd_feedback_get)
+
     # ---- balance ----
     bal = mk(sub, "balance", "Your team's prepaid balance: credit left, calls in flight, recent spend.",
              "olywork balance", "olywork balance --limit 50", "olywork balance --json    # micro-USD integers")
@@ -6031,6 +6323,17 @@ def build_parser() -> argparse.ArgumentParser:
     ct.add_argument("--all", action="store_true", dest="show_all",
                     help="include management endpoints (account/utility CRUD) hidden from the browse by default")
     ct.set_defaults(fn=cmd_catalog)
+
+    # ---- durable provider resources ---------------------------------------------------------
+    rp = mk(sub, "resources", "Resources created on olywork-provided accounts, scoped to your team.",
+            "olywork resources list --provider fishaudio --kind voice")
+    rps = rp.add_subparsers(dest="sub", required=True, metavar="<subcommand>")
+    rpl = mk(rps, "list", "List this team's durable provider resources.",
+             "olywork resources list --provider fishaudio --kind voice")
+    rpl.add_argument("--provider", default="", help="filter by provider id")
+    rpl.add_argument("--kind", default="", help="filter by resource kind")
+    rpl.add_argument("--include-deleted", action="store_true", help="include deleted tombstones")
+    rpl.set_defaults(fn=cmd_resources_list)
 
     # ---- connections (connecting a provider lives here now; `oauth` is the hidden old spelling) ----
     def _connect_args(parser, prefix):
@@ -6141,6 +6444,9 @@ def main(argv: list[str] | None = None) -> None:
     argv = list(sys.argv[1:] if argv is None else argv)
     override = _pop_org_flag(argv)
     _JSON_OVERRIDE = _pop_json_flag(argv)
+    # Preserve the original submission shorthand; help teaches the explicit subcommands.
+    if len(argv) > 1 and argv[0] == "feedback" and argv[1] in FEEDBACK_CATEGORIES:
+        argv.insert(1, "submit")
     parser = build_parser()
     if _looks_like_a_program(argv, _subcommands(parser)):
         argv = ["with", *argv]
@@ -6148,7 +6454,25 @@ def main(argv: list[str] | None = None) -> None:
     cfg = _load_config()
     if override:
         _ORG_OVERRIDE = override
-    args.fn(args, cfg)
+    started = time.monotonic()
+    exit_code = 0
+    try:
+        args.fn(args, cfg)
+    except SystemExit as exc:
+        exit_code = exc.code if isinstance(exc.code, int) else (0 if exc.code is None else 1)
+        raise
+    except KeyboardInterrupt:
+        exit_code = 130
+        raise
+    except BaseException:
+        exit_code = 1
+        raise
+    finally:
+        from .cli_analytics import track_command
+
+        track_command(command=args.fn.__name__.removeprefix("cmd_"), exit_code=exit_code,
+                      duration_ms=round((time.monotonic() - started) * 1000),
+                      base_url=cfg.get("base_url", PRODUCTION_BASE_URL), config_path=CONFIG_PATH)
 
 
 if __name__ == "__main__":

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from conftest import verified_signup
+
 import asyncio
 import json
 import re
@@ -35,7 +37,7 @@ EP = "replicate.image-gen.flux-schnell"
 
 def test_all_generation_catalog_entries_forbid_cache_including_extended():
     entries = [ep for ep in catalog_store.load().endpoints
-               if ep["platform"] in {"image-gen", "video-gen"}]
+               if ep["platform"] in {"image-gen", "video-gen", "voice-gen"}]
     assert any(".x." in ep["id"] for ep in entries)
     assert any(ep["id"] == "minimax.image-gen.from_text" for ep in entries)
     for ep in entries:
@@ -93,11 +95,26 @@ async def _submit(clients: AsyncClient, monkeypatch, document: dict):
     }})
 
 
+async def test_naive_datetime_bind_does_not_raise_under_sqlmodel_0_0_45(clients: AsyncClient):
+    """Regression test: SQLModel 0.0.45+ rejects naive datetime binds unless fields use NaiveDatetime.
+
+    The settle worker passes utcnow_naive() to WHERE next_check_at <= :now. Before the NaiveUTC
+    annotation fix, this raised:
+        ValueError: Datetime values must have timezone information.
+    """
+    now = utcnow_naive()
+    assert now.tzinfo is None, "sanity check: utcnow_naive() must return a naive datetime"
+    candidates = await task_app._due_candidates(limit=10, now=now)
+    assert isinstance(candidates, list)
+
+
 @pytest.mark.parametrize("legacy_cache", [False, True])
 async def test_generation_is_never_replayed_across_orgs(
     clients: AsyncClient, monkeypatch, replicate_platform, legacy_cache,
 ):
     monkeypatch.setattr(get_settings(), "archive_mode", "serve")
+    monkeypatch.setattr(get_settings(), "archive_serve_endpoints", EP)
+    monkeypatch.setattr(get_settings(), "archive_serve_percent", 100)
     entry = catalog_store.load().by_id[EP]
     if legacy_cache:
         monkeypatch.setitem(entry, "cache", "transient")
@@ -105,7 +122,7 @@ async def test_generation_is_never_replayed_across_orgs(
     assert first.status_code == 201
     await archive.drain()
     monkeypatch.setitem(entry, "cache", "forbidden")
-    other = await clients.post("/users", json={"email": "cache-stranger@example.com"})
+    other = await verified_signup(clients, json={"email": "cache-stranger@example.com"})
     async def live(*args, **kwargs):
         return _response(201, {"id": "private-second-task"})
     monkeypatch.setattr(call_service, "relay", live)
@@ -1028,6 +1045,32 @@ def test_basis_derivation_and_settlement_table_vs_usage():
     # The provider's reported cost settles even when it exceeds the reserve (Wan 3.0's minimum).
     assert settlement.settle(cheap, {"terminal": {"usage": {"cost": 0.2125}}}) == 212_500
 
+    # A provider that meters in its own credits settles the reported credits at the rate frozen
+    # into the basis; a sentinel the provider demands (`duration: -1`, auto) is priced by its own
+    # row, so it neither multiplies the rate negative nor turns the ceiling into the bill.
+    credits = {"settle": "usage", "usage": {"path": "usage.credits", "unit": "credit"},
+               "table": [{"when": {"body.resolution": "480p", "body.duration": -1}, "value": 3.558},
+                         {"when": {"body.resolution": "480p"}, "value": 0.1186,
+                          "times": "body.duration", "times_min": 4}],
+               "fallback": {"value": 13.87}}
+    schema = {"body": {"resolution": {"type": "string"},
+                       "duration": {"type": "integer", "min": -1, "max": 30}}}
+    auto = settlement.derive_basis(
+        credits, request={"body": {"resolution": "480p", "duration": -1}}, input_schema=schema,
+        unit_micro=1_000_000, terminal=True, usage_unit_micro=1_000)
+    assert auto["reserve_micro"] == 3_558_000
+    assert settlement.settle(auto, {"terminal": {"usage": {"credits": 712}}}) == 712_000
+    # A declared minimum of -1 never lets zero multiply a rate: the ceiling is held instead.
+    zero = settlement.derive_basis(
+        credits, request={"body": {"resolution": "480p", "duration": 0}}, input_schema=schema,
+        unit_micro=1_000_000, terminal=True, usage_unit_micro=1_000)
+    assert zero["reserve_micro"] == 13_870_000
+    # A credit meter with no frozen rate cannot be priced: the reserve settles, not credits-as-USD.
+    unrated = settlement.derive_basis(
+        credits, request={"body": {"resolution": "480p", "duration": 5}}, input_schema=schema,
+        unit_micro=1_000_000, terminal=True)
+    assert settlement.settle(unrated, {"terminal": {"usage": {"credits": 712}}}) == 593_000
+
     request = settlement.request_evidence(
         [("id", "42"), ("count", "2")], b"{}", path_names={"id"})
     path_table = {"table": [{"when": {"pathParams.id": 42}, "value": 0.01,
@@ -1046,11 +1089,13 @@ def test_terminal_classification_coerces_status_values_and_treats_none_as_progre
             "path": "task.status",
             "success": [2],
             "failure": ["3"],
+            "billed_failure": [4],
         },
     }
 
     assert asynctasks.classify_terminal(descriptor, {"task": {"status": "2"}}) == "success"
     assert asynctasks.classify_terminal(descriptor, {"task": {"status": 3}}) == "failure"
+    assert asynctasks.classify_terminal(descriptor, {"task": {"status": "4"}}) == "billed_failure"
     assert asynctasks.classify_terminal(descriptor, {"task": {"status": None}}) == "progress"
     assert asynctasks.classify_terminal(descriptor, {"task": {}}) == "progress"
 
@@ -1247,6 +1292,14 @@ def test_price_floor_reads_nested_input_fields():
     cat = store.load()
     seedance = cat.cost_view(cat.by_id["replicate.video-gen.seedance-1-lite"]["cost"], "replicate")
     assert seedance["usd_min"] == 0.072  # 480p at the declared 4-second minimum, not 1 second
+    # A duration-priced table is advertised per second (the way the model is sold), cheapest to
+    # dearest resolution; the whole-call floor and ceiling stay for reserve and eligibility.
+    assert (seedance["rate_usd_min"], seedance["rate_usd"], seedance["rate_unit"]) == (0.018, 0.072, "s")
+    reapi = cat.cost_view(cat.by_id["reapi.video-gen.seedance-2-5"]["cost"], "reapi")
+    assert (reapi["rate_usd_min"], reapi["rate_usd"]) == (0.1186, 0.462) and reapi["usd"] == 13.87
+    # An image table multiplies by `n`, not a duration: no per-second rate, the range stays.
+    images = cat.cost_view(cat.by_id["reapi.image-gen.gpt-image-2-5"]["cost"], "reapi")
+    assert "rate_usd" not in images and images["usd_min"] < images["usd"]
 
 
 async def test_idempotent_replay_of_an_async_submission_keeps_the_descriptor(
@@ -1310,8 +1363,8 @@ async def test_cancellation_at_the_pending_row_commit_boundary_leaves_a_coherent
     hold it still owns, and the worker must then record the row as released, not settle it at zero."""
     real_defer = task_app.defer_submission
 
-    async def defer_then_cancel(mk, body, org_id):
-        await real_defer(mk, body, org_id)
+    async def defer_then_cancel(mk, body, org_id, *, tags=None):
+        await real_defer(mk, body, org_id, tags=tags)
         mk.call_id = mk.call_id or None
         raise asyncio.CancelledError()
 
@@ -1360,3 +1413,100 @@ async def test_another_org_cannot_read_a_task_by_its_call_ref(
     stranger = {"X-Olywork-Token": other.json()["token"]}
     assert (await clients.get(f"/calls/{call_id}", headers=stranger)).status_code == 404
     assert call_id not in {r.get("call_ref") for r in (await clients.get("/calls", headers=stranger)).json()}
+
+
+def _upstream_idempotency_keys(relayed: list) -> list[str]:
+    return [v.decode() for req in relayed for k, v in req.raw_headers if k.lower() == b"idempotency-key"]
+
+
+async def test_shared_key_idempotency_label_is_partitioned_per_org(
+    clients: AsyncClient, monkeypatch, replicate_platform,
+):
+    """Two orgs sending one Idempotency-Key on olywork's key must not collide on the provider account.
+
+    Reproduced live against LeadsForge (2026-09-09): the provider returned org A's job to org B under
+    the shared label, and `resource_ownership.produces` then made B its owner.
+    """
+    relayed = []
+
+    async def fake_relay(request, *args, **kwargs):
+        relayed.append(request)
+        return _response(201, {"id": f"prediction-{len(relayed)}", "status": "starting"})
+
+    monkeypatch.setattr(call_service, "relay", fake_relay)
+    body = {"input": {"prompt": "A red kite over a beach.", "num_outputs": 1,
+                      "aspect_ratio": "1:1", "output_format": "webp"}}
+    label = {"Idempotency-Key": "retry-1"}
+    other = await verified_signup(clients, json={"email": "idem-stranger@example.com"})
+    stranger = {"X-Olywork-Token": other.json()["token"], **label}
+
+    assert (await clients.post(f"/call/{EP}", json=body, headers=label)).status_code == 201
+    assert (await clients.post(f"/call/{EP}", json=body, headers=stranger)).status_code == 201
+    keys = _upstream_idempotency_keys(relayed)
+    assert len(keys) == 2 and keys[0] != keys[1], "the two orgs reached the provider under one label"
+    assert "retry-1" not in keys, "the caller's raw label reached the shared provider account"
+    # The same org retrying the same label is still served by olywork's own replay, not the provider.
+    assert (await clients.post(f"/call/{EP}", json=body, headers=label)).status_code == 201
+    assert len(relayed) == 2
+
+
+async def test_own_key_relays_idempotency_label_verbatim(clients: AsyncClient, monkeypatch):
+    await clients.post("/secrets", json={"name": "replicate", "value": "own-token"})
+    relayed = []
+
+    async def fake_relay(request, *args, **kwargs):
+        relayed.append(request)
+        return _response(201, {"id": "own-account-prediction", "status": "starting"})
+
+    monkeypatch.setattr(call_service, "relay", fake_relay)
+    response = await clients.post(f"/call/{EP}", json={"input": {"prompt": "x"}},
+                                  headers={"Idempotency-Key": "retry-1"})
+    assert response.status_code == 201
+    assert _upstream_idempotency_keys(relayed) == ["retry-1"]
+
+
+async def test_reapi_auto_duration_reserves_its_resolution_and_settles_reported_credits(
+    clients: AsyncClient, monkeypatch,
+):
+    """The provider REQUIRES `duration: -1` for a video edit. It once matched no price row, so the
+    thirty-second 1080p ceiling was both held and billed. Through the real call path: the hold is
+    thirty seconds at the requested resolution, and the bill is the credits the provider reports."""
+    monkeypatch.setenv("OLYWORK_PLATFORM_KEY_REAPI", "test-platform-token")
+    monkeypatch.setenv("OLYWORK_PLATFORM_PROVIDERS", "reapi")
+    get_settings.cache_clear()
+    try:
+        org_id = (await clients.get("/orgs")).json()[0]["org_id"]
+        async with session_maker() as db:
+            await ledger.grant(db, org_id, amount_micro=5_000_000, kind="reapi_test", once=False)
+            await db.commit()
+            before = await ledger.balance_of(db, org_id)
+
+        async def submitted(*args, **kwargs):
+            return _response(200, {"id": "task_auto_duration", "status": "queued"})
+        monkeypatch.setattr(call_service, "relay", submitted)
+        response = await clients.post("/call/reapi.video-gen.seedance-2-5.unrestricted", json={
+            "model": "doubao-seedance-2.5-face", "content_filter": False, "duration": -1,
+            "resolution": "480p", "prompt": "Replace the face in @video1 with @image1.",
+            "video_urls": ["https://example.invalid/source.mp4"]})
+        assert response.status_code == 200, response.text
+        call_id = response.headers["X-Olywork-Call-Id"]
+        async with session_maker() as db:
+            row = await db.get(AsyncTaskRecord, call_id)
+            assert row.reserved_micro == 3_558_000  # 30 s of 480p, not the 13.87 1080p ceiling
+            assert row.settlement_basis["amount"]["unit_micro"] == 1_000  # fx.yaml, frozen
+            row.next_check_at = utcnow_naive() - timedelta(seconds=1)
+            await db.commit()
+
+        async def completed(row, client):
+            return 200, json.dumps({"id": "task_auto_duration", "status": "completed",
+                                    "usage": {"credits": 712},
+                                    "output": {"video_urls": ["https://example.invalid/out.mp4"]}}).encode()
+        monkeypatch.setattr(task_app, "_poll", completed)
+        await task_app.settle_due()
+        async with session_maker() as db:
+            row = await db.get(AsyncTaskRecord, call_id)
+            assert row.status == "settled" and row.settled_micro == 712_000
+            assert await db.get(Hold, call_id) is None
+            assert before - await ledger.balance_of(db, org_id) == 712_000
+    finally:
+        get_settings.cache_clear()

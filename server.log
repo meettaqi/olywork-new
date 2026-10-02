@@ -1,0 +1,2245 @@
+[09/08/26 20:54:30] INFO     Context impl SQLiteImpl.           migration.py:211
+                    INFO     Will assume non-transactional DDL. migration.py:214
+                    INFO     upgrade task provider companion   maintenance.py:75
+                             tools complete: 0 row(s) created                   
+INFO:     Will watch for changes in these directories: ['/Users/mohammadtaqitajwarakib/Projects/Treg.to_Clone_Olywork']
+INFO:     Uvicorn running on http://0.0.0.0:18790 (Press CTRL+C to quit)
+INFO:     Started reloader process [52286] using WatchFiles
+olywork schema: alembic upgrade head (stamped database)
+INFO:     Started server process [52289]
+INFO:     Waiting for application startup.
+[09/08/26 20:54:32] WARNING  OLYWORK_SECRET_KEY unset - using an       db.py:237
+                             EPHEMERAL key; stored secrets will not             
+                             survive a restart.                                 
+                    INFO     StreamableHTTP       streamable_http_manager.py:151
+                             session manager                                    
+                             started                                            
+INFO:     Application startup complete.
+[09/08/26 20:57:29] INFO     1 change detected                       main.py:309
+[09/08/26 20:57:35] INFO     2 changes detected                      main.py:309
+[09/08/26 20:58:01] INFO     1 change detected                       main.py:309
+WARNING:  WatchFiles detected changes in 'src/olywork/routers/web.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+[09/08/26 20:58:02] INFO     StreamableHTTP       streamable_http_manager.py:155
+                             session manager                                    
+                             shutting down                                      
+INFO:     Application shutdown complete.
+INFO:     Finished server process [52289]
+[09/08/26 20:58:03] INFO     3 changes detected                      main.py:309
+INFO:     Started server process [52465]
+INFO:     Waiting for application startup.
+[09/08/26 20:58:04] WARNING  OLYWORK_SECRET_KEY unset - using an       db.py:237
+                             EPHEMERAL key; stored secrets will not             
+                             survive a restart.                                 
+                    INFO     StreamableHTTP       streamable_http_manager.py:151
+                             session manager                                    
+                             started                                            
+INFO:     Application startup complete.
+[09/08/26 21:00:38] INFO     1 change detected                       main.py:309
+INFO:     127.0.0.1:51524 - "HEAD /catalog HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51538 - "GET /catalog HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51707 - "GET /pricing HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51709 - "GET /workflows HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51711 - "GET /agents HTTP/1.1" 200 OK
+/Users/mohammadtaqitajwarakib/Projects/Treg.to_Clone_Olywork/.venv/lib/python3.13/site-packages/fastapi/openapi/utils.py:252: UserWarning: Duplicate Operation ID call_tool_call__rest__options for function call_tool at /Users/mohammadtaqitajwarakib/Projects/Treg.to_Clone_Olywork/src/olywork/routers/call.py
+  warnings.warn(message, stacklevel=1)
+INFO:     127.0.0.1:51713 - "GET /docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52050 - "GET /catalog HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52050 - "GET /olywork.css?v=1788851605 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52052 - "GET /catalog.css?v=1788877941 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52058 - "GET /olywork_Official.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52060 - "GET /logos/platforms/1688.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52063 - "GET /logos/platforms/ai-search.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52064 - "GET /logos/platforms/amazon.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52052 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52050 - "GET /logos/platforms/app-store.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52060 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52063 - "GET /logos/platforms/apple-music.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52064 - "GET /logos/platforms/web.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52052 - "GET /logos/platforms/baidu.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52060 - "GET /logos/platforms/beike.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52050 - "GET /logos/platforms/bilibili.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52064 - "GET /logos/platforms/bluesky.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52063 - "GET /logos/platforms/bing.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52052 - "GET /logos/platforms/creators.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:52060 - "GET /logos/platforms/companies.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52052 - "GET /logos/platforms/crypto.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:52050 - "GET /logos/platforms/dewu.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52052 - "GET /logos/platforms/douyin.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52064 - "GET /logos/platforms/douban.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52058 - "GET /logos/platforms/duckduckgo.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52060 - "GET /logos/platforms/douyin-shop.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52063 - "GET /logos/platforms/ebay.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52050 - "GET /logos/platforms/github.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52058 - "GET /logos/platforms/google.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52052 - "GET /logos/platforms/google-ads.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52064 - "GET /logos/platforms/facebook.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52063 - "GET /logos/platforms/google-business.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52060 - "GET /logos/platforms/google-analytics.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52058 - "GET /logos/platforms/google-tag-manager.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52060 - "GET /logos/platforms/image-gen.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:52064 - "GET /logos/platforms/search-console.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52050 - "GET /logos/platforms/instagram.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52063 - "GET /logos/platforms/imdb.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52052 - "GET /logos/platforms/google-play.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52060 - "GET /logos/platforms/jd.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52058 - "GET /logos/platforms/kick.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52064 - "GET /logos/platforms/lemon8.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52063 - "GET /logos/platforms/kuaishou.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52052 - "GET /logos/platforms/linkinbio.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52050 - "GET /logos/platforms/linkedin.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52060 - "GET /logos/platforms/meta-ads.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52064 - "GET /logos/platforms/microsoft-ads.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52058 - "GET /logos/platforms/naver.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52063 - "GET /logos/platforms/people.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52050 - "GET /logos/platforms/pinterest.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52052 - "GET /logos/platforms/pinterest-ads.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52060 - "GET /logos/platforms/pipixia.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52064 - "GET /logos/platforms/qq-huxuan.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52063 - "GET /logos/platforms/reddit.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52058 - "GET /logos/platforms/xiaohongshu-pugongying.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52050 - "GET /logos/platforms/rumble.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52052 - "GET /logos/platforms/seznam.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52060 - "GET /logos/platforms/slack.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52058 - "GET /logos/platforms/snapchat-ads.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52063 - "GET /logos/platforms/snapchat.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52064 - "GET /logos/platforms/soundcloud.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52050 - "GET /logos/platforms/spotify.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52052 - "GET /logos/platforms/taobao.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52063 - "GET /logos/platforms/telegram.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52060 - "GET /logos/platforms/threads.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52058 - "GET /logos/platforms/stocks.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:52064 - "GET /logos/platforms/tiktok.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52058 - "GET /logos/platforms/tiktok-ads.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52050 - "GET /logos/platforms/tiktok-shop.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52052 - "GET /logos/platforms/toutiao.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52064 - "GET /logos/platforms/trustpilot.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52060 - "GET /logos/platforms/tripadvisor.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52058 - "GET /logos/platforms/twitch.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52063 - "GET /logos/platforms/truthsocial.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52050 - "GET /logos/platforms/video-gen.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:52050 - "GET /logos/platforms/walmart.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52052 - "GET /logos/platforms/wechat-channels.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52063 - "GET /logos/platforms/wechat-mp.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52064 - "GET /logos/platforms/wechat-search.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52058 - "GET /logos/platforms/weibo.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52060 - "GET /logos/platforms/x.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52050 - "GET /logos/platforms/xianyu.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52064 - "GET /logos/platforms/xiaohongshu.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52063 - "GET /logos/platforms/xigua.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52058 - "GET /logos/platforms/douyin-xingtu.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52052 - "GET /logos/platforms/yahoo.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52060 - "GET /logos/platforms/yandex.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52050 - "GET /logos/platforms/yelp.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52058 - "GET /logos/platforms/youtube.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52064 - "GET /logos/platforms/youku.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52052 - "GET /logos/platforms/zhihu.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52060 - "GET /logos/platforms/exa.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:52063 - "GET /logos/platforms/coingecko.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:52050 - "GET /logos/platforms/minimax.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:52060 - "GET /logos/platforms/eodhd.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:52060 - "GET /favicon.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52189 - "GET /pricing HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52189 - "GET /olywork.css?v=1788851605 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52191 - "GET /catalog.css?v=1788877941 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52195 - "GET /olywork_Official.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52196 - "GET /logos/platforms/douyin.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52199 - "GET /logos/platforms/companies.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52200 - "GET /logos/platforms/tiktok.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52191 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52191 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52189 - "GET /logos/platforms/instagram.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52196 - "GET /logos/platforms/x.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52200 - "GET /logos/platforms/youtube.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52191 - "GET /logos/platforms/web.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52199 - "GET /logos/platforms/people.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52189 - "GET /logos/platforms/google.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52195 - "GET /favicon.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52313 - "GET /use-cases HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52320 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52322 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52313 - "GET /olywork.css?v=1788851605 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52315 - "GET /catalog.css?v=1788877941 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52318 - "GET /olywork_Official.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52318 - "GET /favicon.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52349 - "GET /workflows HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52356 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52357 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52351 - "GET /catalog.css?v=1788877941 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52355 - "GET /olywork_Official.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52349 - "GET /olywork.css?v=1788851605 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52355 - "GET /favicon.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52390 - "GET /agents HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52390 - "GET /olywork.css?v=1788851605 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52392 - "GET /catalog.css?v=1788877941 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52396 - "GET /olywork_Official.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52399 - "GET /logos/agents/claude.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:52397 - "GET /logos/agents/chatgpt.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:52399 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52400 - "GET /logos/agents/claude-code.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52399 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52397 - "GET /logos/agents/cursor.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:52399 - "GET /logos/agents/grok-bot.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52396 - "GET /favicon.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52451 - "GET /docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52459 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52460 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52451 - "GET /olywork.css?v=1788851605 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52457 - "GET /olywork_Official.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52453 - "GET /catalog.css?v=1788877941 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52465 - "GET /favicon.svg HTTP/1.1" 200 OK
+[09/08/26 21:11:13] INFO     1 change detected                       main.py:309
+WARNING:  WatchFiles detected changes in 'src/olywork/routers/web.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+[09/08/26 21:11:14] INFO     StreamableHTTP       streamable_http_manager.py:155
+                             session manager                                    
+                             shutting down                                      
+INFO:     Application shutdown complete.
+INFO:     Finished server process [52465]
+[09/08/26 21:11:15] INFO     3 changes detected                      main.py:309
+INFO:     Started server process [53214]
+INFO:     Waiting for application startup.
+[09/08/26 21:11:16] WARNING  OLYWORK_SECRET_KEY unset - using an       db.py:237
+                             EPHEMERAL key; stored secrets will not             
+                             survive a restart.                                 
+                    INFO     StreamableHTTP       streamable_http_manager.py:151
+                             session manager                                    
+                             started                                            
+INFO:     Application startup complete.
+/Users/mohammadtaqitajwarakib/Projects/Treg.to_Clone_Olywork/.venv/lib/python3.13/site-packages/fastapi/openapi/utils.py:252: UserWarning: Duplicate Operation ID call_tool_call__rest__head for function call_tool at /Users/mohammadtaqitajwarakib/Projects/Treg.to_Clone_Olywork/src/olywork/routers/call.py
+  warnings.warn(message, stacklevel=1)
+INFO:     127.0.0.1:52627 - "GET /docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52635 - "GET /olywork.css?v=1788851605 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52641 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52642 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52637 - "GET /catalog.css?v=1788877941 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52639 - "GET /olywork_Official.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52639 - "GET /favicon.svg HTTP/1.1" 200 OK
+[09/08/26 21:12:51] INFO     3 changes detected                      main.py:309
+INFO:     127.0.0.1:52855 - "GET /catalog HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52855 - "GET /olywork.css?v=1788851605 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52857 - "GET /catalog.css?v=1788877941 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52875 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52875 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52901 - "GET /logos/platforms/crypto.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:52900 - "GET /logos/platforms/creators.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:52901 - "GET /logos/platforms/exa.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:52900 - "GET /logos/platforms/coingecko.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:52900 - "GET /logos/platforms/image-gen.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:52900 - "GET /logos/platforms/minimax.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:52900 - "GET /workflows HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52900 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52913 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53013 - "GET /docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53013 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53015 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53039 - "GET /tutorial HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53039 - "GET /olywork.css HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53039 - "GET /catalog HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53039 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53039 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53039 - "GET /use-cases HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53039 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53041 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53055 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53055 - "GET /logos/official/claudecode.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53060 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53062 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53057 - "GET /logos/official/codex.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53063 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53060 - "GET /logos/official/semrush.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53055 - "GET /logos/official/hermes.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53065 - "GET /logos/official/openai.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53062 - "GET /logos/official/serpstat.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53065 - "GET /logos/official/serpapi.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53063 - "GET /logos/official/dataforseo.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53060 - "GET /logos/official/search-console.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53057 - "GET /logos/official/spyfu.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53055 - "GET /logos/official/seranking.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53062 - "GET /logos/official/google-analytics.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53060 - "GET /logos/official/moz.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53057 - "GET /logos/official/diffbot.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53065 - "GET /logos/official/tiktok.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53060 - "GET /logos/official/google.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53055 - "GET /logos/official/majestic.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53062 - "GET /logos/official/perplexity.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53063 - "GET /logos/official/reddit.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53057 - "GET /logos/official/x.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53055 - "GET /logos/official/instagram.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53062 - "GET /logos/official/youtube.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53065 - "GET /logos/official/lusha.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53057 - "GET /logos/official/linkedin.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53060 - "GET /logos/official/pdl.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53063 - "GET /logos/official/hunter.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53062 - "GET /logos/official/crunchbase.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53055 - "GET /logos/official/apollo.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53057 - "GET /logos/official/coresignal.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53065 - "GET /logos/official/thecompaniesapi.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53063 - "GET /logos/official/google-ads.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53060 - "GET /logos/official/leadmagic.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53055 - "GET /logos/official/facebook.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53057 - "GET /logos/official/bing.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53063 - "GET /logos/official/google-business.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53062 - "GET /logos/official/slack.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53065 - "GET /logos/official/snapchat.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53060 - "GET /logos/official/pinterest.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53057 - "GET /logos/official/apify.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53055 - "GET /logos/official/google-trends.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53055 - "GET /catalog HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53055 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53057 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53055 - "GET /logos/platforms/crypto.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53057 - "GET /logos/platforms/creators.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53055 - "GET /logos/platforms/exa.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53057 - "GET /logos/platforms/coingecko.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53057 - "GET /logos/platforms/image-gen.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53057 - "GET /logos/platforms/minimax.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53111 - "GET /agents HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53119 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53111 - "GET /logos/agents/chatgpt.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53113 - "GET /logos/agents/claude.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53121 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53116 - "GET /logos/agents/cursor.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53119 - "GET /logos/agents/grok-bot.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53120 - "GET /logos/agents/claude-code.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53120 - "GET /agents/chatgpt HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53120 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53119 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53116 - "GET /usecase.css?v=1788790712 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53152 - "GET /use-cases HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53152 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53154 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53189 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53189 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53189 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53192 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53196 - "GET /logos/official/openclaw.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53296 - "GET /catalog HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53296 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53299 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53299 - "GET /app HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53299 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53315 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53296 - "GET /tutorial.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53299 - "GET /dashboard-tour/tour.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53296 - "GET /meta HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53296 - "GET /auth/me HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:53446 - "GET /pricing HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53446 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53446 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53448 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53448 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53482 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53482 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53822 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53822 - "GET /olywork_Official.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53824 - "GET /logos/official/claudecode.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53833 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53834 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53833 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53831 - "GET /logos/official/openai.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53828 - "GET /logos/official/codex.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53834 - "GET /logos/official/apollo.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53833 - "GET /logos/official/hunter.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53831 - "GET /logos/official/linkedin.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53824 - "GET /logos/official/crunchbase.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53828 - "GET /logos/official/lusha.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53834 - "GET /logos/official/diffbot.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53831 - "GET /logos/official/hermes.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53824 - "GET /logos/official/serpstat.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53833 - "GET /logos/official/semrush.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53828 - "GET /logos/official/spyfu.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53834 - "GET /logos/official/dataforseo.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53831 - "GET /logos/official/seranking.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53824 - "GET /logos/official/search-console.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53833 - "GET /logos/official/serpapi.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53828 - "GET /logos/official/google-analytics.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53831 - "GET /logos/official/moz.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53834 - "GET /logos/official/majestic.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53824 - "GET /logos/exa.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53822 - "GET /logos/official/perplexity.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53833 - "GET /logos/official/google.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53828 - "GET /logos/official/reddit.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53831 - "GET /logos/official/tiktok.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53824 - "GET /logos/official/pdl.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53822 - "GET /logos/official/x.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53833 - "GET /logos/official/youtube.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53834 - "GET /logos/official/instagram.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53831 - "GET /logos/official/coresignal.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53828 - "GET /logos/official/thecompaniesapi.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53833 - "GET /logos/official/leadmagic.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53824 - "GET /logos/official/google-ads.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53834 - "GET /logos/official/bing.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53822 - "GET /logos/official/facebook.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53828 - "GET /logos/official/pinterest.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53831 - "GET /logos/official/google-business.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53833 - "GET /logos/official/snapchat.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53824 - "GET /logos/official/slack.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53834 - "GET /logos/official/apify.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53822 - "GET /logos/official/google-trends.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53831 - "GET /logos/platforms/google.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53828 - "GET /logos/platforms/x.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53834 - "GET /logos/platforms/github.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53833 - "GET /logos/platforms/linkedin.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53831 - "GET /logos/platforms/amazon.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53828 - "GET /logos/platforms/instagram.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53824 - "GET /logos/platforms/facebook.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53822 - "GET /logos/platforms/google-ads.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53834 - "GET /logos/platforms/bing.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53833 - "GET /logos/platforms/youtube.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53822 - "GET /logos/platforms/chatgpt.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53831 - "GET /logos/platforms/reddit.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53828 - "GET /logos/platforms/tiktok.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53824 - "GET /logos/platforms/slack.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53834 - "GET /logos/platforms/gemini.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53833 - "GET /logos/platforms/claude.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53828 - "GET /logos/platforms/spotify.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53831 - "GET /logos/platforms/telegram.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53824 - "GET /logos/platforms/duckduckgo.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53822 - "GET /logos/platforms/bluesky.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53833 - "GET /logos/platforms/ebay.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53834 - "GET /logos/platforms/microsoft-ads.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53831 - "GET /logos/platforms/google-business.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53828 - "GET /logos/platforms/google-analytics.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53824 - "GET /logos/platforms/douyin.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53822 - "GET /logos/platforms/baidu.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53834 - "GET /logos/platforms/jd.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53833 - "GET /logos/platforms/bilibili.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53828 - "GET /logos/platforms/doubao.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53824 - "GET /logos/platforms/kuaishou.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53831 - "GET /logos/platforms/lemon8.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53834 - "GET /logos/platforms/threads.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53834 - "GET /favicon.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54112 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54112 - "GET /olywork_Official.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54123 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54124 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54123 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54114 - "GET /logos/official/claudecode.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54119 - "GET /logos/official/codex.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54120 - "GET /logos/official/openai.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54124 - "GET /logos/official/apollo.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54123 - "GET /logos/official/hunter.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54114 - "GET /logos/official/crunchbase.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54119 - "GET /logos/official/linkedin.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54120 - "GET /logos/official/lusha.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54124 - "GET /logos/official/diffbot.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54123 - "GET /logos/official/hermes.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54114 - "GET /logos/official/semrush.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54119 - "GET /logos/official/serpstat.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54124 - "GET /logos/official/dataforseo.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54123 - "GET /logos/official/serpapi.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54120 - "GET /logos/official/spyfu.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54114 - "GET /logos/official/seranking.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54124 - "GET /logos/official/moz.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54112 - "GET /logos/official/google-analytics.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54119 - "GET /logos/official/search-console.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54120 - "GET /logos/official/majestic.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54123 - "GET /logos/official/google.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54114 - "GET /logos/official/perplexity.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54124 - "GET /logos/exa.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54112 - "GET /logos/official/reddit.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54119 - "GET /logos/official/tiktok.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54123 - "GET /logos/official/instagram.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54120 - "GET /logos/official/x.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54124 - "GET /logos/official/youtube.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54114 - "GET /logos/official/pdl.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54112 - "GET /logos/official/thecompaniesapi.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54119 - "GET /logos/official/coresignal.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54120 - "GET /logos/official/google-ads.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54123 - "GET /logos/official/leadmagic.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54114 - "GET /logos/official/facebook.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54124 - "GET /logos/official/google-business.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54112 - "GET /logos/official/bing.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54120 - "GET /logos/official/pinterest.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54123 - "GET /logos/official/slack.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54119 - "GET /logos/official/snapchat.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54114 - "GET /logos/official/apify.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54112 - "GET /logos/official/google-trends.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54112 - "GET /logos/platforms/google.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54114 - "GET /logos/platforms/x.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54124 - "GET /logos/platforms/google-ads.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54119 - "GET /logos/platforms/facebook.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54123 - "GET /logos/platforms/linkedin.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54120 - "GET /logos/platforms/github.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54114 - "GET /logos/platforms/amazon.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54120 - "GET /logos/platforms/tiktok.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54123 - "GET /logos/platforms/bing.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54124 - "GET /logos/platforms/reddit.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54112 - "GET /logos/platforms/youtube.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54119 - "GET /logos/platforms/instagram.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54114 - "GET /logos/platforms/slack.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54120 - "GET /logos/platforms/spotify.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54112 - "GET /logos/platforms/gemini.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54123 - "GET /logos/platforms/claude.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54124 - "GET /logos/platforms/telegram.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54119 - "GET /logos/platforms/chatgpt.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54114 - "GET /logos/platforms/duckduckgo.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54123 - "GET /logos/platforms/microsoft-ads.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54120 - "GET /logos/platforms/bluesky.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54112 - "GET /logos/platforms/ebay.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54119 - "GET /logos/platforms/google-analytics.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54124 - "GET /logos/platforms/google-business.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54114 - "GET /logos/platforms/bilibili.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54123 - "GET /logos/platforms/baidu.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54120 - "GET /logos/platforms/douyin.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54119 - "GET /logos/platforms/kuaishou.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54112 - "GET /logos/platforms/jd.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54123 - "GET /logos/platforms/doubao.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54124 - "GET /logos/platforms/lemon8.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54120 - "GET /logos/platforms/threads.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54120 - "GET /favicon.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54405 - "GET /catalog HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54408 - "GET /catalog.css?v=1788877941 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54405 - "GET /olywork.css?v=1788851605 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54417 - "GET /olywork_Official.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54421 - "GET /logos/platforms/1688.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54422 - "GET /logos/platforms/ai-search.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54423 - "GET /logos/platforms/amazon.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54408 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54421 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54405 - "GET /logos/platforms/app-store.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54422 - "GET /logos/platforms/beike.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54423 - "GET /logos/platforms/apple-music.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54421 - "GET /logos/platforms/web.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54408 - "GET /logos/platforms/baidu.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54423 - "GET /logos/platforms/bilibili.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54405 - "GET /logos/platforms/bing.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54422 - "GET /logos/platforms/bluesky.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54408 - "GET /logos/platforms/creators.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:54421 - "GET /logos/platforms/companies.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54423 - "GET /logos/platforms/crypto.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:54408 - "GET /logos/platforms/dewu.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54405 - "GET /logos/platforms/douban.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54423 - "GET /logos/platforms/douyin.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54421 - "GET /logos/platforms/duckduckgo.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54405 - "GET /logos/platforms/ebay.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54422 - "GET /logos/platforms/douyin-shop.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54408 - "GET /logos/platforms/facebook.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54417 - "GET /logos/platforms/github.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54423 - "GET /logos/platforms/google-ads.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54421 - "GET /logos/platforms/google-analytics.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54422 - "GET /logos/platforms/google.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54405 - "GET /logos/platforms/google-business.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54408 - "GET /logos/platforms/google-play.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54417 - "GET /logos/platforms/search-console.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54423 - "GET /logos/platforms/google-tag-manager.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54405 - "GET /logos/platforms/image-gen.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:54421 - "GET /logos/platforms/instagram.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54422 - "GET /logos/platforms/imdb.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54417 - "GET /logos/platforms/kick.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54405 - "GET /logos/platforms/jd.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54423 - "GET /logos/platforms/lemon8.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54408 - "GET /logos/platforms/kuaishou.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54421 - "GET /logos/platforms/linkinbio.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54422 - "GET /logos/platforms/linkedin.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54405 - "GET /logos/platforms/meta-ads.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54417 - "GET /logos/platforms/microsoft-ads.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54408 - "GET /logos/platforms/naver.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54423 - "GET /logos/platforms/people.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54422 - "GET /logos/platforms/pinterest.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54405 - "GET /logos/platforms/pinterest-ads.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54421 - "GET /logos/platforms/pipixia.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54417 - "GET /logos/platforms/qq-huxuan.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54408 - "GET /logos/platforms/xiaohongshu-pugongying.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54423 - "GET /logos/platforms/reddit.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54405 - "GET /logos/platforms/rumble.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54408 - "GET /logos/platforms/seznam.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54421 - "GET /logos/platforms/slack.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54417 - "GET /logos/platforms/snapchat.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54422 - "GET /logos/platforms/snapchat-ads.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54423 - "GET /logos/platforms/soundcloud.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54408 - "GET /logos/platforms/spotify.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54405 - "GET /logos/platforms/stocks.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:54417 - "GET /logos/platforms/telegram.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54421 - "GET /logos/platforms/taobao.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54422 - "GET /logos/platforms/threads.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54405 - "GET /logos/platforms/tiktok.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54417 - "GET /logos/platforms/tiktok-shop.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54408 - "GET /logos/platforms/toutiao.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54423 - "GET /logos/platforms/tiktok-ads.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54421 - "GET /logos/platforms/trustpilot.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54422 - "GET /logos/platforms/tripadvisor.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54405 - "GET /logos/platforms/truthsocial.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54423 - "GET /logos/platforms/twitch.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54408 - "GET /logos/platforms/walmart.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54417 - "GET /logos/platforms/video-gen.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:54421 - "GET /logos/platforms/wechat-mp.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54417 - "GET /logos/platforms/wechat-channels.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54422 - "GET /logos/platforms/wechat-search.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54405 - "GET /logos/platforms/weibo.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54408 - "GET /logos/platforms/x.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54423 - "GET /logos/platforms/xianyu.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54422 - "GET /logos/platforms/xiaohongshu.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54421 - "GET /logos/platforms/xigua.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54417 - "GET /logos/platforms/douyin-xingtu.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54405 - "GET /logos/platforms/yahoo.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54408 - "GET /logos/platforms/yandex.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54423 - "GET /logos/platforms/yelp.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54417 - "GET /logos/platforms/youtube.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54421 - "GET /logos/platforms/zhihu.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54405 - "GET /logos/platforms/exa.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:54422 - "GET /logos/platforms/youku.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54408 - "GET /logos/platforms/coingecko.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:54408 - "GET /logos/platforms/eodhd.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:54405 - "GET /logos/platforms/minimax.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:54422 - "GET /favicon.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54494 - "GET /pricing HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54494 - "GET /olywork.css?v=1788851605 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54496 - "GET /catalog.css?v=1788877941 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54502 - "GET /olywork_Official.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54504 - "GET /logos/platforms/douyin.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54505 - "GET /logos/platforms/companies.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54506 - "GET /logos/platforms/tiktok.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54494 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54494 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54496 - "GET /logos/platforms/instagram.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54494 - "GET /logos/platforms/youtube.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54505 - "GET /logos/platforms/x.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54504 - "GET /logos/platforms/web.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54506 - "GET /logos/platforms/people.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54496 - "GET /logos/platforms/google.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54502 - "GET /favicon.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54640 - "GET /use-cases HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54649 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54651 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54640 - "GET /olywork.css?v=1788851605 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54646 - "GET /olywork_Official.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54642 - "GET /catalog.css?v=1788877941 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54646 - "GET /favicon.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54681 - "GET /agents HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54681 - "GET /olywork.css?v=1788851605 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54688 - "GET /olywork_Official.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54683 - "GET /catalog.css?v=1788877941 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54689 - "GET /logos/agents/chatgpt.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:54692 - "GET /logos/agents/claude-code.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54691 - "GET /logos/agents/claude.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:54689 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54689 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54691 - "GET /logos/agents/cursor.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:54689 - "GET /logos/agents/grok-bot.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54688 - "GET /favicon.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54784 - "GET /workflows HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54793 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54794 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54784 - "GET /olywork.css?v=1788851605 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54786 - "GET /catalog.css?v=1788877941 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54791 - "GET /olywork_Official.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54791 - "GET /favicon.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54828 - "GET /docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54828 - "GET /olywork.css?v=1788851605 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54830 - "GET /catalog.css?v=1788877941 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54836 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54838 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54834 - "GET /olywork_Official.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54851 - "GET /favicon.svg HTTP/1.1" 200 OK
+[09/08/26 21:45:08] INFO     1 change detected                       main.py:309
+[09/08/26 21:47:04] INFO     1 change detected                       main.py:309
+[09/08/26 21:47:22] INFO     1 change detected                       main.py:309
+[09/08/26 21:49:44] INFO     1 change detected                       main.py:309
+[09/08/26 21:50:00] INFO     1 change detected                       main.py:309
+[09/08/26 21:50:25] INFO     1 change detected                       main.py:309
+[09/08/26 21:51:39] INFO     1 change detected                       main.py:309
+WARNING:  WatchFiles detected changes in 'src/olywork/routers/web.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+[09/08/26 21:51:40] INFO     StreamableHTTP       streamable_http_manager.py:155
+                             session manager                                    
+                             shutting down                                      
+INFO:     Application shutdown complete.
+INFO:     Finished server process [53214]
+[09/08/26 21:51:45] INFO     3 changes detected                      main.py:309
+INFO:     Started server process [55005]
+INFO:     Waiting for application startup.
+[09/08/26 21:51:49] WARNING  OLYWORK_SECRET_KEY unset - using an       db.py:237
+                             EPHEMERAL key; stored secrets will not             
+                             survive a restart.                                 
+                    INFO     StreamableHTTP       streamable_http_manager.py:151
+                             session manager                                    
+                             started                                            
+INFO:     Application startup complete.
+[09/08/26 21:52:04] INFO     1 change detected                       main.py:309
+WARNING:  WatchFiles detected changes in 'src/olywork/routers/web.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+[09/08/26 21:52:04] INFO     StreamableHTTP       streamable_http_manager.py:155
+                             session manager                                    
+                             shutting down                                      
+INFO:     Application shutdown complete.
+INFO:     Finished server process [55005]
+[09/08/26 21:52:06] INFO     3 changes detected                      main.py:309
+INFO:     Started server process [55016]
+INFO:     Waiting for application startup.
+[09/08/26 21:52:07] WARNING  OLYWORK_SECRET_KEY unset - using an       db.py:237
+                             EPHEMERAL key; stored secrets will not             
+                             survive a restart.                                 
+[09/08/26 21:52:08] INFO     StreamableHTTP       streamable_http_manager.py:151
+                             session manager                                    
+                             started                                            
+INFO:     Application startup complete.
+[09/08/26 21:52:37] INFO     1 change detected                       main.py:309
+WARNING:  WatchFiles detected changes in 'src/olywork/routers/web.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+[09/08/26 21:52:37] INFO     StreamableHTTP       streamable_http_manager.py:155
+                             session manager                                    
+                             shutting down                                      
+INFO:     Application shutdown complete.
+INFO:     Finished server process [55016]
+[09/08/26 21:52:38] INFO     3 changes detected                      main.py:309
+INFO:     Started server process [55034]
+INFO:     Waiting for application startup.
+[09/08/26 21:52:39] WARNING  OLYWORK_SECRET_KEY unset - using an       db.py:237
+                             EPHEMERAL key; stored secrets will not             
+                             survive a restart.                                 
+                    INFO     StreamableHTTP       streamable_http_manager.py:151
+                             session manager                                    
+                             started                                            
+INFO:     Application startup complete.
+[09/08/26 21:53:11] INFO     1 change detected                       main.py:309
+WARNING:  WatchFiles detected changes in 'src/olywork/routers/web.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+[09/08/26 21:53:11] INFO     StreamableHTTP       streamable_http_manager.py:155
+                             session manager                                    
+                             shutting down                                      
+INFO:     Application shutdown complete.
+INFO:     Finished server process [55034]
+[09/08/26 21:53:12] INFO     3 changes detected                      main.py:309
+INFO:     Started server process [55055]
+INFO:     Waiting for application startup.
+[09/08/26 21:53:13] WARNING  OLYWORK_SECRET_KEY unset - using an       db.py:237
+                             EPHEMERAL key; stored secrets will not             
+                             survive a restart.                                 
+                    INFO     StreamableHTTP       streamable_http_manager.py:151
+                             session manager                                    
+                             started                                            
+INFO:     Application startup complete.
+[09/08/26 21:53:25] INFO     1 change detected                       main.py:309
+WARNING:  WatchFiles detected changes in 'src/olywork/routers/web.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+[09/08/26 21:53:25] INFO     StreamableHTTP       streamable_http_manager.py:155
+                             session manager                                    
+                             shutting down                                      
+INFO:     Application shutdown complete.
+INFO:     Finished server process [55055]
+[09/08/26 21:53:27] INFO     3 changes detected                      main.py:309
+INFO:     Started server process [55065]
+INFO:     Waiting for application startup.
+[09/08/26 21:53:27] WARNING  OLYWORK_SECRET_KEY unset - using an       db.py:237
+                             EPHEMERAL key; stored secrets will not             
+                             survive a restart.                                 
+                    INFO     StreamableHTTP       streamable_http_manager.py:151
+                             session manager                                    
+                             started                                            
+INFO:     Application startup complete.
+[09/08/26 21:54:27] INFO     1 change detected                       main.py:309
+WARNING:  WatchFiles detected changes in 'src/olywork/routers/web.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+[09/08/26 21:54:27] INFO     StreamableHTTP       streamable_http_manager.py:155
+                             session manager                                    
+                             shutting down                                      
+INFO:     Application shutdown complete.
+INFO:     Finished server process [55065]
+[09/08/26 21:54:30] INFO     3 changes detected                      main.py:309
+INFO:     Started server process [55108]
+INFO:     Waiting for application startup.
+[09/08/26 21:54:31] WARNING  OLYWORK_SECRET_KEY unset - using an       db.py:237
+                             EPHEMERAL key; stored secrets will not             
+                             survive a restart.                                 
+                    INFO     StreamableHTTP       streamable_http_manager.py:151
+                             session manager                                    
+                             started                                            
+INFO:     Application startup complete.
+[09/08/26 21:54:50] INFO     1 change detected                       main.py:309
+WARNING:  WatchFiles detected changes in 'src/olywork/routers/web.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+[09/08/26 21:54:50] INFO     StreamableHTTP       streamable_http_manager.py:155
+                             session manager                                    
+                             shutting down                                      
+INFO:     Application shutdown complete.
+INFO:     Finished server process [55108]
+[09/08/26 21:54:52] INFO     3 changes detected                      main.py:309
+INFO:     Started server process [55125]
+INFO:     Waiting for application startup.
+[09/08/26 21:54:53] WARNING  OLYWORK_SECRET_KEY unset - using an       db.py:237
+                             EPHEMERAL key; stored secrets will not             
+                             survive a restart.                                 
+                    INFO     StreamableHTTP       streamable_http_manager.py:151
+                             session manager                                    
+                             started                                            
+INFO:     Application startup complete.
+INFO:     127.0.0.1:56869 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56873 - "GET /catalog HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57884 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57901 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57894 - "GET /olywork_Official.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57898 - "GET /logos/official/codex.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57895 - "GET /logos/official/claudecode.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57901 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57905 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57900 - "GET /logos/official/openai.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57901 - "GET /logos/official/apollo.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57905 - "GET /logos/official/hunter.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57898 - "GET /logos/official/crunchbase.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57895 - "GET /logos/official/linkedin.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57905 - "GET /logos/official/diffbot.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57900 - "GET /logos/official/lusha.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57898 - "GET /logos/official/semrush.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57901 - "GET /logos/official/hermes.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57895 - "GET /logos/official/serpstat.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57898 - "GET /logos/official/dataforseo.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57900 - "GET /logos/official/serpapi.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57905 - "GET /logos/official/spyfu.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57901 - "GET /logos/official/seranking.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57895 - "GET /logos/official/search-console.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57898 - "GET /logos/official/moz.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57894 - "GET /logos/official/google-analytics.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57900 - "GET /logos/official/majestic.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57901 - "GET /logos/official/perplexity.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57905 - "GET /logos/official/google.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57895 - "GET /logos/exa.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57898 - "GET /logos/official/reddit.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57900 - "GET /logos/official/tiktok.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57894 - "GET /logos/official/x.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57901 - "GET /logos/official/instagram.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57905 - "GET /logos/official/youtube.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57898 - "GET /logos/official/pdl.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57895 - "GET /logos/official/thecompaniesapi.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57894 - "GET /logos/official/leadmagic.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57900 - "GET /logos/official/coresignal.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57901 - "GET /logos/official/google-ads.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57905 - "GET /logos/official/facebook.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57898 - "GET /logos/official/bing.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57895 - "GET /logos/official/google-business.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57900 - "GET /logos/official/pinterest.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57894 - "GET /logos/official/snapchat.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57905 - "GET /logos/official/slack.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57898 - "GET /logos/official/apify.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57901 - "GET /logos/official/google-trends.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57900 - "GET /logos/platforms/x.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57895 - "GET /logos/platforms/google.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57894 - "GET /logos/platforms/linkedin.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57898 - "GET /logos/platforms/github.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57905 - "GET /logos/platforms/facebook.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57901 - "GET /logos/platforms/google-ads.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57900 - "GET /logos/platforms/amazon.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57894 - "GET /logos/platforms/instagram.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57898 - "GET /logos/platforms/bing.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57895 - "GET /logos/platforms/youtube.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57901 - "GET /logos/platforms/reddit.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57905 - "GET /logos/platforms/tiktok.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57895 - "GET /logos/platforms/slack.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57894 - "GET /logos/platforms/gemini.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57905 - "GET /logos/platforms/claude.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57900 - "GET /logos/platforms/chatgpt.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57901 - "GET /logos/platforms/spotify.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57898 - "GET /logos/platforms/telegram.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57894 - "GET /logos/platforms/duckduckgo.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57895 - "GET /logos/platforms/bluesky.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57905 - "GET /logos/platforms/ebay.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57900 - "GET /logos/platforms/microsoft-ads.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57898 - "GET /logos/platforms/google-analytics.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57901 - "GET /logos/platforms/google-business.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57894 - "GET /logos/platforms/douyin.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57895 - "GET /logos/platforms/bilibili.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57905 - "GET /logos/platforms/baidu.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57900 - "GET /logos/platforms/jd.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57898 - "GET /logos/platforms/lemon8.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57901 - "GET /logos/platforms/kuaishou.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57894 - "GET /logos/platforms/doubao.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57895 - "GET /logos/platforms/threads.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57944 - "GET /catalog HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57944 - "GET /olywork.css?v=1788851605 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57946 - "GET /catalog.css?v=1788882625 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57950 - "GET /olywork_Official.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57956 - "GET /logos/platforms/amazon.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57954 - "GET /logos/platforms/1688.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57955 - "GET /logos/platforms/ai-search.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57954 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57946 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57955 - "GET /logos/platforms/apple-music.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57956 - "GET /logos/platforms/app-store.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57944 - "GET /logos/platforms/web.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57946 - "GET /logos/platforms/baidu.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57954 - "GET /logos/platforms/beike.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57956 - "GET /logos/platforms/bing.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57955 - "GET /logos/platforms/bilibili.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57944 - "GET /logos/platforms/bluesky.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57946 - "GET /logos/platforms/companies.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57954 - "GET /logos/platforms/creators.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:57956 - "GET /logos/platforms/douyin.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57954 - "GET /logos/platforms/douban.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57950 - "GET /logos/platforms/crypto.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:57944 - "GET /logos/platforms/douyin-shop.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57946 - "GET /logos/platforms/duckduckgo.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57955 - "GET /logos/platforms/dewu.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57950 - "GET /logos/platforms/ebay.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57956 - "GET /logos/platforms/facebook.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57954 - "GET /logos/platforms/github.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57950 - "GET /logos/platforms/search-console.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57956 - "GET /logos/platforms/google-business.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57955 - "GET /logos/platforms/google-analytics.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57946 - "GET /logos/platforms/google.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57944 - "GET /logos/platforms/google-ads.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57954 - "GET /logos/platforms/google-play.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57954 - "GET /logos/platforms/imdb.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57955 - "GET /logos/platforms/google-tag-manager.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57950 - "GET /logos/platforms/image-gen.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:57944 - "GET /logos/platforms/instagram.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57956 - "GET /logos/platforms/kick.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57946 - "GET /logos/platforms/jd.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57950 - "GET /logos/platforms/kuaishou.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57955 - "GET /logos/platforms/lemon8.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57956 - "GET /logos/platforms/linkinbio.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57946 - "GET /logos/platforms/linkedin.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57954 - "GET /logos/platforms/meta-ads.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57944 - "GET /logos/platforms/microsoft-ads.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57950 - "GET /logos/platforms/naver.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57955 - "GET /logos/platforms/people.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57956 - "GET /logos/platforms/pinterest.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57946 - "GET /logos/platforms/pinterest-ads.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57944 - "GET /logos/platforms/xiaohongshu-pugongying.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57954 - "GET /logos/platforms/pipixia.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57950 - "GET /logos/platforms/qq-huxuan.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57955 - "GET /logos/platforms/reddit.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57956 - "GET /logos/platforms/rumble.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57944 - "GET /logos/platforms/seznam.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57954 - "GET /logos/platforms/snapchat.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57950 - "GET /logos/platforms/snapchat-ads.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57946 - "GET /logos/platforms/slack.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57955 - "GET /logos/platforms/threads.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57950 - "GET /logos/platforms/stocks.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:57946 - "GET /logos/platforms/spotify.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57956 - "GET /logos/platforms/telegram.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57944 - "GET /logos/platforms/soundcloud.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57954 - "GET /logos/platforms/taobao.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57950 - "GET /logos/platforms/tiktok.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57956 - "GET /logos/platforms/tiktok-ads.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57954 - "GET /logos/platforms/tripadvisor.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57946 - "GET /logos/platforms/tiktok-shop.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57944 - "GET /logos/platforms/toutiao.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57955 - "GET /logos/platforms/trustpilot.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57950 - "GET /logos/platforms/truthsocial.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57944 - "GET /logos/platforms/walmart.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57954 - "GET /logos/platforms/video-gen.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:57956 - "GET /logos/platforms/twitch.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57955 - "GET /logos/platforms/wechat-channels.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57950 - "GET /logos/platforms/wechat-search.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57946 - "GET /logos/platforms/wechat-mp.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57954 - "GET /logos/platforms/weibo.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57944 - "GET /logos/platforms/x.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57955 - "GET /logos/platforms/xianyu.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57956 - "GET /logos/platforms/xigua.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57954 - "GET /logos/platforms/yahoo.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57946 - "GET /logos/platforms/douyin-xingtu.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57950 - "GET /logos/platforms/xiaohongshu.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57955 - "GET /logos/platforms/yelp.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57956 - "GET /logos/platforms/yandex.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57944 - "GET /logos/platforms/youku.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57950 - "GET /logos/platforms/youtube.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57954 - "GET /logos/platforms/zhihu.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57950 - "GET /logos/platforms/coingecko.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:57954 - "GET /logos/platforms/exa.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:57944 - "GET /logos/platforms/minimax.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:57956 - "GET /logos/platforms/eodhd.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:57956 - "GET /favicon.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58079 - "GET /use-cases HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58079 - "GET /olywork.css?v=1788851605 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58081 - "GET /catalog.css?v=1788882625 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58087 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58088 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58086 - "GET /olywork_Official.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58086 - "GET /favicon.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58110 - "GET /workflows HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58117 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58118 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58112 - "GET /catalog.css?v=1788882625 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58110 - "GET /olywork.css?v=1788851605 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58116 - "GET /olywork_Official.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58116 - "GET /favicon.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58151 - "GET /agents HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58153 - "GET /catalog.css?v=1788882625 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58151 - "GET /olywork.css?v=1788851605 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58156 - "GET /olywork_Official.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58158 - "GET /logos/agents/chatgpt.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:58160 - "GET /logos/agents/claude.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:58161 - "GET /logos/agents/claude-code.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58153 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58158 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58160 - "GET /logos/agents/cursor.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:58151 - "GET /logos/agents/grok-bot.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58156 - "GET /favicon.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58300 - "GET /agents HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58300 - "GET /olywork.css?v=1788851605 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58302 - "GET /catalog.css?v=1788882625 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58305 - "GET /olywork_Official.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58309 - "GET /logos/agents/claude.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:58308 - "GET /logos/agents/chatgpt.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:58311 - "GET /logos/agents/claude-code.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58309 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58309 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58308 - "GET /logos/agents/cursor.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:58309 - "GET /logos/agents/grok-bot.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58318 - "GET /favicon.svg HTTP/1.1" 200 OK
+[09/08/26 22:10:41] INFO     1 change detected                       main.py:309
+WARNING:  WatchFiles detected changes in 'src/olywork/routers/web.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+[09/08/26 22:10:42] INFO     StreamableHTTP       streamable_http_manager.py:155
+                             session manager                                    
+                             shutting down                                      
+INFO:     Application shutdown complete.
+INFO:     Finished server process [55125]
+[09/08/26 22:10:43] INFO     3 changes detected                      main.py:309
+INFO:     Started server process [55917]
+INFO:     Waiting for application startup.
+[09/08/26 22:10:44] WARNING  OLYWORK_SECRET_KEY unset - using an       db.py:237
+                             EPHEMERAL key; stored secrets will not             
+                             survive a restart.                                 
+                    INFO     StreamableHTTP       streamable_http_manager.py:151
+                             session manager                                    
+                             started                                            
+INFO:     Application startup complete.
+INFO:     127.0.0.1:58557 - "GET /agents HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58579 - "GET /olywork.css?v=1788851605 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58581 - "GET /catalog.css?v=1788882625 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58582 - "GET /olywork_Official.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58586 - "GET /logos/agents/claude.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:58587 - "GET /logos/agents/claude-code.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58584 - "GET /logos/agents/chatgpt.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:58586 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58581 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58584 - "GET /logos/agents/grok-bot.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58579 - "GET /logos/agents/cursor.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:58818 - "GET /logos/official/openclaw.png HTTP/1.1" 304 Not Modified
+[09/08/26 22:25:33] INFO     1 change detected                       main.py:309
+[09/08/26 22:26:01] INFO     2 changes detected                      main.py:309
+INFO:     127.0.0.1:59751 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59753 - "GET /logos/official/codex.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:59751 - "GET /logos/official/claudecode.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:59751 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59753 - "GET /logos/official/openai.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:59753 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59751 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59755 - "GET /logos/official/semrush.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:59760 - "GET /logos/official/spyfu.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:59753 - "GET /logos/official/hermes.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:59761 - "GET /logos/official/dataforseo.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:59759 - "GET /logos/official/serpstat.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:59751 - "GET /logos/official/serpapi.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:59761 - "GET /logos/official/google-analytics.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:59751 - "GET /logos/official/seranking.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:59753 - "GET /logos/official/diffbot.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:59760 - "GET /logos/official/moz.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:59759 - "GET /logos/official/search-console.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:59755 - "GET /logos/official/majestic.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:59759 - "GET /logos/official/perplexity.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:59755 - "GET /logos/official/google.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:59751 - "GET /logos/official/instagram.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:59760 - "GET /logos/official/reddit.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:59759 - "GET /logos/official/x.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:59753 - "GET /logos/official/tiktok.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:59760 - "GET /logos/official/linkedin.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:59759 - "GET /logos/official/youtube.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:59753 - "GET /logos/official/lusha.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:59760 - "GET /logos/official/pdl.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:59759 - "GET /logos/official/hunter.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:59753 - "GET /logos/official/crunchbase.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:59751 - "GET /logos/official/apollo.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:59755 - "GET /logos/official/thecompaniesapi.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:59761 - "GET /logos/official/coresignal.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:59751 - "GET /logos/official/leadmagic.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:59761 - "GET /logos/official/google-ads.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:59755 - "GET /logos/official/bing.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:59751 - "GET /logos/official/facebook.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:59761 - "GET /logos/official/google-business.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:59753 - "GET /logos/official/pinterest.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:59760 - "GET /logos/official/slack.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:59759 - "GET /logos/official/snapchat.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:59761 - "GET /logos/official/google-trends.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:59753 - "GET /logos/official/apify.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:59781 - "GET /catalog HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59781 - "GET /catalog.css?v=1788882625 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59783 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59783 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59785 - "GET /olywork.css?v=1788851605 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59785 - "GET /logos/platforms/creators.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:59781 - "GET /logos/platforms/crypto.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:59781 - "GET /logos/platforms/exa.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:59785 - "GET /logos/platforms/coingecko.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:59785 - "GET /logos/platforms/image-gen.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:59785 - "GET /logos/platforms/minimax.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:59785 - "GET /logos/platforms/stocks.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:59785 - "GET /logos/platforms/eodhd.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:59785 - "GET /logos/platforms/video-gen.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:59785 - "GET /logos/platforms/minimax.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:59785 - "GET /use-cases HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59785 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59781 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59781 - "GET /workflows HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59781 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59785 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59785 - "GET /workflows/find-and-verify-a-lead-list HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59785 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59781 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59802 - "GET /usecase.css?v=1788790712 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59802 - "GET /agents HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59815 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59817 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59781 - "GET /logos/agents/claude.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:59785 - "GET /logos/agents/cursor.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:59802 - "GET /logos/agents/chatgpt.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:59816 - "GET /logos/agents/claude-code.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:59815 - "GET /logos/agents/grok-bot.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:59826 - "GET /agents/grok-bot HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59826 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59831 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59829 - "GET /usecase.css?v=1788790712 HTTP/1.1" 200 OK
+/Users/mohammadtaqitajwarakib/Projects/Treg.to_Clone_Olywork/.venv/lib/python3.13/site-packages/fastapi/openapi/utils.py:252: UserWarning: Duplicate Operation ID call_tool_call__rest__head for function call_tool at /Users/mohammadtaqitajwarakib/Projects/Treg.to_Clone_Olywork/src/olywork/routers/call.py
+  warnings.warn(message, stacklevel=1)
+INFO:     127.0.0.1:59874 - "GET /docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59874 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59876 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59887 - "GET /tutorial HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59887 - "GET /olywork.css HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59887 - "GET /pricing HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59887 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59890 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59907 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59907 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59909 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59907 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59911 - "GET /agents HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59943 - "GET /logos/agents/claude.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:59911 - "GET /logos/agents/chatgpt.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:59911 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59946 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59943 - "GET /logos/agents/cursor.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:59943 - "GET /agents/grok-bot HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59943 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59946 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59911 - "GET /usecase.css?v=1788790712 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59911 - "GET /app?ref=agents-grok-bot HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59911 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59943 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59946 - "GET /tutorial.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59946 - "GET /meta HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59946 - "GET /auth/me HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:59948 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59948 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59949 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59949 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60029 - "GET /use-cases HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60029 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60033 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60031 - "GET /olywork.css?v=1788851605 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60031 - "GET /use-cases/enrich-a-company HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60031 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60033 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60029 - "GET /usecase.css?v=1788790712 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60059 - "GET /workflows HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60059 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60061 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60061 - "GET /workflows/find-and-verify-a-lead-list HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60061 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60073 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60059 - "GET /usecase.css?v=1788790712 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60077 - "GET /docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60077 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60079 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60079 - "GET /agents HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60100 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60101 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60098 - "GET /logos/agents/cursor.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:60077 - "GET /logos/agents/claude.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:60079 - "GET /logos/agents/chatgpt.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:60079 - "GET /agents/claude HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60079 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60077 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60098 - "GET /usecase.css?v=1788790712 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60362 - "GET /agents/claude HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60362 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60364 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60366 - "GET /usecase.css?v=1788790712 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60375 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60375 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60379 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60380 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60393 - "GET /grokbot HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60393 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60395 - "GET /meta HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60471 - "GET /support HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60471 - "GET /legal.css HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60471 - "GET /meta HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60473 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60473 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60486 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60488 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60830 - "GET /catalog HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60830 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60833 - "GET /catalog.css?v=1788882625 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60830 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60851 - "GET /logos/platforms/creators.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:60851 - "GET /logos/platforms/exa.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:60851 - "GET /logos/platforms/crypto.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:60851 - "GET /logos/platforms/coingecko.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:60868 - "GET /logos/platforms/image-gen.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:60868 - "GET /logos/platforms/minimax.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:60887 - "GET /logos/platforms/stocks.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:60887 - "GET /logos/platforms/eodhd.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:60887 - "GET /logos/platforms/video-gen.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:60887 - "GET /logos/platforms/minimax.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:60896 - "GET /meta HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63235 - "GET /meta HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51977 - "GET /meta HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53160 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53160 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53160 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53162 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53434 - "GET /workflows/enrich-company-lead-list HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53434 - "GET /favicon.ico HTTP/1.1" 200 OK
+[09/08/26 22:51:59] INFO     1 change detected                       main.py:309
+[09/08/26 22:52:15] INFO     1 change detected                       main.py:309
+WARNING:  WatchFiles detected changes in 'src/olywork/routers/web.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+[09/08/26 22:52:15] INFO     StreamableHTTP       streamable_http_manager.py:155
+                             session manager                                    
+                             shutting down                                      
+INFO:     Application shutdown complete.
+INFO:     Finished server process [55917]
+[09/08/26 22:52:17] INFO     3 changes detected                      main.py:309
+INFO:     Started server process [57696]
+INFO:     Waiting for application startup.
+[09/08/26 22:52:18] WARNING  OLYWORK_SECRET_KEY unset - using an       db.py:237
+                             EPHEMERAL key; stored secrets will not             
+                             survive a restart.                                 
+                    INFO     StreamableHTTP       streamable_http_manager.py:151
+                             session manager                                    
+                             started                                            
+INFO:     Application startup complete.
+[09/08/26 22:52:34] INFO     1 change detected                       main.py:309
+[09/08/26 22:52:39] INFO     1 change detected                       main.py:309
+[09/08/26 22:52:51] INFO     1 change detected                       main.py:309
+[09/08/26 22:53:19] INFO     1 change detected                       main.py:309
+[09/08/26 22:53:25] INFO     1 change detected                       main.py:309
+[09/08/26 22:53:30] INFO     1 change detected                       main.py:309
+INFO:     127.0.0.1:55263 - "GET /meta HTTP/1.1" 200 OK
+[09/08/26 22:53:36] INFO     1 change detected                       main.py:309
+[09/08/26 22:54:09] INFO     1 change detected                       main.py:309
+WARNING:  WatchFiles detected changes in 'src/olywork/routers/web.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+[09/08/26 22:54:10] INFO     StreamableHTTP       streamable_http_manager.py:155
+                             session manager                                    
+                             shutting down                                      
+INFO:     Application shutdown complete.
+INFO:     Finished server process [57696]
+[09/08/26 22:54:11] INFO     3 changes detected                      main.py:309
+INFO:     Started server process [57771]
+INFO:     Waiting for application startup.
+[09/08/26 22:54:12] WARNING  OLYWORK_SECRET_KEY unset - using an       db.py:237
+                             EPHEMERAL key; stored secrets will not             
+                             survive a restart.                                 
+                    INFO     StreamableHTTP       streamable_http_manager.py:151
+                             session manager                                    
+                             started                                            
+INFO:     Application startup complete.
+[09/08/26 22:54:22] INFO     1 change detected                       main.py:309
+WARNING:  WatchFiles detected changes in 'src/olywork/routers/web.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+[09/08/26 22:54:22] INFO     StreamableHTTP       streamable_http_manager.py:155
+                             session manager                                    
+                             shutting down                                      
+INFO:     Application shutdown complete.
+INFO:     Finished server process [57771]
+[09/08/26 22:54:23] INFO     3 changes detected                      main.py:309
+INFO:     Started server process [57782]
+INFO:     Waiting for application startup.
+[09/08/26 22:54:24] WARNING  OLYWORK_SECRET_KEY unset - using an       db.py:237
+                             EPHEMERAL key; stored secrets will not             
+                             survive a restart.                                 
+                    INFO     StreamableHTTP       streamable_http_manager.py:151
+                             session manager                                    
+                             started                                            
+INFO:     Application startup complete.
+[09/08/26 22:54:41] INFO     1 change detected                       main.py:309
+WARNING:  WatchFiles detected changes in 'src/olywork/routers/web.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+[09/08/26 22:54:41] INFO     StreamableHTTP       streamable_http_manager.py:155
+                             session manager                                    
+                             shutting down                                      
+INFO:     Application shutdown complete.
+INFO:     Finished server process [57782]
+[09/08/26 22:54:42] INFO     3 changes detected                      main.py:309
+INFO:     Started server process [57794]
+INFO:     Waiting for application startup.
+[09/08/26 22:54:43] WARNING  OLYWORK_SECRET_KEY unset - using an       db.py:237
+                             EPHEMERAL key; stored secrets will not             
+                             survive a restart.                                 
+                    INFO     StreamableHTTP       streamable_http_manager.py:151
+                             session manager                                    
+                             started                                            
+INFO:     Application startup complete.
+[09/08/26 22:54:47] INFO     1 change detected                       main.py:309
+WARNING:  WatchFiles detected changes in 'src/olywork/routers/web.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+[09/08/26 22:54:47] INFO     StreamableHTTP       streamable_http_manager.py:155
+                             session manager                                    
+                             shutting down                                      
+INFO:     Application shutdown complete.
+INFO:     Finished server process [57794]
+[09/08/26 22:54:48] INFO     3 changes detected                      main.py:309
+INFO:     Started server process [57798]
+INFO:     Waiting for application startup.
+[09/08/26 22:54:49] WARNING  OLYWORK_SECRET_KEY unset - using an       db.py:237
+                             EPHEMERAL key; stored secrets will not             
+                             survive a restart.                                 
+                    INFO     StreamableHTTP       streamable_http_manager.py:151
+                             session manager                                    
+                             started                                            
+INFO:     Application startup complete.
+[09/08/26 22:55:00] INFO     1 change detected                       main.py:309
+INFO:     127.0.0.1:55563 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55563 - "GET /olywork_Official.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55573 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55574 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55573 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55565 - "GET /logos/official/claudecode.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55567 - "GET /logos/official/codex.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55569 - "GET /logos/official/openai.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55574 - "GET /logos/official/apollo.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55573 - "GET /logos/official/hunter.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55569 - "GET /logos/official/linkedin.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55567 - "GET /logos/official/crunchbase.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55565 - "GET /logos/official/lusha.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55574 - "GET /logos/official/diffbot.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55569 - "GET /logos/official/semrush.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55573 - "GET /logos/official/hermes.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55567 - "GET /logos/official/serpstat.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55574 - "GET /logos/official/spyfu.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55565 - "GET /logos/official/dataforseo.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55567 - "GET /logos/official/serpapi.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55573 - "GET /logos/official/search-console.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55569 - "GET /logos/official/seranking.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55574 - "GET /logos/official/moz.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55565 - "GET /logos/official/google-analytics.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55569 - "GET /logos/exa.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55563 - "GET /logos/official/perplexity.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55567 - "GET /logos/official/majestic.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55573 - "GET /logos/official/google.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55565 - "GET /logos/official/reddit.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55574 - "GET /logos/official/tiktok.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55567 - "GET /logos/official/x.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55573 - "GET /logos/official/instagram.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55563 - "GET /logos/official/youtube.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55569 - "GET /logos/official/pdl.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55573 - "GET /logos/official/leadmagic.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55565 - "GET /logos/official/coresignal.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55574 - "GET /logos/official/thecompaniesapi.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55569 - "GET /logos/official/bing.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55563 - "GET /logos/official/facebook.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55567 - "GET /logos/official/google-ads.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55569 - "GET /logos/official/slack.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55573 - "GET /logos/official/pinterest.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55565 - "GET /logos/official/google-business.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55563 - "GET /logos/official/snapchat.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55574 - "GET /logos/official/apify.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55567 - "GET /logos/official/google-trends.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55569 - "GET /logos/platforms/google-ads.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55563 - "GET /logos/platforms/linkedin.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55567 - "GET /logos/platforms/google.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55565 - "GET /logos/platforms/github.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55574 - "GET /logos/platforms/x.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55573 - "GET /logos/platforms/facebook.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55573 - "GET /logos/platforms/amazon.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55565 - "GET /logos/platforms/youtube.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55563 - "GET /logos/platforms/bing.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55567 - "GET /logos/platforms/reddit.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55569 - "GET /logos/platforms/instagram.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55574 - "GET /logos/platforms/tiktok.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55563 - "GET /logos/platforms/chatgpt.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55573 - "GET /logos/platforms/claude.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55569 - "GET /logos/platforms/slack.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55565 - "GET /logos/platforms/gemini.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55574 - "GET /logos/platforms/telegram.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55567 - "GET /logos/platforms/spotify.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55563 - "GET /logos/platforms/bluesky.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55573 - "GET /logos/platforms/google-analytics.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55567 - "GET /logos/platforms/ebay.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55565 - "GET /logos/platforms/microsoft-ads.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55569 - "GET /logos/platforms/google-business.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55574 - "GET /logos/platforms/duckduckgo.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55573 - "GET /logos/platforms/douyin.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55574 - "GET /logos/platforms/lemon8.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55565 - "GET /logos/platforms/kuaishou.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55569 - "GET /logos/platforms/jd.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55567 - "GET /logos/platforms/baidu.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55563 - "GET /logos/platforms/bilibili.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55573 - "GET /logos/platforms/doubao.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55574 - "GET /logos/platforms/threads.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55573 - "GET /favicon.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55623 - "GET /workflows/find-and-verify-a-lead-list HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55659 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55661 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55653 - "GET /olywork.css?v=1788886359 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55655 - "GET /usecase.css?v=1788886500 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55656 - "GET /olywork_Official.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55656 - "GET /favicon.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55719 - "GET /workflows/find-and-verify-a-lead-list HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55719 - "GET /olywork.css?v=1788886359 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55726 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55723 - "GET /olywork_Official.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55721 - "GET /usecase.css?v=1788886500 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55727 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55723 - "GET /favicon.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55797 - "GET /use-cases/enrich-a-company HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55804 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55806 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55797 - "GET /olywork.css?v=1788886359 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55799 - "GET /usecase.css?v=1788886500 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55801 - "GET /olywork_Official.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55801 - "GET /favicon.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55823 - "GET /meta HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55886 - "GET /use-cases/enrich-a-company HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55886 - "GET /olywork.css?v=1788886359 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55888 - "GET /usecase.css?v=1788886500 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55894 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55895 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55891 - "GET /olywork_Official.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55891 - "GET /favicon.svg HTTP/1.1" 200 OK
+[09/08/26 23:01:13] INFO     2 changes detected                      main.py:309
+[09/08/26 23:01:42] INFO     1 change detected                       main.py:309
+WARNING:  WatchFiles detected changes in 'src/olywork/routers/web.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+[09/08/26 23:01:42] INFO     StreamableHTTP       streamable_http_manager.py:155
+                             session manager                                    
+                             shutting down                                      
+INFO:     Application shutdown complete.
+INFO:     Finished server process [57798]
+[09/08/26 23:01:45] INFO     3 changes detected                      main.py:309
+INFO:     Started server process [58250]
+INFO:     Waiting for application startup.
+[09/08/26 23:01:46] WARNING  OLYWORK_SECRET_KEY unset - using an       db.py:237
+                             EPHEMERAL key; stored secrets will not             
+                             survive a restart.                                 
+                    INFO     StreamableHTTP       streamable_http_manager.py:151
+                             session manager                                    
+                             started                                            
+INFO:     Application startup complete.
+[09/08/26 23:02:06] INFO     2 changes detected                      main.py:309
+[09/08/26 23:03:15] INFO     1 change detected                       main.py:309
+INFO:     127.0.0.1:56272 - "GET /meta HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56287 - "GET /meta HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56287 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56287 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56287 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56295 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56301 - "GET /logos/platforms/bluesky.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56295 - "GET /logos/platforms/x.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56302 - "GET /logos/platforms/ebay.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56287 - "GET /logos/platforms/linkedin.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56299 - "GET /logos/platforms/duckduckgo.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56287 - "GET /logos/platforms/github.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56287 - "GET /logos/platforms/telegram.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56287 - "GET /logos/platforms/facebook.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56287 - "GET /logos/platforms/google-ads.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56287 - "GET /logos/platforms/spotify.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56287 - "GET /logos/platforms/amazon.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56319 - "GET /logos/platforms/instagram.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56320 - "GET /logos/platforms/youtube.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56322 - "GET /logos/platforms/reddit.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56324 - "GET /logos/platforms/google-analytics.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56321 - "GET /logos/platforms/bing.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56324 - "GET /logos/platforms/douyin.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56321 - "GET /logos/platforms/google-business.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56322 - "GET /logos/platforms/bilibili.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56320 - "GET /logos/platforms/jd.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56324 - "GET /logos/platforms/baidu.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56320 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56320 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56324 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56320 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56320 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56320 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56324 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56324 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56324 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56324 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56320 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56320 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56443 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56443 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56445 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56445 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56443 - "GET /logos/platforms/x.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56445 - "GET /logos/platforms/google.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56451 - "GET /logos/platforms/github.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56452 - "GET /logos/platforms/facebook.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56450 - "GET /logos/platforms/linkedin.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56453 - "GET /logos/platforms/google-ads.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56452 - "GET /logos/platforms/amazon.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56450 - "GET /logos/platforms/youtube.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56453 - "GET /logos/platforms/instagram.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56451 - "GET /logos/platforms/tiktok.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56445 - "GET /logos/platforms/bing.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56453 - "GET /logos/platforms/chatgpt.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56443 - "GET /logos/platforms/slack.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56452 - "GET /logos/platforms/reddit.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56450 - "GET /logos/platforms/gemini.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56445 - "GET /logos/platforms/duckduckgo.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56452 - "GET /logos/platforms/telegram.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56451 - "GET /logos/platforms/bluesky.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56453 - "GET /logos/platforms/spotify.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56443 - "GET /logos/platforms/claude.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56450 - "GET /logos/platforms/ebay.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56443 - "GET /logos/platforms/microsoft-ads.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56451 - "GET /logos/platforms/bilibili.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56453 - "GET /logos/platforms/google-analytics.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56452 - "GET /logos/platforms/google-business.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56445 - "GET /logos/platforms/baidu.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56450 - "GET /logos/platforms/douyin.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56450 - "GET /logos/platforms/lemon8.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56452 - "GET /logos/platforms/jd.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56445 - "GET /logos/platforms/kuaishou.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56451 - "GET /logos/platforms/threads.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56453 - "GET /logos/platforms/doubao.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56526 - "GET /use-cases HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56534 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56526 - "GET /olywork.css?v=1788886359 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56528 - "GET /catalog.css?v=1788886371 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56535 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56526 - "GET /use-cases/search-console-queries HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56528 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56535 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56526 - "GET /usecase.css?v=1788886500 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56577 - "GET /workflows HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56577 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56579 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56601 - "GET /agents HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56603 - "GET /logos/agents/claude.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:56601 - "GET /logos/agents/chatgpt.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:56603 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56601 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56605 - "GET /logos/agents/cursor.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:56605 - "GET /agents/claude HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56605 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56601 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56603 - "GET /usecase.css?v=1788886500 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56607 - "GET /agents HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56607 - "GET /logos/agents/chatgpt.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:56666 - "GET /logos/agents/claude.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:56607 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56666 - "GET /logos/agents/cursor.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:56666 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56666 - "GET /tutorial HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56666 - "GET /olywork.css HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56666 - "GET /catalog HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56666 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56670 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56670 - "GET /logos/platforms/creators.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:56666 - "GET /logos/platforms/crypto.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:56666 - "GET /logos/platforms/exa.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:56670 - "GET /logos/platforms/coingecko.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:56730 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56730 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56730 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56732 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56885 - "GET /catalog HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56885 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56887 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56885 - "GET /logos/platforms/crypto.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:56887 - "GET /logos/platforms/creators.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:56887 - "GET /logos/platforms/coingecko.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:56885 - "GET /logos/platforms/exa.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:56885 - "GET /catalog/baidu HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56885 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56887 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57466 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57466 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57466 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57468 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57488 - "GET /logos/official/openclaw.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:63991 - "GET /logos/official/openclaw.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:63331 - "GET /logos/official/openclaw.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58806 - "GET /logos/platforms/tiktok.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58807 - "GET /logos/platforms/reddit.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58809 - "GET /logos/platforms/gemini.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58808 - "GET /logos/platforms/chatgpt.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58810 - "GET /logos/platforms/slack.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58812 - "GET /logos/platforms/claude.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58807 - "GET /logos/platforms/microsoft-ads.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58806 - "GET /logos/platforms/telegram.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58809 - "GET /logos/platforms/google-analytics.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58812 - "GET /logos/platforms/doubao.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58808 - "GET /logos/platforms/google-ads.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58810 - "GET /logos/platforms/threads.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58807 - "GET /logos/platforms/spotify.svg HTTP/1.1" 304 Not Modified
+/Users/mohammadtaqitajwarakib/Projects/Treg.to_Clone_Olywork/.venv/lib/python3.13/site-packages/fastapi/openapi/utils.py:252: UserWarning: Duplicate Operation ID call_tool_call__rest__put for function call_tool at /Users/mohammadtaqitajwarakib/Projects/Treg.to_Clone_Olywork/src/olywork/routers/call.py
+  warnings.warn(message, stacklevel=1)
+INFO:     127.0.0.1:58844 - "GET /docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58846 - "GET /logos/official/openclaw.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58846 - "GET /olywork.css?v=1788886359 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58844 - "GET /catalog.css?v=1788886371 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58852 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58851 - "GET /olywork_Official.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58851 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58851 - "GET /docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58851 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58846 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58846 - "GET /tutorial HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58846 - "GET /olywork.css HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58915 - "GET /catalog HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58915 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58915 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58915 - "GET /logos/platforms/amazon.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58922 - "GET /logos/platforms/bilibili.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58923 - "GET /logos/platforms/bing.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58924 - "GET /logos/platforms/bluesky.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58917 - "GET /logos/platforms/baidu.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58925 - "GET /logos/platforms/douyin.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58924 - "GET /logos/platforms/duckduckgo.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58917 - "GET /logos/platforms/ebay.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58925 - "GET /logos/platforms/facebook.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58923 - "GET /logos/platforms/github.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58924 - "GET /logos/platforms/google-business.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58922 - "GET /logos/platforms/google.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58915 - "GET /logos/platforms/instagram.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58922 - "GET /logos/platforms/jd.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58923 - "GET /logos/platforms/lemon8.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58924 - "GET /logos/platforms/kuaishou.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58925 - "GET /logos/platforms/x.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58915 - "GET /logos/platforms/linkedin.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58922 - "GET /logos/platforms/youtube.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58922 - "GET /logos/platforms/web.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58915 - "GET /logos/platforms/ai-search.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58923 - "GET /logos/platforms/1688.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58917 - "GET /logos/platforms/beike.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58924 - "GET /logos/platforms/apple-music.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58925 - "GET /logos/platforms/app-store.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58924 - "GET /logos/platforms/companies.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58951 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58953 - "GET /logos/official/codex.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58951 - "GET /logos/official/claudecode.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58953 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58957 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58958 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58951 - "GET /logos/official/openai.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58960 - "GET /logos/official/semrush.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58961 - "GET /logos/official/serpstat.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58953 - "GET /logos/official/hermes.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58958 - "GET /logos/official/spyfu.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58951 - "GET /logos/official/serpapi.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58957 - "GET /logos/official/dataforseo.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58961 - "GET /logos/official/seranking.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58953 - "GET /logos/official/search-console.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58960 - "GET /logos/official/google-analytics.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58957 - "GET /logos/official/majestic.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58960 - "GET /logos/official/moz.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58951 - "GET /logos/official/google.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58961 - "GET /logos/official/perplexity.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58953 - "GET /logos/official/diffbot.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58958 - "GET /logos/exa.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58958 - "GET /logos/official/tiktok.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58960 - "GET /logos/official/youtube.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58961 - "GET /logos/official/x.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58951 - "GET /logos/official/reddit.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58953 - "GET /logos/official/instagram.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58957 - "GET /logos/official/linkedin.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58957 - "GET /logos/official/crunchbase.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58953 - "GET /logos/official/hunter.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58960 - "GET /logos/official/apollo.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58951 - "GET /logos/official/lusha.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58958 - "GET /logos/official/thecompaniesapi.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58961 - "GET /logos/official/pdl.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58957 - "GET /logos/official/google-business.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58951 - "GET /logos/official/facebook.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58961 - "GET /logos/official/coresignal.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58953 - "GET /logos/official/bing.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58960 - "GET /logos/official/leadmagic.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58958 - "GET /logos/official/google-ads.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58961 - "GET /logos/official/slack.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58960 - "GET /logos/official/pinterest.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58953 - "GET /logos/official/snapchat.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58958 - "GET /logos/official/apify.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58951 - "GET /logos/official/google-trends.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58976 - "GET /use-cases HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58976 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58979 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58979 - "GET /catalog HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58979 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58976 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58976 - "GET /logos/platforms/creators.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:58983 - "GET /logos/platforms/dewu.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58979 - "GET /logos/platforms/crypto.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:58979 - "GET /logos/platforms/exa.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:58976 - "GET /logos/platforms/coingecko.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:58976 - "GET /logos/platforms/douban.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58979 - "GET /logos/platforms/douyin-shop.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58979 - "GET /logos/platforms/google-play.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58979 - "GET /logos/platforms/image-gen.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:58983 - "GET /logos/platforms/google-tag-manager.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58976 - "GET /logos/platforms/search-console.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58976 - "GET /logos/platforms/minimax.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:58976 - "GET /logos/platforms/imdb.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58976 - "GET /logos/platforms/kick.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58976 - "GET /logos/platforms/meta-ads.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58983 - "GET /logos/platforms/linkinbio.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58976 - "GET /logos/platforms/people.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58983 - "GET /logos/platforms/naver.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58979 - "GET /logos/platforms/pipixia.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58976 - "GET /logos/platforms/pinterest-ads.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58983 - "GET /logos/platforms/pinterest.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58983 - "GET /logos/platforms/qq-huxuan.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58976 - "GET /logos/platforms/xiaohongshu-pugongying.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58976 - "GET /logos/platforms/seznam.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58983 - "GET /logos/platforms/rumble.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58979 - "GET /logos/platforms/soundcloud.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58983 - "GET /logos/platforms/snapchat.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58976 - "GET /logos/platforms/snapchat-ads.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58976 - "GET /logos/platforms/stocks.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:58983 - "GET /logos/platforms/taobao.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58976 - "GET /logos/platforms/eodhd.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:58976 - "GET /logos/platforms/tiktok-ads.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58979 - "GET /logos/platforms/toutiao.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58983 - "GET /logos/platforms/tiktok-shop.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58983 - "GET /logos/platforms/tripadvisor.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58979 - "GET /logos/platforms/trustpilot.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58976 - "GET /logos/platforms/truthsocial.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58976 - "GET /logos/platforms/video-gen.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:58979 - "GET /logos/platforms/twitch.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58983 - "GET /logos/platforms/walmart.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58976 - "GET /logos/platforms/minimax.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:58983 - "GET /logos/platforms/wechat-mp.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58979 - "GET /logos/platforms/wechat-search.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58976 - "GET /logos/platforms/wechat-channels.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58976 - "GET /logos/platforms/xianyu.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58979 - "GET /logos/platforms/weibo.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58979 - "GET /logos/platforms/xigua.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58976 - "GET /logos/platforms/xiaohongshu.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58976 - "GET /logos/platforms/douyin-xingtu.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58976 - "GET /logos/platforms/yelp.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58979 - "GET /logos/platforms/yandex.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58976 - "GET /logos/platforms/yahoo.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58976 - "GET /logos/platforms/zhihu.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58979 - "GET /logos/platforms/youku.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58979 - "GET /catalog/1688 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58979 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58976 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59026 - "GET /pricing HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59026 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59028 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59183 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59183 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59183 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59185 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59205 - "GET /app?signin=1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59205 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59210 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59207 - "GET /tutorial.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59205 - "GET /dashboard-tour/tour.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:59207 - "GET /meta HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59207 - "GET /auth/me HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:62624 - "GET /meta HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63353 - "GET /meta HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63440 - "GET /meta HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63609 - "GET /tutorial HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63609 - "GET /olywork.css HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63609 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63609 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63609 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63612 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63802 - "GET /app?signin=1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63854 - "HEAD /app HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63909 - "GET /app?signin=1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63917 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63909 - "GET /tutorial.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63920 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63915 - "GET /dashboard-tour/tour.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63919 - "GET /olywork_Official.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63911 - "GET /vendor/vue-3.5.41.global.prod.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63919 - "GET /meta HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63919 - "GET /auth/me HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:63919 - "GET /favicon.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51129 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51129 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51131 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51133 - "GET /sitetrack.js HTTP/1.1" 200 OK
+[09/09/26 19:12:47] INFO     1 change detected                       main.py:309
+[09/09/26 19:13:04] INFO     1 change detected                       main.py:309
+[09/09/26 19:13:26] INFO     1 change detected                       main.py:309
+[09/09/26 19:13:32] INFO     1 change detected                       main.py:309
+INFO:     127.0.0.1:51154 - "GET /app?signin=1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51161 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51156 - "GET /vendor/vue-3.5.41.global.prod.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51165 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51154 - "GET /tutorial.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51160 - "GET /dashboard-tour/tour.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51163 - "GET /olywork_Official.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51163 - "GET /meta HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51163 - "GET /auth/me HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:51163 - "GET /favicon.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51188 - "GET /app?signin=1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51195 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51188 - "GET /tutorial.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51198 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51190 - "GET /vendor/vue-3.5.41.global.prod.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51193 - "GET /dashboard-tour/tour.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51197 - "GET /olywork_Official.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51197 - "GET /meta HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51197 - "GET /auth/me HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:51197 - "GET /favicon.svg HTTP/1.1" 200 OK
+[09/09/26 19:16:27] INFO     2 changes detected                      main.py:309
+[09/09/26 19:16:41] INFO     1 change detected                       main.py:309
+[09/09/26 19:18:58] INFO     1 change detected                       main.py:309
+[09/09/26 19:19:11] INFO     1 change detected                       main.py:309
+[09/09/26 19:19:17] INFO     1 change detected                       main.py:309
+[09/09/26 19:19:25] INFO     2 changes detected                      main.py:309
+[09/09/26 19:20:32] INFO     1 change detected                       main.py:309
+INFO:     127.0.0.1:51220 - "GET /app?signin=1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51220 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51222 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51220 - "GET /tutorial.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51220 - "GET /meta HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51220 - "GET /auth/me HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:51257 - "GET /meta HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51270 - "GET /meta HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51294 - "GET /meta HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51312 - "GET /meta HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51331 - "GET /meta HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51343 - "GET /meta HTTP/1.1" 200 OK
+[email] no OLYWORK_RESEND_API_KEY — skipping send to test@example.com ('162045 is your tools-registry sign-in code')
+INFO:     127.0.0.1:51350 - "POST /auth/email/start HTTP/1.1" 200 OK
+[09/09/26 19:54:12] INFO     1 change detected                       main.py:309
+                    INFO     2 changes detected                      main.py:309
+INFO:     127.0.0.1:51352 - "POST /auth/email/verify HTTP/1.1" 200 OK
+[09/09/26 19:54:23] INFO     2 changes detected                      main.py:309
+INFO:     127.0.0.1:51355 - "GET /auth/me HTTP/1.1" 200 OK
+[09/09/26 19:56:35] INFO     1 change detected                       main.py:309
+[09/09/26 19:56:47] INFO     1 change detected                       main.py:309
+WARNING:  WatchFiles detected changes in 'src/olywork/email.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+[09/09/26 19:56:47] INFO     StreamableHTTP       streamable_http_manager.py:155
+                             session manager                                    
+                             shutting down                                      
+INFO:     Application shutdown complete.
+INFO:     Finished server process [58250]
+[09/09/26 19:56:48] INFO     1 change detected                       main.py:309
+                    INFO     3 changes detected                      main.py:309
+INFO:     Started server process [69031]
+INFO:     Waiting for application startup.
+[09/09/26 19:56:49] WARNING  OLYWORK_SECRET_KEY unset - using an       db.py:237
+                             EPHEMERAL key; stored secrets will not             
+                             survive a restart.                                 
+                    INFO     StreamableHTTP       streamable_http_manager.py:151
+                             session manager                                    
+                             started                                            
+INFO:     Application startup complete.
+[09/09/26 19:57:05] INFO     1 change detected                       main.py:309
+WARNING:  WatchFiles detected changes in 'src/olywork/email.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+[09/09/26 19:57:05] INFO     StreamableHTTP       streamable_http_manager.py:155
+                             session manager                                    
+                             shutting down                                      
+INFO:     Application shutdown complete.
+INFO:     Finished server process [69031]
+                    INFO     3 changes detected                      main.py:309
+INFO:     Started server process [69041]
+INFO:     Waiting for application startup.
+[09/09/26 19:57:06] WARNING  OLYWORK_SECRET_KEY unset - using an       db.py:237
+                             EPHEMERAL key; stored secrets will not             
+                             survive a restart.                                 
+                    INFO     StreamableHTTP       streamable_http_manager.py:151
+                             session manager                                    
+                             started                                            
+INFO:     Application startup complete.
+INFO:     127.0.0.1:51364 - "GET /meta HTTP/1.1" 200 OK
+[09/09/26 19:58:33] INFO     1 change detected                       main.py:309
+[09/09/26 19:59:00] INFO     1 change detected                       main.py:309
+[09/09/26 19:59:27] INFO     1 change detected                       main.py:309
+[09/09/26 20:01:52] INFO     1 change detected                       main.py:309
+INFO:     127.0.0.1:51397 - "GET /meta HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51410 - "GET /meta HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51428 - "GET /meta HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51435 - "GET /meta HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51448 - "GET /meta HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51448 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51448 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51448 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51450 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51564 - "GET /logos/official/openclaw.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53111 - "GET /logos/official/openclaw.png HTTP/1.1" 304 Not Modified
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+[09/10/26 19:48:16] INFO     1 change detected                       main.py:309
+[09/10/26 19:48:35] INFO     1 change detected                       main.py:309
+[09/10/26 19:49:04] INFO     1 change detected                       main.py:309
+[09/10/26 19:49:27] INFO     1 change detected                       main.py:309
+[09/10/26 19:49:59] INFO     1 change detected                       main.py:309
+[09/10/26 19:50:25] INFO     1 change detected                       main.py:309
+[09/10/26 19:50:57] INFO     1 change detected                       main.py:309
+[09/10/26 19:58:47] INFO     1 change detected                       main.py:309
+[09/10/26 19:59:05] INFO     3 changes detected                      main.py:309
+INFO:     127.0.0.1:53735 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53735 - "GET /olywork_Official.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53741 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53743 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53737 - "GET /logos/official/hermes.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53746 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53743 - "GET /logos/official/google-ads.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53745 - "GET /logos/official/facebook.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53741 - "GET /logos/official/tiktok.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53746 - "GET /logos/official/google-analytics.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53737 - "GET /logos/official/bing.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53745 - "GET /logos/official/pinterest.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53741 - "GET /logos/official/claudecode.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53746 - "GET /logos/official/semrush.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53737 - "GET /logos/official/codex.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53743 - "GET /logos/official/openai.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53741 - "GET /logos/official/serpstat.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53745 - "GET /logos/official/spyfu.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53737 - "GET /logos/official/dataforseo.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53743 - "GET /logos/official/serpapi.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53745 - "GET /logos/official/search-console.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53741 - "GET /logos/official/moz.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53746 - "GET /logos/official/seranking.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53743 - "GET /logos/official/majestic.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53737 - "GET /logos/official/diffbot.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53746 - "GET /logos/official/google.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53743 - "GET /logos/exa.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53746 - "GET /logos/official/instagram.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53745 - "GET /logos/official/youtube.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53737 - "GET /logos/official/perplexity.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53741 - "GET /logos/official/x.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53735 - "GET /logos/official/reddit.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53741 - "GET /logos/official/hunter.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53735 - "GET /logos/official/linkedin.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53745 - "GET /logos/official/pdl.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53735 - "GET /logos/official/lusha.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53737 - "GET /logos/official/crunchbase.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53746 - "GET /logos/official/thecompaniesapi.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53741 - "GET /logos/official/apollo.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53743 - "GET /logos/official/coresignal.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53745 - "GET /logos/official/google-trends.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53741 - "GET /logos/official/leadmagic.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53735 - "GET /logos/official/apify.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53746 - "GET /logos/official/slack.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53737 - "GET /logos/official/google-business.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53743 - "GET /logos/official/snapchat.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53745 - "GET /logos/platforms/facebook.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53737 - "GET /logos/platforms/google.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53735 - "GET /logos/platforms/google-ads.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53746 - "GET /logos/platforms/linkedin.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53741 - "GET /logos/platforms/github.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53743 - "GET /logos/platforms/x.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53737 - "GET /logos/platforms/reddit.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53743 - "GET /logos/platforms/instagram.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53746 - "GET /logos/platforms/amazon.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53735 - "GET /logos/platforms/bing.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53745 - "GET /logos/platforms/tiktok.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53741 - "GET /logos/platforms/youtube.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53737 - "GET /logos/platforms/slack.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53735 - "GET /logos/platforms/chatgpt.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53743 - "GET /logos/platforms/claude.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53746 - "GET /logos/platforms/gemini.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53737 - "GET /logos/platforms/spotify.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53745 - "GET /logos/platforms/duckduckgo.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53741 - "GET /logos/platforms/telegram.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53735 - "GET /logos/platforms/bluesky.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53746 - "GET /logos/platforms/ebay.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53745 - "GET /logos/platforms/google-analytics.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53743 - "GET /logos/platforms/microsoft-ads.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53737 - "GET /logos/platforms/google-business.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53745 - "GET /logos/platforms/douyin.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53737 - "GET /logos/platforms/lemon8.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53743 - "GET /logos/platforms/jd.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53746 - "GET /logos/platforms/bilibili.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53741 - "GET /logos/platforms/kuaishou.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53735 - "GET /logos/platforms/baidu.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53737 - "GET /logos/platforms/doubao.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53735 - "GET /logos/platforms/threads.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53735 - "GET /favicon.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53735 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53735 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53737 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53741 - "GET /sitetrack.js HTTP/1.1" 200 OK
+[09/10/26 20:01:24] INFO     1 change detected                       main.py:309
+INFO:     127.0.0.1:53749 - "GET /logos/official/openclaw.png HTTP/1.1" 304 Not Modified
+[09/10/26 20:05:44] INFO     1 change detected                       main.py:309
+[09/10/26 20:07:24] INFO     1 change detected                       main.py:309
+[09/10/26 20:14:34] INFO     1 change detected                       main.py:309
+[09/10/26 20:15:32] INFO     1 change detected                       main.py:309
+[09/10/26 20:16:15] INFO     1 change detected                       main.py:309
+[09/10/26 20:16:53] INFO     1 change detected                       main.py:309
+[09/10/26 20:17:19] INFO     1 change detected                       main.py:309
+[09/10/26 20:18:38] INFO     1 change detected                       main.py:309
+INFO:     127.0.0.1:53851 - "GET /use-cases HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53851 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53853 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53851 - "GET /olywork.css?v=1788886359 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53853 - "GET /catalog.css?v=1788886371 HTTP/1.1" 200 OK
+[09/10/26 20:21:14] INFO     1 change detected                       main.py:309
+INFO:     127.0.0.1:53868 - "GET /use-cases HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53868 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53870 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53870 - "GET /use-cases HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53870 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53868 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53868 - "GET /use-cases HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53868 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53870 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53899 - "GET /use-cases HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53899 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53901 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53901 - "GET /use-cases HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53901 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53899 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53899 - "GET /use-cases HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53899 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53901 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53899 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53901 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53903 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53905 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53899 - "GET /logos/official/ahrefs.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53930 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53930 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53932 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53932 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53932 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53932 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53930 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53930 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53949 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53949 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53951 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53951 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53951 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53951 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53949 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53951 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53951 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53951 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53949 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53953 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53953 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53953 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53949 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53949 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53949 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53949 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53953 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53949 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53949 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53949 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53953 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53949 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53949 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53949 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53953 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53949 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53949 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53949 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53953 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53953 - "GET /sitetrack.js HTTP/1.1" 200 OK
+[09/10/26 20:44:29] INFO     1 change detected                       main.py:309
+INFO:     127.0.0.1:54028 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54028 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54030 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54030 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54030 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54030 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54028 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54028 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54028 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54028 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54030 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54028 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54033 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54033 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54035 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54035 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54035 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54035 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54033 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54033 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54033 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54033 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54035 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54033 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54033 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54033 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54035 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54033 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54033 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54033 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54035 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54035 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54035 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54035 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54033 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54037 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54097 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54097 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54099 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54099 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54099 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54099 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54097 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54097 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54097 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54097 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54099 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54097 - "GET /sitetrack.js HTTP/1.1" 200 OK
+[09/10/26 20:56:58] INFO     1 change detected                       main.py:309
+INFO:     127.0.0.1:54105 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54105 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54107 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54107 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54107 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54107 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54105 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54109 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54109 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54109 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54105 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54109 - "GET /sitetrack.js HTTP/1.1" 200 OK
+[09/10/26 21:00:26] INFO     5 changes detected                      main.py:309
+INFO:     127.0.0.1:54119 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54123 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54123 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54123 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54119 - "GET /logos/semrush.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54121 - "GET /logos/serpstat.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54126 - "GET /logos/spyfu.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54127 - "GET /logos/dataforseo.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54129 - "GET /logos/serpapi.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54123 - "GET /logos/seranking.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54126 - "GET /logos/platforms/search-console.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:54119 - "GET /logos/diffbot.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54127 - "GET /logos/majestic.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54121 - "GET /logos/moz.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54129 - "GET /logos/platforms/perplexity.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:54126 - "GET /logos/lusha.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54123 - "GET /logos/hunter.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54121 - "GET /logos/crunchbase.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54129 - "GET /logos/platforms/companies.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:54127 - "GET /logos/pdl.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54119 - "GET /logos/apollo.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54119 - "GET /logos/meta-ads.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:54121 - "GET /logos/leadmagic.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54127 - "GET /logos/coresignal.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54119 - "GET /logos/platforms/pinterest-ads.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:54129 - "GET /logos/meta-ad-library.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:54123 - "GET /logos/platforms/tiktok-ads.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:54119 - "GET /logos/platforms/snapchat-ads.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:54127 - "GET /logos/apify.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54121 - "GET /logos/slack.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:54127 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54127 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54121 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54121 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54135 - "GET /catalog HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54142 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54135 - "GET /olywork_Official.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54143 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54137 - "GET /catalog.css?v=1788886371 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54139 - "GET /olywork.css?v=1788886359 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54135 - "GET /logos/platforms/1688.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:54142 - "GET /logos/platforms/apple-music.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:54139 - "GET /logos/platforms/ai-search.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:54143 - "GET /logos/platforms/web.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:54137 - "GET /logos/platforms/app-store.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:54145 - "GET /logos/platforms/beike.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:54143 - "GET /logos/platforms/creators.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:54137 - "GET /logos/platforms/crypto.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:54139 - "GET /logos/platforms/dewu.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:54139 - "GET /logos/platforms/exa.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:54137 - "GET /logos/platforms/coingecko.svg HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:54137 - "GET /logos/platforms/douban.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:54139 - "GET /logos/platforms/douyin-shop.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:54139 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54139 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54137 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54137 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54170 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54170 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54172 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54172 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54172 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54172 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54170 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54170 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54174 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54174 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54176 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54176 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54176 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54176 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54174 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54176 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54176 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54176 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54174 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54174 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54174 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54174 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54176 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54176 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54176 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54176 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54174 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54174 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54174 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54174 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54176 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54178 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54191 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54191 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54193 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54193 - "GET /sitetrack.js HTTP/1.1" 200 OK
+[09/10/26 21:14:13] INFO     1 change detected                       main.py:309
+INFO:     127.0.0.1:54232 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54232 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54234 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54236 - "GET /sitetrack.js HTTP/1.1" 200 OK
+[09/10/26 21:17:19] INFO     1 change detected                       main.py:309
+INFO:     127.0.0.1:54245 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54245 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54247 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54245 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54361 - "GET /pricing HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54361 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54361 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54363 - "GET /catalog.css?v=1788886371 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54365 - "GET /olywork.css?v=1788886359 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54367 - "GET /logos/platforms/people.svg HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:54369 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54369 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54371 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54373 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54478 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54478 - "GET /adtrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54480 - "GET /gtag.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54480 - "GET /sitetrack.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55645 - "GET /logos/official/openclaw.png HTTP/1.1" 304 Not Modified
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+[09/11/26 02:47:37] INFO     StreamableHTTP       streamable_http_manager.py:155
+                             session manager                                    
+                             shutting down                                      
+INFO:     Application shutdown complete.
+INFO:     Finished server process [69041]
+INFO:     Stopping reloader process [52286]

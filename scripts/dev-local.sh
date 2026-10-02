@@ -51,8 +51,14 @@ warn() { printf "${c_ylw}! %s${c_reset}\n" "$*"; }
 die()  { printf "${c_red}✗ %s${c_reset}\n" "$*" >&2; exit 1; }
 port_up() { lsof -ti :"$1" -sTCP:LISTEN >/dev/null 2>&1; }
 
+DEV_PID="$DEV_HOME/server.pid"
+DEV_LOG="$DEV_HOME/server.log"
+
+has_tmux() {
+  command -v tmux >/dev/null 2>&1
+}
+
 preflight() {
-  command -v tmux >/dev/null 2>&1 || die "tmux not found. Install: brew install tmux"
   command -v uv   >/dev/null 2>&1 || die "uv not found. Install: https://docs.astral.sh/uv/"
   [ -d "$ROOT/.venv" ] || { info "no .venv — running uv sync"; (cd "$ROOT" && uv sync); }
 }
@@ -60,16 +66,29 @@ preflight() {
 up() {
   preflight
   ensure_dev_keys
-  if port_up "$PORT" && ! tmux has-session -t "$SESSION" 2>/dev/null; then
-    die "port $PORT is already in use by something outside this script (lsof -i :$PORT)"
-  fi
-  if tmux has-session -t "$SESSION" 2>/dev/null; then
-    warn "session '$SESSION' already running"
+  if has_tmux; then
+    if port_up "$PORT" && ! tmux has-session -t "$SESSION" 2>/dev/null; then
+      die "port $PORT is already in use by something outside this script (lsof -i :$PORT)"
+    fi
+    if tmux has-session -t "$SESSION" 2>/dev/null; then
+      warn "session '$SESSION' already running"
+    else
+      tmux new-session -d -s "$SESSION" -n server "$SERVER_CMD"
+      info "waiting for the server…"
+      for _ in $(seq 1 30); do port_up "$PORT" && break; sleep 0.5; done
+      port_up "$PORT" || { tmux capture-pane -pt "$SESSION:server" | tail -20; die "server didn't come up — window output above"; }
+    fi
   else
-    tmux new-session -d -s "$SESSION" -n server "$SERVER_CMD"
-    info "waiting for the server…"
-    for _ in $(seq 1 30); do port_up "$PORT" && break; sleep 0.5; done
-    port_up "$PORT" || { tmux capture-pane -pt "$SESSION:server" | tail -20; die "server didn't come up — window output above"; }
+    info "tmux not found — running in background with log at $DEV_LOG"
+    if port_up "$PORT"; then
+      warn "server already running on port $PORT"
+    else
+      nohup bash -c "$SERVER_CMD" > "$DEV_LOG" 2>&1 &
+      echo $! > "$DEV_PID"
+      info "waiting for the server…"
+      for _ in $(seq 1 30); do port_up "$PORT" && break; sleep 0.5; done
+      port_up "$PORT" || { [ -f "$DEV_LOG" ] && tail -n 20 "$DEV_LOG"; die "server didn't come up — logs above"; }
+    fi
   fi
   ok "server up  →  http://localhost:$PORT   (dashboard · /docs · /login)"
   echo "  email OTP dev mode is ON: codes appear on the page / in the API response"
@@ -77,21 +96,70 @@ up() {
 }
 
 down() {
-  tmux kill-session -t "$SESSION" 2>/dev/null && ok "session stopped" || warn "no session running"
+  local stopped=0
+  if has_tmux && tmux has-session -t "$SESSION" 2>/dev/null; then
+    tmux kill-session -t "$SESSION" 2>/dev/null && stopped=1
+  fi
+  if [ -f "$DEV_PID" ]; then
+    kill "$(cat "$DEV_PID")" 2>/dev/null || true
+    rm -f "$DEV_PID"
+    stopped=1
+  fi
+  if port_up "$PORT"; then
+    lsof -ti :"$PORT" | xargs kill -9 2>/dev/null || true
+    stopped=1
+  fi
+  if [ "$stopped" -eq 1 ]; then ok "server stopped"; else warn "no server running"; fi
 }
 
 status() {
-  if tmux has-session -t "$SESSION" 2>/dev/null; then
-    tmux list-windows -t "$SESSION" -F "  window: #{window_name}  (#{pane_current_command})"
+  if has_tmux; then
+    if tmux has-session -t "$SESSION" 2>/dev/null; then
+      tmux list-windows -t "$SESSION" -F "  window: #{window_name}  (#{pane_current_command})"
+    else
+      warn "no tmux session '$SESSION'"
+    fi
   else
-    warn "no tmux session '$SESSION'"
+    if [ -f "$DEV_PID" ] && kill -0 "$(cat "$DEV_PID")" 2>/dev/null; then
+      ok "process running (pid: $(cat "$DEV_PID"))"
+    elif port_up "$PORT"; then
+      ok "process running on port $PORT"
+    else
+      warn "no background server process found"
+    fi
   fi
   if port_up "$PORT"; then ok "port $PORT listening"; else warn "port $PORT not listening"; fi
 }
 
-logs()    { tmux capture-pane -pt "$SESSION:server" -S -200; }
-restart() { ensure_dev_keys; tmux respawn-window -k -t "$SESSION:server" "$SERVER_CMD" && ok "server restarted"; }
-attach()  { tmux attach -t "$SESSION"; }
+logs() {
+  if has_tmux && tmux has-session -t "$SESSION" 2>/dev/null; then
+    tmux capture-pane -pt "$SESSION:server" -S -200
+  elif [ -f "$DEV_LOG" ]; then
+    tail -n 200 "$DEV_LOG"
+  else
+    warn "no logs found at $DEV_LOG"
+  fi
+}
+
+restart() {
+  ensure_dev_keys
+  if has_tmux && tmux has-session -t "$SESSION" 2>/dev/null; then
+    tmux respawn-window -k -t "$SESSION:server" "$SERVER_CMD" && ok "server restarted"
+  else
+    down
+    up
+  fi
+}
+
+attach() {
+  if has_tmux && tmux has-session -t "$SESSION" 2>/dev/null; then
+    tmux attach -t "$SESSION"
+  elif [ -f "$DEV_LOG" ]; then
+    tail -f "$DEV_LOG"
+  else
+    die "no tmux session and no log file to follow"
+  fi
+}
 
 cli() {
   # Working-tree CLI, sandboxed: HOME is swapped so ~/.olywork/config.json (prod) is never touched.

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from pathlib import Path
 
 import pytest
 from httpx import AsyncClient
@@ -35,6 +36,31 @@ def enrichment_on(monkeypatch, platform_on):
         monkeypatch.setenv(f"OLYWORK_PLATFORM_KEY_{p}", f"PLATFORM-{p}-KEY")
     monkeypatch.setenv("OLYWORK_PLATFORM_KEY_TOMBA_SECRET", "PLATFORM-TOMBA-SECRET")
     monkeypatch.setenv("OLYWORK_PLATFORM_PROVIDERS", "hunter,tomba,leadmagic,leadsforge,findymail,aviato,fiber-ai")
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
+
+
+@pytest.fixture
+def enrichment_with_miss_declarers_on(monkeypatch, enrichment_on):
+    """enrichment_on plus the two providers whose miss is a 4xx with a body (prospeo 400 NO_MATCH)
+    or a plain 4xx (limadata 404) — without them in OLYWORK_PLATFORM_PROVIDERS a prospeo/limadata
+    test never runs the child and passes vacuously."""
+    for p in ("PROSPEO", "LIMADATA"):
+        monkeypatch.setenv(f"OLYWORK_PLATFORM_KEY_{p}", f"PLATFORM-{p}-KEY")
+    monkeypatch.setenv("OLYWORK_PLATFORM_PROVIDERS", "hunter,tomba,leadmagic,leadsforge,findymail,aviato,fiber-ai,prospeo,limadata")
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
+
+
+@pytest.fixture
+def enrichment_with_quickenrich_on(monkeypatch, platform_on):
+    """Like enrichment_on but includes QuickEnrich - the cheapest provider for phone/email lookups."""
+    for p in ("HUNTER", "TOMBA", "LEADMAGIC", "LEADSFORGE", "FINDYMAIL", "AVIATO", "FIBER_AI", "QUICKENRICH"):
+        monkeypatch.setenv(f"OLYWORK_PLATFORM_KEY_{p}", f"PLATFORM-{p}-KEY")
+    monkeypatch.setenv("OLYWORK_PLATFORM_KEY_TOMBA_SECRET", "PLATFORM-TOMBA-SECRET")
+    monkeypatch.setenv("OLYWORK_PLATFORM_PROVIDERS", "hunter,tomba,leadmagic,leadsforge,findymail,aviato,fiber-ai,quickenrich")
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()
@@ -76,6 +102,21 @@ def test_expression_language():
         P.evaluate("nope(a)", doc)
 
 
+def test_admission_only_contract_verifies_adapters_but_generates_no_routed_row():
+    """`routed: false` (contracts.yaml): the influencers.club raw/profile/full tiers are one provider
+    at three prices, so their contract exists for cache result admission only — the adapters must
+    verify (that is what `has_result_rules` reads), and no `olywork.creators.profile` row may appear."""
+    cat = catalog_store.load()
+    for cap in ("creators.profile", "creators.analytics", "creators.enrich.by_email"):
+        assert cat.contracts[cap].routed is False
+        assert "olywork." + cap not in cat.by_id
+    assert cat.contracts["people.email.find"].routed is True
+    tiers = ["influencersclub.creators.enrich." + t for t in ("raw", "profile", "full", "analytics", "email")]
+    assert all(cat.adapters[eid].verified and not cat.adapters[eid].verify_note for eid in tiers)
+    # ≥ 2 verified children of one capability would have generated a row on a routed contract
+    assert len([e for e in cat.for_capability("creators.profile") if cat.adapters[e["id"]].verified]) >= 2
+
+
 def test_every_shipped_adapter_round_trips_its_fixture():
     cat = catalog_store.load()
     bad = {eid: a.verify_note for eid, a in cat.adapters.items() if not a.verified}
@@ -87,8 +128,296 @@ def test_every_shipped_adapter_round_trips_its_fixture():
     ad = cat.adapters["leadsforge.people.email.find"]
     q, b = ad.to_upstream({"first_name": "Patrick", "last_name": "Collison", "domain": "stripe.com", "full_name": "Patrick Collison"})
     assert b == {"firstName": "Patrick", "lastName": "Collison", "companyDomain": "stripe.com"} and q == {}
-    assert ad.from_upstream({"email": "p@stripe.com", "status": "succeeded"}) == {"email": "p@stripe.com", "verified": True}
+    assert ad.from_upstream({"email": "p@stripe.com", "status": "succeeded"}) == {"email": "p@stripe.com"}
     assert ad.is_miss({"email": None}) and not ad.is_miss({"email": "x"})
+
+
+def test_openmart_tools_are_direct_only_not_routed():
+    cat = catalog_store.load()
+    assert "openmart.companies.search" not in cat.adapters
+    assert "openmart.companies.search" not in cat.by_id["olywork.companies.search"]["routed_children"]
+    assert cat.platform_eligible(cat.by_id["openmart.companies.search"])
+    assert "openmart.companies.enrich" not in cat.by_id["olywork.companies.enrich"]["routed_children"]
+
+
+def test_tavily_routes_synchronous_web_tools_and_keeps_crawl_direct():
+    cat = catalog_store.load()
+    routed = {
+        "tavily.web.search": "olywork.web.search",
+        "tavily.web.extract": "olywork.web.extract",
+        "tavily.web.map": "olywork.web.map",
+    }
+    for child, parent in routed.items():
+        assert cat.adapters[child].verified
+        assert child in cat.by_id[parent]["routed_children"]
+    assert "tavily.web.crawl" not in cat.adapters
+    assert "olywork.web.crawl" not in cat.by_id or (
+        "tavily.web.crawl" not in cat.by_id["olywork.web.crawl"]["routed_children"]
+    )
+    assert cat.platform_eligible(cat.by_id["tavily.web.crawl"])
+
+
+def test_serper_routes_search_and_single_page_extract_only():
+    cat = catalog_store.load()
+    routed = {
+        "serper.web.search": "olywork.web.search",
+        "serper.web.extract": "olywork.web.extract",
+    }
+    for child, parent in routed.items():
+        assert cat.adapters[child].verified
+        assert child in cat.by_id[parent]["routed_children"]
+        assert cat.platform_eligible(cat.by_id[child])
+    direct = set(ep["id"] for ep in cat.for_provider("serper")) - set(routed)
+    assert not direct & set(cat.adapters)
+
+
+def test_fetchin_linkedin_adapters_are_verified_and_routed():
+    cat = catalog_store.load()
+    routed = {
+        "fetchinio.linkedin.user.profile": "olywork.linkedin.user.profile",
+        "fetchinio.linkedin.company.profile": "olywork.linkedin.company.profile",
+        "fetchinio.linkedin.user.posts": "olywork.linkedin.user.posts",
+        "fetchinio.linkedin.post.comments": "olywork.linkedin.post.comments",
+        "fetchinio.linkedin.post.reactions": "olywork.linkedin.post.reactions",
+    }
+    for child, parent in routed.items():
+        assert cat.adapters[child].verified
+        assert not cat.adapters[child].verify_note
+        assert child in cat.by_id[parent]["routed_children"]
+
+    # The new posts route is genuinely comparative, not a synthetic one-provider wrapper.
+    assert {
+        "aviato.linkedin.user.posts",
+        "fetchinio.linkedin.user.posts",
+        "harvestapi.linkedin.user.posts",
+    } <= set(cat.by_id["olywork.linkedin.user.posts"]["routed_children"])
+
+    # Fetchin has no provider-neutral contracts for these provider-native operations.
+    assert "fetchinio.linkedin.user.reactions" not in cat.adapters
+    assert "fetchinio.linkedin.post.engagement" not in cat.adapters
+
+    profile = cat.adapters["fetchinio.linkedin.user.profile"]
+    assert profile.is_miss({"id": "profile-id", "firstName": None, "lastName": None})
+    assert not profile.is_miss({"id": "profile-id", "firstName": "Ada", "lastName": None})
+
+
+async def test_fetchin_member_posts_route_uses_adapter_and_settles(
+    clients: AsyncClient, platform_on, monkeypatch,
+):
+    monkeypatch.setenv("OLYWORK_PLATFORM_KEY_FETCHINIO", "PLATFORM-FETCHINIO")
+    monkeypatch.setenv("OLYWORK_PLATFORM_PROVIDERS", "fetchinio")
+    get_settings.cache_clear()
+    seen = []
+    monkeypatch.setattr(call_service, "relay", _relay_by_provider({
+        "fetchin.io": [(200, {
+            "posts": [{"id": "urn:li:activity:1", "text": "hello"}],
+            "paginationToken": "next-page",
+            "hasMore": True,
+        })],
+    }, seen))
+
+    before = await _balance(clients)
+    response = await clients.post(
+        "/call/olywork.linkedin.user.posts",
+        json={"linkedin_handle": "satyanadella", "limit": 1},
+        headers={"X-Olywork-Route-Prefer": "fetchinio"},
+    )
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["_olywork"]["served_by"] == "fetchinio.linkedin.user.posts"
+    assert data["output"]["posts"] == [{"id": "urn:li:activity:1", "text": "hello"}]
+    assert data["output"]["next_cursor"] == "next-page"
+    assert data["output"]["has_more"] is True
+    assert seen == [("fetchin.io", "GET", {
+        "profileUrlOrUrn": "https://www.linkedin.com/in/satyanadella", "count": "1",
+    }, None)]
+    assert before - await _balance(clients) == 1_500
+    get_settings.cache_clear()
+
+
+async def test_tavily_routed_empty_search_is_a_paid_miss_then_falls_through(
+    clients, monkeypatch,
+):
+    monkeypatch.setenv("OLYWORK_PLATFORM_KEY_TAVILY", "PLATFORM-TAVILY")
+    monkeypatch.setenv("OLYWORK_PLATFORM_KEY_EXA", "PLATFORM-EXA")
+    monkeypatch.setenv("OLYWORK_PLATFORM_PROVIDERS", "tavily,exa")
+    get_settings.cache_clear()
+    seen = []
+    monkeypatch.setattr(call_service, "relay", _relay_by_provider({
+        "tavily": [(200, {"results": [], "usage": {"credits": 1}})],
+        "exa": [(200, {
+            "results": [{"title": "Example", "url": "https://example.com"}],
+            "costDollars": {"total": 0.007},
+        })],
+    }, seen))
+
+    before = await _balance(clients)
+    response = await clients.post(
+        "/call/olywork.web.search",
+        json={"q": "example query", "limit": 3},
+        headers={"X-Olywork-Route-Prefer": "tavily,exa"},
+    )
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["_olywork"]["served_by"] == "exa.web.search"
+    assert [attempt["outcome"] for attempt in data["_olywork"]["tried"]] == ["miss", "hit"]
+    assert [attempt["charged_micro"] for attempt in data["_olywork"]["tried"]] == [8_000, 7_000]
+    assert data["_olywork"]["charged_micro"] == 15_000
+    assert before - await _balance(clients) == 15_000
+    assert [row[0] for row in seen] == ["tavily", "exa"]
+    assert seen[0][3] == {
+        "query": "example query", "max_results": 3,
+        "search_depth": "basic", "include_usage": True,
+    }
+    async with session_maker() as db:
+        assert (await db.execute(select(Hold))).scalars().all() == []
+        entries = (await db.execute(select(LedgerEntry))).scalars().all()
+    call_id = response.headers["X-Olywork-Call-Id"]
+    assert {entry.call_id for entry in entries if entry.kind == "settle"} == {
+        call_id + ":r0", call_id + ":r1",
+    }
+    get_settings.cache_clear()
+
+
+def test_dropleads_routing_surface_contains_only_verified_single_record_tools():
+    catalog = catalog_store.load()
+    expected = {
+        "dropleads.people.email.find",
+        "dropleads.people.phone.find",
+        "dropleads.people.email.verify",
+        "dropleads.people.search",
+        "dropleads.people.enrich",
+        "dropleads.companies.search",
+        "dropleads.companies.enrich",
+    }
+    assert {eid for eid in expected if catalog.adapters[eid].verified} == expected
+    assert not any("bulk" in eid or eid.endswith(".count") for eid in expected)
+
+
+def test_dropleads_country_filters_use_each_upstream_schema():
+    catalog = catalog_store.load()
+    _, people_body = catalog.adapters["dropleads.people.search"].to_upstream({
+        "company_domain": "example.com", "country": "US",
+    })
+    _, company_body = catalog.adapters["dropleads.companies.search"].to_upstream({
+        "domain": "example.com", "country": "US",
+    })
+    assert people_body["filters"]["countries"] == ["United States"]
+    assert company_body["filters"]["countries"] == {"include": ["United States"]}
+
+
+def test_prospeo_routing_surface_uses_fixed_single_record_modes():
+    catalog = catalog_store.load()
+    expected = {
+        "prospeo.people.email.find",
+        "prospeo.people.phone.find",
+        "prospeo.people.enrich",
+        "prospeo.people.search",
+        "prospeo.companies.enrich",
+        "prospeo.companies.search",
+    }
+    assert {eid for eid in expected if catalog.adapters[eid].verified} == expected
+    assert not any("bulk" in eid or "suggestions" in eid for eid in expected)
+    _, email_body = catalog.adapters["prospeo.people.email.find"].to_upstream({
+        "full_name": "Jane Doe", "domain": "example.com",
+    })
+    assert email_body == {
+        "data": {"full_name": "Jane Doe", "company_website": "example.com"},
+        "only_verified_email": True,
+        "enrich_mobile": False,
+        "only_verified_mobile": False,
+    }
+    _, phone_body = catalog.adapters["prospeo.people.phone.find"].to_upstream({
+        "linkedin_url": "https://www.linkedin.com/in/example",
+    })
+    assert phone_body["enrich_mobile"] is True
+    assert phone_body["only_verified_mobile"] is True
+
+
+def test_aiark_routing_surface_uses_verified_bounded_adapters():
+    catalog = catalog_store.load()
+    expected = {
+        "aiark.people.search",
+        "aiark.companies.search",
+        "aiark.people.email.find",
+        "aiark.people.phone.find",
+        "aiark.people.enrich",
+    }
+    assert {eid for eid in expected if catalog.adapters[eid].verified} == expected
+    _, people = catalog.adapters["aiark.people.search"].to_upstream({
+        "company_domain": "example.com",
+    })
+    _, companies = catalog.adapters["aiark.companies.search"].to_upstream({
+        "domain": "example.com",
+    })
+    bounded = {
+        "account": {"domain": {"any": {"include": ["example.com"]}}},
+        "page": 0,
+        "size": 1,
+    }
+    assert people == bounded
+    assert companies == bounded
+
+
+def test_aiark_finders_treat_present_but_empty_outputs_as_misses():
+    catalog = catalog_store.load()
+    email = catalog.adapters["aiark.people.email.find"]
+    phone = catalog.adapters["aiark.people.phone.find"]
+    assert email.is_miss({"data": None})
+    assert email.is_miss({"data": {"email": {"output": []}}})
+    assert not email.is_miss({"data": {"email": {"output": [{
+        "address": "jane@example.com",
+    }]}}})
+    assert phone.is_miss({"data": None})
+    assert phone.is_miss({"data": {"data": [[]]}})
+    assert not phone.is_miss({"data": {"data": [["+15550101000"]]}})
+
+
+def test_limadata_routing_surface_contains_only_its_verified_adapters():
+    catalog = catalog_store.load()
+    expected = {
+        "limadata.people.email.find.name",
+        "limadata.people.email.find.linkedin",
+        "limadata.people.email.verify",
+        "limadata.people.phone.find",
+        "limadata.companies.enrich",
+    }
+    assert {
+        eid for eid, adapter in catalog.adapters.items()
+        if eid.startswith("limadata.") and adapter.verified
+    } == expected
+    assert "limadata.people.email.find.name" in catalog.by_id[
+        "olywork.people.email.find"
+    ]["routed_children"]
+    assert "limadata.people.email.verify" in catalog.by_id[
+        "olywork.people.email.verify"
+    ]["routed_children"]
+    assert "limadata.people.phone.find" in catalog.by_id[
+        "olywork.people.phone.find"
+    ]["routed_children"]
+    assert "limadata.people.enrich" not in catalog.adapters
+    assert "limadata.people.enrich" not in catalog.by_id[
+        "olywork.people.enrich"
+    ]["routed_children"]
+
+
+def test_wiza_routing_surface_uses_bounded_single_record_searches():
+    catalog = catalog_store.load()
+    expected = {
+        "wiza.people.search",
+        "wiza.companies.search",
+        "wiza.companies.enrich",
+    }
+    assert {eid for eid in expected if catalog.adapters[eid].verified} == expected
+    _, people_body = catalog.adapters["wiza.people.search"].to_upstream({"title": "Founder"})
+    _, company_body = catalog.adapters["wiza.companies.search"].to_upstream({
+        "technology": "amazon-web-services",
+    })
+    assert people_body == {"filters": {"job_title": [{"v": "Founder", "s": "i"}]}, "size": 1}
+    assert company_body == {
+        "filters": {"technologies": [{"v": "amazon-web-services", "s": "i"}]},
+        "size": 1,
+    }
 
 
 def test_identity_variants_derive_and_never_cross():
@@ -112,9 +441,10 @@ def test_cost_at_and_ranking_math():
     a = Candidate(ep("a.x"), None, ("domain",), "platform", 24_500, hit_rate=0.4, ok_rate=None, p50_ms=100, last_ok_days=1)
     b = Candidate(ep("b.x", "per_call"), None, ("domain",), "platform", 20_000, hit_rate=0.8, ok_rate=None, p50_ms=100, last_ok_days=1)
     own = Candidate(ep("c.x"), None, ("domain",), "credential", 0, hit_rate=None, ok_rate=None, p50_ms=None, last_ok_days=None)
+    anonymous = Candidate(ep("d.x"), None, ("domain",), "anonymous", 0, hit_rate=None, ok_rate=None, p50_ms=None, last_ok_days=None)
     assert a.expected_cost_per_hit == pytest.approx(24_500), "per-success: billed only on a hit → price per hit"
     assert b.expected_cost_per_hit == pytest.approx(25_000), "per-call at 80% hit rate: 20000/0.8"
-    assert [c.endpoint["id"] for c in rank([a, b, own])] == ["c.x", "a.x", "b.x"]
+    assert [c.endpoint["id"] for c in rank([a, b, anonymous, own])] == ["c.x", "d.x", "a.x", "b.x"]
     assert [c.endpoint["id"] for c in rank([a, b], prefer=["b"])] == ["b.x", "a.x"]
     assert [c.endpoint["id"] for c in rank([a, b], exclude=["a"])] == ["b.x"]
     a.exhausted = True
@@ -216,6 +546,56 @@ async def test_routed_plan_keeps_per_success_hit_fallback_from_the_cache(
 
 # ---- the call path ---------------------------------------------------------------------------
 
+@pytest.mark.parametrize("routed", [False, True])
+@pytest.mark.parametrize("verdict", ["valid", "invalid"])
+async def test_tomba_verification_keeps_email_in_query_and_settles(
+    clients: AsyncClient, enrichment_on, monkeypatch, routed, verdict,
+):
+    email = "person+tag@example.com"
+    payload = {"data": {"email": {"status": verdict, "score": 99}}}
+    seen = []
+
+    async def relay(request, upstream_url, tool, secrets, client, drop_params=None, **kwargs):
+        seen.append(upstream_url)
+        assert upstream_url == "https://api.tomba.io/v1/email-verifier"
+        assert request.method == "GET"
+        assert dict(request.query_items) == {"email": email}
+        assert "email" not in (drop_params or ())
+
+        async def body():
+            yield json.dumps(payload).encode()
+
+        async def close():
+            pass
+
+        return UpstreamResponse(200, ((b"content-type", b"application/json"),), body(), close)
+
+    monkeypatch.setattr(call_service, "relay", relay)
+    before = await _balance(clients)
+    if routed:
+        response = await clients.post(
+            "/call/olywork.people.email.verify", json={"email": email},
+            headers={"X-Olywork-Route-Prefer": "tomba"},
+        )
+    else:
+        response = await clients.get("/call/tomba.people.email.verify", params={"email": email})
+
+    assert response.status_code == 200, response.text
+    assert len(seen) == 1
+    if routed:
+        doc = response.json()
+        assert doc["raw"] == payload
+        assert doc["output"] == {"valid": verdict == "valid", "status": verdict, "score": 99}
+        assert doc["_olywork"]["served_by"] == "tomba.people.email.verify"
+        assert doc["_olywork"]["outcome"] == "hit", "an invalid verdict is still a verification answer"
+    else:
+        assert response.json() == payload
+    assert int(response.headers["X-Olywork-Cost-Micro"]) == 8_900
+    assert before - await _balance(clients) == 8_900
+    async with session_maker() as db:
+        assert (await db.execute(select(Hold))).scalars().all() == []
+
+
 async def test_routed_call_runs_the_cheapest_child_and_returns_output_raw_and_provenance(clients: AsyncClient, enrichment_on, monkeypatch):
     seen = []
     monkeypatch.setattr(call_service, "relay", _relay_by_provider(
@@ -228,6 +608,7 @@ async def test_routed_call_runs_the_cheapest_child_and_returns_output_raw_and_pr
     assert d["output"] == {"email": "patrick@stripe.com", "confidence": 0.99, "first_name": "Patrick", "last_name": "Collison", "verified": True}
     assert d["raw"]["data"]["score"] == 99, "the winning provider's body, verbatim"
     assert d["_olywork"]["served_by"] == "tomba.people.email.find" and d["_olywork"]["outcome"] == "hit"
+    assert "advice" not in d["_olywork"], "the provider vouched for the mailbox — nothing to add"
     assert r.headers["X-Olywork-Served-By"] == "tomba.people.email.find" and r.headers["X-Olywork-Providers-Tried"] == "tomba"
     assert seen == [("tomba", "GET", {"domain": "stripe.com", "full_name": "Patrick Collison"}, None)]
     charged = int(r.headers["X-Olywork-Cost-Micro"])
@@ -241,6 +622,44 @@ async def test_routed_call_runs_the_cheapest_child_and_returns_output_raw_and_pr
     rows = (await clients.get("/calls")).json()
     kinds = {(x["tool_name"], x.get("credential_tier")) for x in rows}
     assert (ROUTED, "routed") in kinds and ("tomba.people.email.find", "platform") in kinds
+
+
+async def test_an_unverified_hit_carries_verify_advice(clients: AsyncClient, enrichment_on, monkeypatch):
+    """A found address the provider did not vouch for (Tomba's verification status is not `valid`
+    — the catch-all shape that bounced for a recruiting team on 2026-09-06) is still a HIT and
+    still billed, but the answer says so in `_olywork.advice` and points at the verify endpoint. A
+    suggestion, not a chained call: the balance moves by the find alone."""
+    monkeypatch.setattr(call_service, "relay", _relay_by_provider(
+        {"tomba": [(200, {"data": {"email": "alan@pruittstructures.com", "score": 96,
+                                    "verification": {"status": "accept_all"}}})]}, []))
+    before = await _balance(clients)
+    r = await clients.post(f"/call/{ROUTED}", json={"full_name": "Alan Marquez", "domain": "pruittstructures.com"})
+    assert r.status_code == 200, r.text
+    d = r.json()
+    assert d["output"]["email"] == "alan@pruittstructures.com" and d["output"]["verified"] is False
+    assert d["_olywork"]["outcome"] == "hit"
+    assert "olywork.people.email.verify" in d["_olywork"]["advice"]
+    assert before - await _balance(clients) == int(r.headers["X-Olywork-Cost-Micro"]) == 8_900, "the find, nothing chained"
+
+
+async def test_a_people_search_hit_always_carries_verify_advice(clients: AsyncClient, enrichment_on, monkeypatch):
+    """Search rows are directory listings: a row's email is found, not confirmed deliverable. The
+    contract has no `verified` output, so the advice attaches to every hit — Hunter domain-search
+    rows with `verification: null` were 73 of one team's 79 bounces (2026-09-08). Still a
+    suggestion: one child call, the find's price, nothing chained."""
+    monkeypatch.setattr(call_service, "relay", _relay_by_provider(
+        {"hunter": [(200, {"data": {"emails": [{"value": "info@royalfarms.com", "type": "generic", "confidence": 10,
+                                                 "verification": {"date": None, "status": None}}]},
+                            "meta": {"results": 1}})],
+         "*": [(200, {"persons": []})] * 12}, []))
+    before = await _balance(clients)
+    r = await clients.post("/call/olywork.people.search", json={"company_domain": "royalfarms.com", "limit": 10})
+    assert r.status_code == 200, r.text
+    d = r.json()
+    assert d["_olywork"]["served_by"] == "hunter.companies.emails" and d["_olywork"]["outcome"] == "hit"
+    assert d["output"]["people"][0]["verification"]["status"] is None, "the row's own field, untouched"
+    assert "olywork.people.email.verify" in d["_olywork"]["advice"] and "directory" in d["_olywork"]["advice"]
+    assert before - await _balance(clients) == int(r.headers["X-Olywork-Cost-Micro"]), "the find, nothing chained"
 
 
 async def test_error_on_the_first_child_falls_back_to_the_second(clients: AsyncClient, enrichment_on, monkeypatch):
@@ -603,7 +1022,8 @@ def test_filters_reach_adapters_through_in_expr_and_array_bodies():
     q, b = cat.adapters["serpapi.google.keywords.ideas"].to_upstream(req)
     assert q == {"q": "coffee", "gl": "gb", "hl": "en", "engine": "google_autocomplete"}
     q, b = cat.adapters["tomba.people.email.verify"].to_upstream({"email": "a@b.io"})
-    assert q == {"email": "a@b.io"}, "a pathParams target travels as a query value the proxy folds into the path"
+    assert q == {"email": "a@b.io"}, "Tomba verification requires the email query parameter"
+    assert cat.by_id["tomba.people.email.verify"]["path"] == "/v1/email-verifier"
     assert cost_at({"usd": 0.00179, "type": "per_result", "per": 1}, req) == 8_950, "priced at the requested limit"
     ep = cat.by_id["olywork.google.keywords.ideas"]
     assert ep["input"]["body"]["country"]["note"].startswith("filter — default 'us'")
@@ -1044,15 +1464,15 @@ def test_every_declared_miss_status_names_its_meaning():
 
 async def test_lusha_is_the_last_rung_of_the_phone_waterfall_and_settles_on_its_own_bill(clients: AsyncClient, enrichment_on, monkeypatch):
     """Guatemala, 2026-09-03: 7 phones in 44 across tomba/aviato/leadmagic/findymail/leadsforge.
-    Lusha's native direct-dial data is the sixth rung — dearest per hit (6 credits), so it ranks
-    last and is only asked once the cheap five have missed; a miss is free and a matched profile
+    Lusha's native direct-dial data remains the last rung — dearest per hit (6 credits), so it ranks
+    after AI Ark, Dropleads, Prospeo, and the cheaper providers; a miss is free and a matched profile
     with no number costs the 1-credit search, both read off `billing.creditsCharged`."""
     monkeypatch.setenv("OLYWORK_PLATFORM_KEY_LUSHA", "PLATFORM-LUSHA-KEY")
     monkeypatch.setenv("OLYWORK_PLATFORM_PROVIDERS", "hunter,tomba,leadmagic,leadsforge,findymail,aviato,fiber-ai,lusha")
     get_settings.cache_clear()
     routed = "olywork.people.phone.find"
     plan = (await clients.get(f"/catalog/endpoints/{routed}")).json()["routing"]["plan"]
-    assert plan[-1]["endpoint_id"] == "lusha.people.phone.find" and len(plan) == 6, [c["endpoint_id"] for c in plan]
+    assert plan[-1]["endpoint_id"] == "lusha.people.phone.find" and len(plan) == 13, [c["endpoint_id"] for c in plan]
     def misses():
         return {"aviato": [(404, {"message": "Not Found"})], "tomba": [(200, {"data": {"e164_format": None}})],
                 "leadmagic": [(200, {"mobile_number": None, "credits_consumed": 0})],
@@ -1091,6 +1511,67 @@ async def test_lusha_is_the_last_rung_of_the_phone_waterfall_and_settles_on_its_
     get_settings.cache_clear()
 
 
+async def test_quickenrich_is_cheapest_phone_provider_and_respects_max_cost(clients: AsyncClient, enrichment_with_quickenrich_on, monkeypatch):
+    """QuickEnrich is the cheapest phone provider (~$0.0048) and must be considered when max-cost is
+    set above its price. Regression for feedback #136/#128: customers got 402s because the router
+    was treating a more expensive provider as cheapest when QuickEnrich was not in PLATFORM_PROVIDERS."""
+    routed = "olywork.people.phone.find"
+    plan = (await clients.get(f"/catalog/endpoints/{routed}")).json()["routing"]["plan"]
+    prices = [(c["endpoint_id"], c["usd"]) for c in plan]
+    quickenrich_entry = next((p for p in prices if "quickenrich" in p[0]), None)
+    assert quickenrich_entry is not None, f"QuickEnrich must be in the phone waterfall: {prices}"
+    assert quickenrich_entry[1] == min(p[1] for p in prices if p[1]), f"QuickEnrich must be the cheapest: {prices}"
+
+    seen = []
+    hit = {'success': True, 'data': {'employee_phone': '+15550100100', 'employee_phone_type': 'mobile'},
+           'meta': {'credits_used': 1}}
+    monkeypatch.setattr(call_service, "relay", _relay_by_provider({'quickenrich': [(200, hit)]}, seen))
+
+    before = await _balance(clients)
+    # max_cost=$0.01 is above QuickEnrich (~$0.0048) but below every other provider
+    r = await clients.post(f"/call/{routed}", json={"linkedin_url": "https://www.linkedin.com/in/example"},
+                           headers={"X-Olywork-Route-Max-Cost": "0.01"})
+    assert r.status_code == 200, f"Should succeed with QuickEnrich: {r.text}"
+    assert r.json()["_olywork"]["served_by"] == "quickenrich.people.phone.find"
+    assert r.json()["output"]["phone"] == "+15550100100"
+    assert [p for p, *_ in seen] == ["quickenrich"], "Only QuickEnrich should be called"
+    charged = before - await _balance(clients)
+    assert charged == 4834, f"QuickEnrich should charge 1 credit = $0.004834 = 4834 micro: got {charged}"
+
+
+async def test_max_cost_below_cheapest_refuses_before_any_call_for_phone(clients: AsyncClient, enrichment_with_quickenrich_on, monkeypatch):
+    """When max-cost is below even the cheapest provider (QuickEnrich), the call is refused with
+    route_max_cost error before any provider is asked, naming the cheapest candidate."""
+    routed = "olywork.people.phone.find"
+    seen = []
+    monkeypatch.setattr(call_service, "relay", _relay_by_provider({}, seen))
+    r = await clients.post(f"/call/{routed}", json={"linkedin_url": "https://www.linkedin.com/in/example"},
+                           headers={"X-Olywork-Route-Max-Cost": "0.001"})  # $0.001 < QuickEnrich's $0.0048
+    assert r.status_code == 402, r.text
+    d = r.json()["detail"]
+    assert d["error"] == "route_max_cost"
+    assert "quickenrich" in d["message"], f"Error should name QuickEnrich as cheapest: {d['message']}"
+    assert seen == [], "No provider should be called when max-cost is below the cheapest"
+
+
+async def test_capped_signal_when_max_cost_truncates_waterfall(clients: AsyncClient, enrichment_with_quickenrich_on, monkeypatch):
+    """Feedback #131: When max-cost stops the waterfall early, the result should indicate that more
+    expensive providers were skipped (capped=true). This lets callers distinguish an exhaustive miss
+    from one truncated by budget - they can raise their ceiling if they need to try all providers."""
+    routed = "olywork.people.phone.find"
+    miss = {'success': False, 'message': 'No data found for this profile'}
+    monkeypatch.setattr(call_service, "relay", _relay_by_provider({'quickenrich': [(200, miss)]}, []))
+    r = await clients.post(f"/call/{routed}", json={"linkedin_url": "https://www.linkedin.com/in/example"},
+                           headers={"X-Olywork-Route-Max-Cost": "0.01"})  # ~$0.01 allows QuickEnrich only
+    assert r.status_code == 200, r.text
+    olywork = r.json()["_olywork"]
+    assert olywork["outcome"] == "miss"
+    assert olywork.get("capped") is True, f"Expected capped=true when waterfall truncated: {olywork}"
+    assert r.headers.get("X-Olywork-Route-Capped") == "true", "Expected X-Olywork-Route-Capped header"
+    skipped = [t for t in olywork["tried"] if t["outcome"] == "skipped" and "would exceed" in t.get("detail", "")]
+    assert skipped, f"Expected some providers skipped due to cost: {olywork['tried']}"
+
+
 async def test_strict_filters_refuses_a_looser_answer_instead_of_billing_it(clients: AsyncClient, enrichment_on, monkeypatch):
     """voice-ai-outbound, 2026-09-03: `{full_name, country: GT}` went to a candidate that ignored
     the country and was billed for people in New York. Opt-in, the caller is refused instead —
@@ -1098,6 +1579,11 @@ async def test_strict_filters_refuses_a_looser_answer_instead_of_billing_it(clie
     monkeypatch.setenv("OLYWORK_PLATFORM_KEY_CRUSTDATA", "PLATFORM-CRUSTDATA-KEY")
     monkeypatch.setenv("OLYWORK_PLATFORM_PROVIDERS", "hunter,tomba,leadmagic,leadsforge,findymail,aviato,fiber-ai,crustdata")
     get_settings.cache_clear()
+    # This regression compares Crustdata with Aviato, independently of other catalog additions.
+    cat = catalog_store.load()
+    for eid in cat.by_id["olywork.people.search"]["routed_children"]:
+        if not eid.startswith(("crustdata.", "aviato.")):
+            monkeypatch.delitem(cat.adapters, eid)
     seen = []
     monkeypatch.setattr(call_service, "relay", _relay_by_provider({"*": [(200, {"profiles": [{"name": "Someone"}], "total_count": 1})] * 3}, seen))
     before = await _balance(clients)
@@ -1122,3 +1608,960 @@ async def test_strict_filters_refuses_a_looser_answer_instead_of_billing_it(clie
     assert r.status_code == 200 and r.json()["_olywork"]["served_by"] == "aviato.people.search.simple", r.text
     assert "X-Olywork-Ignored-Filters" not in r.headers and seen[0][2]["country"] == "Guatemala"
     get_settings.cache_clear()
+
+
+@pytest.mark.parametrize("capability", ["people.email.find", "people.phone.find"])
+def test_leadsforge_requires_both_name_parts_or_linkedin(capability):
+    from olywork.domain.catalog.routing.contracts import adapter_accepts
+    cat = catalog_store.load()
+    adapter = cat.adapters["leadsforge." + capability]
+    contract = cat.contracts[capability]
+    incomplete, _ = canonical_identity(contract, {"full_name": "Jason", "domain": "example.com"})
+    assert adapter_accepts(adapter, incomplete) is None, "Do not send a company-only request"
+    complete, _ = canonical_identity(contract, {"full_name": "Test Person", "domain": "example.com"})
+    query, body = adapter.to_upstream(complete, adapter_accepts(adapter, complete))
+    assert query == {}
+    assert body == {"firstName": "Test", "lastName": "Person", "companyDomain": "example.com"}
+    linkedin, _ = canonical_identity(contract, {"linkedin_url": "https://www.linkedin.com/in/test-person"})
+    assert adapter.to_upstream(linkedin, adapter_accepts(adapter, linkedin))[1] == {
+        "linkedinURL": "https://www.linkedin.com/in/test-person"}
+
+
+def test_successful_contact_lookup_is_not_mailbox_verification():
+    cat = catalog_store.load()
+    for endpoint, response in [
+        ("leadsforge.people.email.find", {"email": "test@example.com", "status": "succeeded"}),
+        ("fiber-ai.people.contacts.reveal", {"output": {"profile": {
+            "success": True, "emails": [{"email": "test@example.com"}]}}}),
+    ]:
+        output = cat.adapters[endpoint].from_upstream(response)
+        assert output["email"] == "test@example.com"
+        assert "verified" not in output, "Successful enrichment is not a deliverability verdict"
+
+@pytest.mark.parametrize("result,valid,miss", [
+    ("ok", True, False), ("invalid", False, False), ("disposable", False, False),
+    ("catch_all", False, False), ("unknown", False, False), ("unverified", False, False),
+])
+def test_millionverifier_verdicts(result, valid, miss):
+    cat = catalog_store.load()
+    eid = "millionverifier.people.email.verify"
+    assert eid in cat.by_id["olywork.people.email.verify"]["routed_children"]
+    assert cat.platform_eligible(cat.by_id[eid])
+    assert not cat.platform_eligible(cat.by_id["millionverifier.account.usage"])
+    adapter = cat.adapters[eid]
+    assert adapter.verified
+    doc = {"result": result, "quality": "good" if valid else "bad", "error": ""}
+    assert adapter.from_upstream(doc) == {"valid": valid, "status": result}
+    assert adapter.is_miss(doc) is miss
+    assert adapter.is_miss({"result": "error", "error": "invalid_api_key"})
+    assert adapter.is_miss({})
+
+
+@pytest.mark.parametrize("result,valid", [
+    ("deliverable", True),
+    ("risky", False),
+    ("undeliverable", False),
+    ("unknown", False),
+])
+def test_bounceban_verdicts_join_existing_email_verification_route(result, valid):
+    cat = catalog_store.load()
+    eid = "bounceban.people.email.verify"
+    routed = cat.by_id["olywork.people.email.verify"]["routed_children"]
+    assert eid in routed
+    assert "bounceban.people.email.verify.waterfall" not in routed
+    assert cat.platform_eligible(cat.by_id[eid])
+    for blocked in (
+        "bounceban.people.email.verify.waterfall",
+        "bounceban.account.usage",
+    ):
+        assert not cat.platform_eligible(cat.by_id[blocked])
+    adapter = cat.adapters[eid]
+    assert adapter.verified
+    doc = {"status": "success", "result": result, "score": 99}
+    assert adapter.from_upstream(doc) == {"valid": valid, "status": result, "score": 99}
+    assert not adapter.is_miss(doc)
+    assert adapter.is_miss({"id": "task", "status": "verifying"})
+
+
+def test_zerobounce_verdicts_join_existing_email_verification_route():
+    cat = catalog_store.load()
+    eid = "zerobounce.people.email.verify"
+    assert eid in cat.by_id["olywork.people.email.verify"]["routed_children"]
+    assert cat.platform_eligible(cat.by_id[eid])
+    adapter = cat.adapters[eid]
+    assert adapter.verified
+    assert adapter.is_miss({"status": "unknown"})
+    assert adapter.is_miss({})
+    for status, valid in (("valid", True), ("invalid", False), ("catch-all", False),
+                          ("spamtrap", False), ("abuse", False), ("do_not_mail", False)):
+        doc = {"status": status}
+        assert not adapter.is_miss(doc)
+        assert adapter.from_upstream(doc) == {"valid": valid, "status": status}
+
+
+def test_zerobounce_expensive_discovery_tools_stay_out_of_automatic_routing():
+    cat = catalog_store.load()
+    assert "zerobounce.people.email.find" not in cat.by_id["olywork.people.email.find"]["routed_children"]
+    assert "zerobounce.people.email.find" not in cat.adapters
+    assert "zerobounce.companies.email_pattern" not in cat.adapters
+
+
+async def test_zerobounce_serves_existing_email_verification_route(clients, monkeypatch):
+    monkeypatch.setenv("OLYWORK_PLATFORM_KEY_ZEROBOUNCE", "PLATFORM-ZEROBOUNCE")
+    monkeypatch.setenv("OLYWORK_PLATFORM_PROVIDERS", "zerobounce")
+    get_settings.cache_clear()
+    seen = []
+    monkeypatch.setattr(call_service, "relay", _relay_by_provider({
+        "zerobounce": [(200, {"status": "valid"})],
+    }, seen))
+    try:
+        response = await clients.post(
+            "/call/olywork.people.email.verify", json={"email": "valid@example.com"})
+        assert response.status_code == 200, response.text
+        body = response.json()
+        assert body["output"] == {"valid": True, "status": "valid"}
+        assert body["_olywork"]["served_by"] == "zerobounce.people.email.verify"
+        assert [row[0] for row in seen] == ["zerobounce"]
+    finally:
+        get_settings.cache_clear()
+
+
+async def test_bounceban_serves_existing_email_verification_route(clients, monkeypatch):
+    monkeypatch.setenv("OLYWORK_PLATFORM_KEY_BOUNCEBAN", "PLATFORM-BOUNCEBAN")
+    monkeypatch.setenv("OLYWORK_PLATFORM_PROVIDERS", "bounceban")
+    get_settings.cache_clear()
+    seen = []
+    monkeypatch.setattr(call_service, "relay", _relay_by_provider({
+        "bounceban": [(200, {
+            "id": "task", "status": "success", "result": "risky", "score": 62,
+            "credits_consumed": 1, "credits_remaining": 9996,
+        })],
+    }, seen))
+    before = await _balance(clients)
+    response = await clients.post(
+        "/call/olywork.people.email.verify", json={"email": "dev@bounceban.com"})
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["output"]["valid"] is False
+    assert data["output"]["status"] == "risky"
+    assert data["output"]["score"] == 62
+    assert data["_olywork"]["served_by"] == "bounceban.people.email.verify"
+    assert before - await _balance(clients) == 4_000
+    assert [row[0] for row in seen] == ["bounceban"]
+    get_settings.cache_clear()
+
+
+async def test_bounceban_routed_pending_result_is_a_paid_miss_then_falls_through(
+    clients, monkeypatch,
+):
+    monkeypatch.setenv("OLYWORK_PLATFORM_KEY_BOUNCEBAN", "PLATFORM-BOUNCEBAN")
+    monkeypatch.setenv("OLYWORK_PLATFORM_KEY_TOMBA", "PLATFORM-TOMBA-KEY")
+    monkeypatch.setenv("OLYWORK_PLATFORM_KEY_TOMBA_SECRET", "PLATFORM-TOMBA-SECRET")
+    monkeypatch.setenv("OLYWORK_PLATFORM_PROVIDERS", "bounceban,tomba")
+    get_settings.cache_clear()
+    seen = []
+    monkeypatch.setattr(call_service, "relay", _relay_by_provider({
+        "bounceban": [(200, {
+            "id": "task", "status": "verifying", "try_again_at": 1789516800,
+        })],
+        "tomba": [(200, {
+            "data": {"email": {"status": "valid", "score": 99}},
+        })],
+    }, seen))
+
+    before = await _balance(clients)
+    response = await clients.post(
+        "/call/olywork.people.email.verify",
+        json={"email": "dev@bounceban.com"},
+        headers={"X-Olywork-Route-Prefer": "bounceban,tomba"},
+    )
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["_olywork"]["served_by"] == "tomba.people.email.verify"
+    assert [attempt["outcome"] for attempt in data["_olywork"]["tried"]] == ["miss", "hit"]
+    assert [attempt["charged_micro"] for attempt in data["_olywork"]["tried"]] == [4_000, 8_900]
+    assert data["_olywork"]["charged_micro"] == 12_900
+    assert before - await _balance(clients) == 12_900
+    assert [row[0] for row in seen] == ["bounceban", "tomba"]
+    await audit.drain()
+    async with session_maker() as db:
+        rows = (await db.execute(select(CallRecord).where(
+            CallRecord.provider == "bounceban"))).scalars().all()
+        assert len(rows) == 1
+        assert rows[0].hit is False
+        assert rows[0].cost_charged_micro == 4_000
+    get_settings.cache_clear()
+
+
+async def test_millionverifier_error_falls_through_unbilled(clients, enrichment_on, monkeypatch):
+    monkeypatch.setenv("OLYWORK_PLATFORM_KEY_MILLIONVERIFIER", "PLATFORM-MV-KEY")
+    monkeypatch.setenv("OLYWORK_PLATFORM_PROVIDERS", "millionverifier,leadmagic")
+    get_settings.cache_clear()
+    seen = []
+    monkeypatch.setattr(call_service, "relay", _relay_by_provider({
+        "millionverifier": [(200, {"result": "error", "error": "Apikey not found"})],
+        "leadmagic": [(200, {"email_status": "valid", "credits_consumed": 0.25})],
+    }, seen))
+    response = await clients.post("/call/olywork.people.email.verify", json={"email": "support@millionverifier.com"},
+                                  headers={"X-Olywork-Route-Prefer": "millionverifier,leadmagic"})
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["_olywork"]["served_by"] == "leadmagic.people.email.verify"
+    assert data["_olywork"]["tried"][0]["outcome"] == "miss"
+    await audit.drain()
+    async with session_maker() as db:
+        rows = (await db.execute(select(CallRecord).where(
+            CallRecord.provider == "millionverifier"))).scalars().all()
+        assert len(rows) == 1
+        assert rows[0].cost_observed_micro == 0
+
+
+async def test_millionverifier_own_key_precedes_platform_and_is_free(clients, enrichment_on, monkeypatch):
+    monkeypatch.setenv("OLYWORK_PLATFORM_KEY_MILLIONVERIFIER", "PLATFORM-MV-KEY")
+    monkeypatch.setenv("OLYWORK_PLATFORM_PROVIDERS", "millionverifier,leadmagic")
+    get_settings.cache_clear()
+    await clients.post("/secrets", json={"name": "millionverifier", "value": "OWN-MV-KEY"})
+    before = await _balance(clients)
+    seen = []
+    monkeypatch.setattr(call_service, "relay", _relay_by_provider({
+        "millionverifier": [(200, {"result": "ok", "quality": "good", "error": ""})],
+    }, seen))
+    response = await clients.post("/call/olywork.people.email.verify", json={"email": "support@millionverifier.com"})
+    assert response.status_code == 200, response.text
+    assert response.json()["_olywork"]["served_by"] == "millionverifier.people.email.verify"
+    assert response.json()["_olywork"]["tier"] == "credential"
+    assert await _balance(clients) == before
+
+
+async def test_millionverifier_account_usage_requires_own_key(clients, enrichment_on, monkeypatch):
+    monkeypatch.setenv("OLYWORK_PLATFORM_KEY_MILLIONVERIFIER", "PLATFORM-MV-KEY")
+    monkeypatch.setenv("OLYWORK_PLATFORM_PROVIDERS", "millionverifier")
+    get_settings.cache_clear()
+    seen = []
+    monkeypatch.setattr(call_service, "relay", _relay_by_provider({
+        "millionverifier": [(200, {"credits": 123})],
+    }, seen))
+    before = await _balance(clients)
+    response = await clients.get("/call/millionverifier.account.usage")
+    assert response.status_code == 404, response.text
+    assert seen == []
+    assert await _balance(clients) == before
+
+    await clients.post("/secrets", json={"name": "millionverifier", "value": "OWN-MV-KEY"})
+    response = await clients.get("/call/millionverifier.account.usage")
+    assert response.status_code == 200, response.text
+    assert response.json() == {"credits": 123}
+    assert len(seen) == 1
+    assert await _balance(clients) == before
+
+
+@pytest.mark.parametrize("result,free,charged", [
+    ("ok", False, True), ("ok", True, True), ("invalid", False, True),
+    ("disposable", False, True), ("catch_all", False, False), ("unknown", False, False),
+])
+async def test_millionverifier_platform_billing(clients, enrichment_on, monkeypatch, result, free, charged):
+    """Definitive verdicts cost one credit; risky returns are free, unrelated to free-email flags."""
+    monkeypatch.setenv("OLYWORK_PLATFORM_KEY_MILLIONVERIFIER", "PLATFORM-MV-KEY")
+    monkeypatch.setenv("OLYWORK_PLATFORM_PROVIDERS", "millionverifier")
+    get_settings.cache_clear()
+    seen = []
+    monkeypatch.setattr(call_service, "relay", _relay_by_provider({
+        "millionverifier": [(200, {"result": result, "quality": "risky" if not charged else "good",
+                                   "error": "", "free": free, "credits": 497})],
+    }, seen))
+    before = await _balance(clients)
+    response = await clients.get("/call/millionverifier.people.email.verify", params={"email": "support@millionverifier.com"})
+    assert response.status_code == 200, response.text
+    delta = before - await _balance(clients)
+    assert delta == (1780 if charged else 0)
+    assert response.json()["result"] == result
+
+
+@pytest.mark.parametrize('endpoint,given,query,body,field,data,credits', [
+    ('people.email.find', {'full_name': 'Example Person', 'domain': 'example.com'},
+     {'first_name': 'Example', 'last_name': 'Person', 'company_url': 'example.com'}, None,
+     'email', {'email': 'person@example.com'}, 1),
+    ('people.phone.find', {'linkedin_url': 'https://linkedin.com/in/example'},
+     {'linkedin_url': 'https://linkedin.com/in/example'}, None,
+     'phone', {'employee_phone': '+15550101000'}, 1),
+    ('people.enrich', {'email': 'person@example.com'}, {'email': 'person@example.com'}, None,
+     'full_name', {'first_name': 'Example', 'last_name': 'Person'}, 1),
+    ('people.search', {'company_domain': 'example.com', 'title': 'CEO', 'country': 'us', 'limit': 2}, {},
+     {'company_url': {'include': ['example.com'], 'exclude': []},
+      'title': {'include': ['CEO'], 'exclude': []}, 'country_code': {'include': ['US'], 'exclude': []}, 'per_page': 2},
+     'people', [{'first_name': 'Example', 'has_email': True}], 0),
+    ('companies.search', {'domain': 'example.com', 'limit': 2}, {},
+     {'company_url': 'example.com', 'per_page': 2},
+     'companies', [{'company_name': 'Example'}], 1),
+])
+async def test_routed_enrichment_adapter_requests_and_usage(
+        clients, platform_on, monkeypatch, endpoint, given, query, body, field, data, credits):
+    monkeypatch.setenv('OLYWORK_PLATFORM_KEY_QUICKENRICH', 'PLATFORM-QUICKENRICH-KEY')
+    monkeypatch.setenv('OLYWORK_PLATFORM_PROVIDERS', 'quickenrich')
+    get_settings.cache_clear()
+    cat = catalog_store.load()
+    child = 'quickenrich.' + endpoint
+    parent = 'olywork.' + cat.by_id[child]['capability']
+    assert child in cat.by_id[parent]['routed_children']
+    raw = {'success': True, 'data': data, 'meta': {'credits_used': credits, 'next_cursor': 'next'}}
+    seen = []
+    monkeypatch.setattr(call_service, 'relay', _relay_by_provider({'quickenrich': [(200, raw)]}, seen))
+    before = await _balance(clients)
+    response = await clients.post('/call/' + parent, json=given)
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert result['_olywork']['served_by'] == child
+    assert result['output'][field]
+    assert result['raw'] == raw
+    assert seen[0][2:] == (query, body)
+    assert before - await _balance(clients) == credits * 4834
+    if endpoint == 'people.search':
+        assert 'email' not in result['output']['people'][0]
+        assert result['output']['next_cursor'] == 'next'
+
+
+@pytest.mark.parametrize('value', [None, '', 'N/A', ' n/a ', 'null', 'none'])
+@pytest.mark.parametrize('endpoint,field', [('people.email.find', 'email'), ('people.phone.find', 'employee_phone')])
+def test_contact_adapters_reject_empty_markers(endpoint, field, value):
+    ad = catalog_store.load().adapters['quickenrich.' + endpoint]
+    assert ad.is_miss({'success': True, 'data': {field: value}})
+    assert ad.is_miss({'success': True, 'data': []})
+    assert not ad.is_miss({'success': True, 'data': {field: 'contact-value'}})
+
+
+def test_quickenrich_paid_adapter_fixtures_verify_success_outputs():
+    cat = catalog_store.load()
+    expected = {
+        'quickenrich.people.email.find': ('email', 'person@example.com'),
+        'quickenrich.people.phone.find': ('phone', '+15550101000'),
+        'quickenrich.people.enrich': ('full_name', 'Example Person'),
+    }
+    for endpoint_id, (field, value) in expected.items():
+        adapter = cat.adapters[endpoint_id]
+        assert adapter.verified is True
+        assert adapter.verify_note == ''
+        example = json.loads(
+            (Path(__file__).resolve().parents[1] / 'src/olywork/catalog/examples'
+             / cat.by_id[endpoint_id]['example_file']).read_text()
+        )
+        assert not adapter.is_miss(example)
+        assert adapter.from_upstream(example)[field] == value
+
+
+def test_search_adapters_preserve_filters_and_fixed_page_quote():
+    from olywork.domain.catalog.routing.contracts import adapter_accepts
+    cat = catalog_store.load()
+    ad = cat.adapters['quickenrich.people.search.domain']
+    for title, expected in [(None, 4834), ('CEO', 96680)]:
+        given = {'company_domain': 'example.com', 'limit': 1}
+        if title:
+            given['title'] = title
+        ident, _ = canonical_identity(cat.contracts['people.search'], given)
+        q, b = ad.to_upstream(ident, adapter_accepts(ad, ident))
+        assert q == {'company_url': 'example.com', **({'title': title} if title else {})}
+        assert b == {}
+        assert cost_at(cat.cost_view(cat.by_id[ad.endpoint_id]['cost'], 'quickenrich'), ident, ad) == expected
+    assert 'quickenrich.people.search.domain' in cat.by_id['olywork.people.search']['routed_children']
+    reverse = cat.adapters['quickenrich.people.enrich']
+    assert adapter_accepts(reverse, {'linkedin_url': 'https://linkedin.com/in/example'}) is None
+    discovery = cat.adapters['quickenrich.people.search']
+    q, b = discovery.to_upstream({'title': 'CEO', 'limit': 3}, ('title',))
+    assert b == {'title': {'include': ['CEO'], 'exclude': []}, 'per_page': 3}
+    company = cat.adapters['quickenrich.companies.search']
+    q, b = company.to_upstream({'industry': 'Software', 'country': 'us', 'limit': 3}, ('industry',))
+    assert b == {'industry': {'include': ['Software'], 'exclude': []},
+                 'country_code': {'include': ['US'], 'exclude': []}, 'per_page': 3}
+    assert adapter_accepts(company, {'technology': 'Python'}) is None
+
+
+async def test_routed_fixed_page_price_respects_ceiling(clients, platform_on, monkeypatch):
+    monkeypatch.setenv('OLYWORK_PLATFORM_KEY_QUICKENRICH', 'PLATFORM-QUICKENRICH-KEY')
+    monkeypatch.setenv('OLYWORK_PLATFORM_PROVIDERS', 'quickenrich')
+    get_settings.cache_clear()
+    seen = []
+    # Free discovery misses. The paid title search needs a 20-credit ceiling, even with limit=1.
+    miss = {'success': True, 'data': [], 'meta': {'credits_used': 0}}
+    monkeypatch.setattr(call_service, 'relay', _relay_by_provider({'quickenrich': [(200, miss)]}, seen))
+    response = await clients.post('/call/olywork.people.search',
+        json={'company_domain': 'example.com', 'title': 'CEO', 'limit': 1},
+        headers={'X-Olywork-Route-Max-Cost': '0.01'})
+    assert response.status_code == 200, response.text
+    assert len(seen) == 1 and seen[0][1] == 'POST'
+
+
+async def test_routed_discovery_miss_tries_domain_search(clients, platform_on, monkeypatch):
+    monkeypatch.setenv('OLYWORK_PLATFORM_KEY_QUICKENRICH', 'PLATFORM-QUICKENRICH-KEY')
+    monkeypatch.setenv('OLYWORK_PLATFORM_PROVIDERS', 'quickenrich')
+    get_settings.cache_clear()
+    seen = []
+    miss = {'success': True, 'data': [], 'meta': {'credits_used': 0}}
+    hit = {'success': True, 'data': [{'first_name': 'Example', 'email': 'person@example.com'}],
+           'meta': {'credits_used': 1}}
+    monkeypatch.setattr(call_service, 'relay', _relay_by_provider({'quickenrich': [(200, miss), (200, hit)]}, seen))
+    before = await _balance(clients)
+    response = await clients.post('/call/olywork.people.search', json={'company_domain': 'example.com', 'limit': 1})
+    assert response.status_code == 200, response.text
+    assert response.json()['_olywork']['served_by'] == 'quickenrich.people.search.domain'
+    assert [s[1] for s in seen] == ['POST', 'GET']
+    assert before - await _balance(clients) == 4834
+
+
+async def test_routed_contact_miss_uses_next_provider(clients, enrichment_on, monkeypatch):
+    monkeypatch.setenv('OLYWORK_PLATFORM_KEY_QUICKENRICH', 'PLATFORM-QUICKENRICH-KEY')
+    monkeypatch.setenv('OLYWORK_PLATFORM_PROVIDERS', 'quickenrich,tomba')
+    get_settings.cache_clear()
+    seen = []
+    monkeypatch.setattr(call_service, 'relay', _relay_by_provider({
+        'quickenrich': [(200, {'success': True, 'data': {'email': 'N/A'}, 'meta': {'credits_used': 0}})],
+        'tomba': [(200, {'data': {'email': 'person@example.com', 'verification': {'status': 'valid'}}})],
+    }, seen))
+    before = await _balance(clients)
+    response = await clients.post('/call/olywork.people.email.find',
+        json={'first_name': 'Example', 'last_name': 'Person', 'domain': 'example.com'})
+    assert response.status_code == 200, response.text
+    assert response.json()['_olywork']['served_by'] == 'tomba.people.email.find'
+    assert [s[0] for s in seen] == ['quickenrich', 'tomba']
+    assert before - await _balance(clients) == 8900
+
+
+@pytest.mark.parametrize('expression,expected', [('0', 0), ('2', 9668), ('-1', None), ('true', None), ("'2'", None)])
+def test_adapter_unit_quote_requires_nonnegative_integer(expression, expected):
+    from dataclasses import replace
+    ad = replace(catalog_store.load().adapters['quickenrich.people.search.domain'], cost_units=expression)
+    assert cost_at({'usd': 0.004834}, {}, ad) == expected
+
+
+@pytest.mark.parametrize('endpoint,given,expected', [
+    ('people.email.find', {'first_name': 'Example', 'last_name': 'Person', 'domain': 'example.com'}, 4834),
+    ('people.phone.find', {'linkedin_url': 'https://linkedin.com/in/example'}, 4834),
+    ('people.enrich', {'email': 'person@example.com'}, 4834),
+    ('people.search', {'company_domain': 'example.com', 'limit': 10}, 0),
+    ('people.search.domain', {'company_domain': 'example.com', 'limit': 1}, 4834),
+    ('people.search.domain', {'company_domain': 'example.com', 'title': 'CEO', 'limit': 1}, 96680),
+    ('companies.search', {'domain': 'example.com'}, 48340),
+    ('companies.search', {'domain': 'example.com', 'limit': 1}, 4834),
+    ('companies.search', {'domain': 'example.com', 'limit': 100}, 483400),
+])
+def test_enrichment_route_quote_matches_direct_reservation(endpoint, given, expected):
+    from olywork.application.call.resolve import _marketplace_pricing
+    from olywork.domain.catalog.routing.contracts import adapter_accepts
+    cat = catalog_store.load()
+    ep = cat.by_id['quickenrich.' + endpoint]
+    ad = cat.adapters[ep['id']]
+    ident, _ = canonical_identity(cat.contracts[ep['capability']], given)
+    query, body = ad.to_upstream(ident, adapter_accepts(ad, ident))
+    cost = cat.cost_view(ep['cost'], ep['provider'])
+    direct, _ = _marketplace_pricing(ep['provider'], ep['id'], cost, query, json.dumps(body).encode())
+    assert direct == cost_at(cost, ident, ad) == expected
+
+
+@pytest.mark.parametrize('cap,identity,doc,expected',[
+    ('find',{'first_name':'Erol','last_name':'Toker','domain':'trykitt.ai'}, {'email':'erol@trykitt.ai','validity':'valid','credits':{'jobCredits':.005}},5000),
+    ('verify',{'email':'erol@trykitt.ai'}, {'validity':'unknown','credits':{'jobCredits':.0015}},1500),
+])
+async def test_trykitt_routed_calls(clients,monkeypatch,kitt_on,cap,identity,doc,expected):
+    seen=[]
+    monkeypatch.setattr(call_service,'relay',_relay_by_provider({'trykitt':[(200,doc)]},seen))
+    before=await _balance(clients)
+    r=await clients.post('/call/olywork.people.email.'+cap,json=identity)
+    assert r.status_code==200,r.text
+    assert seen[0][3]['realtime'] is True
+    if cap=='find':
+        assert seen[0][3]['fullName']=='Erol Toker'
+        assert r.json()['output']['verified'] is True
+    else: assert r.json()['output']['status']=='unknown'
+    assert await _balance(clients)==before-expected
+
+
+
+async def test_trykitt_throttle_releases_and_routes_to_next_provider(clients,monkeypatch,kitt_on):
+    monkeypatch.setenv('OLYWORK_PLATFORM_PROVIDERS','trykitt,leadmagic')
+    monkeypatch.setenv('OLYWORK_PLATFORM_KEY_LEADMAGIC','TEST-LEADMAGIC')
+    get_settings.cache_clear()
+    seen=[]
+    monkeypatch.setattr(call_service,'relay',_relay_by_provider({'trykitt':[(418,{'message': 'temporarily throttled', 'response_code': 418})],'leadmagic':[(200,{'email':'a@example.com','status':'valid','credits_consumed':1})]},seen))
+    before=await _balance(clients)
+    r=await clients.post('/call/olywork.people.email.find',json={'full_name':'A B','domain':'example.com'})
+    assert r.status_code==200,r.text
+    assert [row[0] for row in seen]==['trykitt','leadmagic']
+    assert await _balance(clients)==before-25000
+
+
+@pytest.mark.parametrize("verdict", ["valid", "invalid", "accept_all", "disposable", "unknown"])
+async def test_contactout_routed_verification_preserves_verdict_and_is_free(
+    clients, contactout_platform, monkeypatch, verdict,
+):
+    cat = catalog_store.load()
+    assert cat.adapters["contactout.people.email.verify"].verified
+    assert "contactout.people.email.verify" in cat.by_id["olywork.people.email.verify"]["routed_children"]
+    payload = {"status_code": 200, "data": {"status": verdict}}
+    seen = []
+    monkeypatch.setattr(call_service, "relay", _relay_by_provider({"contactout": [(200, payload)]}, seen))
+    before = await _balance(clients)
+    response = await clients.post("/call/olywork.people.email.verify", json={"email": "person+tag@example.test"})
+    assert response.status_code == 200, response.text
+    doc = response.json()
+    assert doc["output"] == {"valid": verdict == "valid", "status": verdict}
+    assert doc["raw"] == payload
+    assert doc["_olywork"]["served_by"] == "contactout.people.email.verify"
+    assert doc["_olywork"]["outcome"] == "hit"
+    assert seen == [("contactout", "GET", {"email": "person+tag@example.test"}, None)]
+    assert int(response.headers["X-Olywork-Cost-Micro"]) == 0
+    assert before == await _balance(clients)
+    async with session_maker() as db:
+        assert not (await db.execute(select(Hold))).scalars().all()
+        entries = (await db.execute(select(LedgerEntry).where(LedgerEntry.kind.in_(["reserve", "settle"])))).scalars().all()
+        assert all(e.amount_micro == 0 for e in entries)
+
+
+@pytest.mark.parametrize("payload", [
+    {}, {"status_code": 200, "data": {}}, {"status_code": 200, "data": {"status": ""}},
+    {"status_code": 403, "message": "No access", "data": {"status": "valid"}},
+])
+async def test_contactout_verifier_missing_verdict_and_embedded_errors_fall_back(
+    clients, enrichment_on, monkeypatch, payload,
+):
+    monkeypatch.setenv("OLYWORK_PLATFORM_KEY_CONTACTOUT", "PLATFORM-TEST")
+    monkeypatch.setenv("OLYWORK_PLATFORM_PROVIDERS", "contactout,tomba")
+    get_settings.cache_clear()
+    seen = []
+    monkeypatch.setattr(call_service, "relay", _relay_by_provider({
+        "contactout": [(200, payload)],
+        "tomba": [(200, {"data": {"email": {"status": "invalid", "score": 0}}})],
+    }, seen))
+    response = await clients.post("/call/olywork.people.email.verify", json={"email": "person@example.test"})
+    assert response.status_code == 200, response.text
+    assert [r[0] for r in seen] == ["contactout", "tomba"]
+    assert response.json()["_olywork"]["served_by"] == "tomba.people.email.verify"
+    assert response.json()["output"]["status"] == "invalid"
+
+
+async def test_own_verifier_key_precedes_free_contactout_platform_candidate(
+    clients, contactout_platform, monkeypatch,
+):
+    await clients.post('/secrets', json={'name': 'hunter', 'value': 'OWN-TEST'})
+    seen = []
+    monkeypatch.setattr(call_service, 'relay', _relay_by_provider({
+        'hunter': [(200, {'data': {'status': 'valid'}})],
+    }, seen))
+    before = await _balance(clients)
+    response = await clients.post('/call/olywork.people.email.verify', json={'email': 'person@example.test'})
+    assert response.status_code == 200, response.text
+    assert response.json()['_olywork']['served_by'] == 'hunter.people.email.verify'
+    assert [row[0] for row in seen] == ['hunter']
+    assert before == await _balance(clients)
+
+
+@pytest.mark.parametrize('value,expected', [
+    ({'a.example': {'name': 'A'}, 'b.example': {'name': 'B'}}, [{'name': 'A'}, {'name': 'B'}]),
+    ([{'name': 'A'}], [{'name': 'A'}]), ({}, []), ([], []), (None, None), ('bad', None),
+])
+def test_row_values_and_nested_lookup_expressions(value, expected):
+    assert P.evaluate('values(rows)', {'rows': value}) == expected
+    assert P.evaluate("get(values(rows), '[0].name')", {'rows': value}) == (
+        'A' if expected else None)
+
+
+_CONTACTOUT_DISCOVERY = [
+    ('people.email.find', 'people.contact.work',
+     {'linkedin_url': 'https://www.linkedin.com/in/example'},
+     'GET', {'profile': 'https://www.linkedin.com/in/example',
+             'email_type': 'work', 'include_phone': False}, None,
+     {'status_code': 200, 'profile': {'work_email': ['work@example.test']}},
+     'email', 'work@example.test', 150_000),
+    ('people.phone.find', 'people.contact.phone',
+     {'linkedin_url': 'https://www.linkedin.com/in/example'},
+     'GET', {'profile': 'https://www.linkedin.com/in/example',
+             'email_type': 'none', 'include_phone': True}, None,
+     {'status_code': 200, 'profile': {'phone': ['+10000000000']}},
+     'phone', '+10000000000', 250_000),
+    ('companies.search', 'companies.search', {'domain': 'example.test'},
+     'POST', {}, {'domain': ['example.test']},
+     {'status_code': 200, 'companies': [{'name': 'Example'}]}, 'companies', [{'name': 'Example'}], 20_000),
+    ('companies.enrich', 'companies.enrich', {'domain': 'example.test'},
+     'POST', {}, {'domains': ['example.test']},
+     {'status_code': 200, 'companies': {'example.test': {'name': 'Example', 'domain': 'example.test'}}},
+     'name', 'Example', 20_000),
+]
+
+
+@pytest.mark.parametrize('cap,child,identity,method,query,body,payload,field,expected,charge', _CONTACTOUT_DISCOVERY)
+async def test_contactout_discovery_routes_preserve_selectors_and_settle(
+    clients, contactout_platform, monkeypatch,
+    cap, child, identity, method, query, body, payload, field, expected, charge,
+):
+    cat = catalog_store.load()
+    eid = 'contactout.' + child
+    assert cat.adapters[eid].verified and not cat.adapters[eid].verify_note
+    assert eid in cat.by_id['olywork.' + cap]['routed_children']
+    seen = []
+    monkeypatch.setattr(call_service, 'relay', _relay_by_provider({'contactout': [(200, payload)]}, seen))
+    before = await _balance(clients)
+    response = await clients.post('/call/olywork.' + cap, json=identity)
+    assert response.status_code == 200, response.text
+    doc = response.json()
+    assert doc['raw'] == payload and doc['output'][field] == expected
+    assert doc['_olywork']['served_by'] == eid and doc['_olywork']['outcome'] == 'hit'
+    assert seen == [('contactout', method, query, body)]
+    assert int(response.headers['X-Olywork-Cost-Micro']) == charge
+    assert before - await _balance(clients) == charge
+    async with session_maker() as db:
+        assert not (await db.execute(select(Hold))).scalars().all()
+
+
+@pytest.mark.parametrize('cap,child,identity,method,query,body,payload,field,expected,charge', _CONTACTOUT_DISCOVERY)
+@pytest.mark.parametrize('failed', [False, True])
+async def test_contactout_discovery_empty_or_error_response_is_not_a_hit(
+    clients, contactout_platform, monkeypatch,
+    cap, child, identity, method, query, body, payload, field, expected, charge, failed,
+):
+    payload = {'status_code': 403, **{k: v for k, v in payload.items() if k != 'status_code'}} if failed else {'status_code': 200}
+    seen = []
+    monkeypatch.setattr(call_service, 'relay', _relay_by_provider({'contactout': [(200, payload)]}, seen))
+    before = await _balance(clients)
+    response = await clients.post('/call/olywork.' + cap, json=identity)
+    assert response.status_code == 200, response.text
+    assert response.json()['_olywork']['outcome'] == 'miss'
+    assert before == await _balance(clients)
+    async with session_maker() as db:
+        assert not (await db.execute(select(Hold))).scalars().all()
+
+
+def test_contactout_unverified_pii_routes_stay_direct_only():
+    cat = catalog_store.load()
+    for cap, child in [('people.search', 'people.search'), ('people.enrich', 'people.enrich'),
+                       ('linkedin.user.profile', 'people.linkedin.enrich')]:
+        eid = 'contactout.' + child
+        assert eid not in cat.adapters
+        assert eid not in cat.by_id['olywork.' + cap]['routed_children']
+    assert 'contactout.people.contact.personal' not in cat.adapters
+    assert cat.by_id['contactout.people.contact.personal']['platform'] == 'people'
+
+
+# ---- regression: adapter exceptions after child success must not crash the parent (2026-09) ----
+
+
+def _make_throwing_adapter(real, throw_on: str):
+    """Create a wrapper adapter that throws on the specified method."""
+    class ThrowingAdapter:
+        def __init__(self, real):
+            self._real = real
+            # Copy ALL attributes from the real Adapter dataclass
+            self.endpoint_id = real.endpoint_id
+            self.accepts = real.accepts
+            self.in_map = real.in_map
+            self.out_map = real.out_map
+            self.miss = real.miss
+            self.const = getattr(real, 'const', {})
+            self.in_expr = getattr(real, 'in_expr', {})
+            self.body_array = getattr(real, 'body_array', False)
+            self.test_identity = getattr(real, 'test_identity', {})
+            self.cost_units = getattr(real, 'cost_units', '')
+            self.additional_capabilities = getattr(real, 'additional_capabilities', ())
+            self.verified_capabilities = getattr(real, 'verified_capabilities', ())
+            self.verified = real.verified
+            self.verify_note = getattr(real, 'verify_note', '')
+            self._filter_keys = getattr(real, '_filter_keys', ())
+
+        def to_upstream(self, identity, variant):
+            if throw_on == 'to_upstream':
+                raise KeyError("simulated to_upstream failure")
+            return self._real.to_upstream(identity, variant)
+
+        def from_upstream(self, provider_body):
+            if throw_on == 'from_upstream':
+                raise ValueError("simulated from_upstream failure")
+            return self._real.from_upstream(provider_body)
+
+        def is_miss(self, provider_body):
+            if throw_on == 'is_miss':
+                raise TypeError("simulated is_miss failure")
+            return self._real.is_miss(provider_body)
+
+    return ThrowingAdapter(real)
+
+
+def _patched_catalog_with_throwing_adapter(original_cat, endpoint_id: str, throw_on: str):
+    """Return a new Catalog with one adapter replaced by a throwing wrapper."""
+    from dataclasses import replace
+    new_adapters = dict(original_cat.adapters)
+    new_adapters[endpoint_id] = _make_throwing_adapter(original_cat.adapters[endpoint_id], throw_on)
+    return replace(original_cat, adapters=new_adapters)
+
+
+def _patched_catalog_all_email_find_throw(original_cat):
+    """Return a new Catalog where all email.find adapters throw on from_upstream."""
+    from dataclasses import replace
+    new_adapters = {}
+    for eid, adapter in original_cat.adapters.items():
+        if 'email.find' in eid:
+            new_adapters[eid] = _make_throwing_adapter(adapter, 'from_upstream')
+        else:
+            new_adapters[eid] = adapter
+    return replace(original_cat, adapters=new_adapters)
+
+
+async def test_adapter_from_upstream_throws_after_child_200_waterfall_continues(
+    clients: AsyncClient, enrichment_on, monkeypatch,
+):
+    """Regression for 2026-09 bug: adapter.from_upstream throwing after a child returned 200 used
+    to crash the parent with a bare 502, leaving children audited OK but parent failed. Now the
+    adapter failure is recorded as an error and the waterfall continues to the next provider."""
+    original_cat = catalog_store.load()
+    # Patch tomba's adapter to throw (tomba is first in price order for this identity)
+    patched_cat = _patched_catalog_with_throwing_adapter(original_cat, "tomba.people.email.find", "from_upstream")
+
+    monkeypatch.setattr(catalog_store, 'load', lambda: patched_cat)
+
+    seen = []
+    # Tomba returns 200 but adapter throws; hunter returns 200 and works fine
+    # '*' catches other providers in waterfall (findymail, etc) returning miss
+    monkeypatch.setattr(call_service, 'relay', _relay_by_provider({
+        '*': [(200, {'data': None})] * 10,  # Other providers return miss-like response
+        'tomba': [(200, {'data': {'email': 'bad@format.test', 'unexpectedField': True}})],
+        'hunter': [(200, {'data': {'email': 'found@example.test', 'score': 80, 'verification': {'status': 'valid'}}})],
+    }, seen))
+
+    r = await clients.post(f'/call/{ROUTED}', json={'full_name': 'Example Person', 'domain': 'example.com'})
+    assert r.status_code == 200, r.text
+    doc = r.json()
+    # Waterfall continued to hunter after tomba's adapter failed
+    assert doc['_olywork']['served_by'] == 'hunter.people.email.find'
+    assert doc['_olywork']['outcome'] == 'hit'
+    # The tomba error should be recorded in `tried`
+    tried = {t['endpoint_id']: t for t in doc['_olywork']['tried']}
+    assert 'tomba.people.email.find' in tried
+    assert tried['tomba.people.email.find']['outcome'] == 'error'
+    assert 'adapter.from_upstream failed' in tried['tomba.people.email.find']['detail']
+    # Hunter succeeded
+    assert tried['hunter.people.email.find']['outcome'] == 'hit'
+
+
+async def test_adapter_throws_on_all_children_returns_structured_502_with_tried(
+    clients: AsyncClient, enrichment_on, monkeypatch,
+):
+    """When ALL adapters throw on 200 responses, the parent must return a structured 502
+    with proper error details and `tried` list - not a bare 500 or empty 502."""
+    original_cat = catalog_store.load()
+    patched_cat = _patched_catalog_all_email_find_throw(original_cat)
+
+    monkeypatch.setattr(catalog_store, 'load', lambda: patched_cat)
+
+    seen = []
+    # All providers return 200 but adapters throw
+    # '*' wildcard catches all providers - return data that adapters will parse
+    monkeypatch.setattr(call_service, 'relay', _relay_by_provider({
+        '*': [(200, {'data': {'email': 'x@test.test'}})] * 15,
+    }, seen))
+
+    r = await clients.post(f'/call/{ROUTED}', json={'full_name': 'Example Person', 'domain': 'example.com'})
+    # Should be 502 route_failed, not 500 or empty body
+    assert r.status_code == 502, r.text
+    doc = r.json()
+    assert doc['detail']['error'] == 'route_failed'
+    # The tried list should have some error outcomes (adapters that threw)
+    tried = doc['detail']['tried']
+    assert len(tried) > 0
+    error_outcomes = [t for t in tried if t['outcome'] == 'error']
+    # At least one adapter should have thrown (those with email.find in name)
+    assert len(error_outcomes) > 0, f"Expected at least one error outcome, got: {tried}"
+    # Check that error details mention adapter failure
+    for t in error_outcomes:
+        if 'detail' in t and t['detail']:
+            assert 'adapter' in t['detail'] or 'failed' in t['detail'], f"Unexpected error detail: {t}"
+
+
+async def test_adapter_to_upstream_throws_records_error_and_continues(
+    clients: AsyncClient, enrichment_on, monkeypatch,
+):
+    """If adapter.to_upstream throws (before the child call), the error is recorded
+    and the waterfall continues to the next candidate."""
+    original_cat = catalog_store.load()
+    # Patch tomba's adapter to throw on to_upstream
+    patched_cat = _patched_catalog_with_throwing_adapter(original_cat, "tomba.people.email.find", "to_upstream")
+
+    monkeypatch.setattr(catalog_store, 'load', lambda: patched_cat)
+
+    seen = []
+    # Tomba's to_upstream will throw before relay is called
+    # '*' catches other providers, returning miss-like response
+    monkeypatch.setattr(call_service, 'relay', _relay_by_provider({
+        '*': [(200, {'data': None})] * 10,  # Other providers return miss-like response
+        'hunter': [(200, {'data': {'email': 'found@example.test', 'score': 80, 'verification': {'status': 'valid'}}})],
+    }, seen))
+
+    r = await clients.post(f'/call/{ROUTED}', json={'full_name': 'Example Person', 'domain': 'example.com'})
+    assert r.status_code == 200, r.text
+    doc = r.json()
+    # Tomba's to_upstream failed, waterfall continued to hunter
+    assert doc['_olywork']['served_by'] == 'hunter.people.email.find'
+    tried = {t['endpoint_id']: t for t in doc['_olywork']['tried']}
+    assert 'tomba.people.email.find' in tried
+    assert tried['tomba.people.email.find']['outcome'] == 'error'
+    assert 'adapter.to_upstream failed' in tried['tomba.people.email.find']['detail']
+
+
+async def test_adapter_is_miss_throws_records_error_and_continues(
+    clients: AsyncClient, enrichment_on, monkeypatch,
+):
+    """If adapter.is_miss throws after parsing the response, the error is recorded
+    and the waterfall continues."""
+    original_cat = catalog_store.load()
+    # Patch tomba's adapter to throw on is_miss
+    patched_cat = _patched_catalog_with_throwing_adapter(original_cat, "tomba.people.email.find", "is_miss")
+
+    monkeypatch.setattr(catalog_store, 'load', lambda: patched_cat)
+
+    seen = []
+    # '*' catches other providers, returning miss-like response
+    monkeypatch.setattr(call_service, 'relay', _relay_by_provider({
+        '*': [(200, {'data': None})] * 10,  # Other providers return miss-like response
+        'tomba': [(200, {'data': {'email': 'tomba@test.test', 'score': 99}})],
+        'hunter': [(200, {'data': {'email': 'found@example.test', 'score': 80, 'verification': {'status': 'valid'}}})],
+    }, seen))
+
+    r = await clients.post(f'/call/{ROUTED}', json={'full_name': 'Example Person', 'domain': 'example.com'})
+    assert r.status_code == 200, r.text
+    doc = r.json()
+    # Tomba's is_miss failed, waterfall continued to hunter
+    assert doc['_olywork']['served_by'] == 'hunter.people.email.find'
+    tried = {t['endpoint_id']: t for t in doc['_olywork']['tried']}
+    assert 'tomba.people.email.find' in tried
+    assert tried['tomba.people.email.find']['outcome'] == 'error'
+    assert 'adapter.is_miss failed' in tried['tomba.people.email.find']['detail']
+
+
+async def test_prospeo_no_match_400_is_treated_as_miss_not_error(
+    clients: AsyncClient, enrichment_with_miss_declarers_on, monkeypatch,
+):
+    """Prospeo returns 400 with error_code=NO_MATCH for 'no result' — this is a semantic miss,
+    not a caller fault. The waterfall should continue and the parent should not 502."""
+    seen = []
+    # Prospeo returns 400 NO_MATCH (semantic miss), tomba returns 200 hit
+    monkeypatch.setattr(call_service, 'relay', _relay_by_provider({
+        '*': [(200, {'data': None})] * 10,  # Other providers miss
+        'prospeo': [(400, {'error': True, 'error_code': 'NO_MATCH'})],
+        'tomba': [(200, {'data': {'email': 'found@example.test', 'score': 99, 'verification': {'status': 'valid'}}})],
+    }, seen))
+
+    r = await clients.post(f'/call/{ROUTED}', json={'full_name': 'Example Person', 'domain': 'example.com'},
+                           headers={'X-Olywork-Route-Prefer': 'prospeo'})  # ask it first; otherwise tomba's hit ends the waterfall before it runs
+    assert r.status_code == 200, r.text
+    doc = r.json()
+    # Waterfall continued past Prospeo's NO_MATCH
+    assert doc['_olywork']['outcome'] == 'hit'
+    tried = {t['endpoint_id']: t for t in doc['_olywork']['tried']}
+    # Prospeo should be recorded as miss, not error
+    prospeo_attempts = [t for t in doc['_olywork']['tried'] if t['provider'] == 'prospeo']
+    assert prospeo_attempts, doc['_olywork']['tried']
+    for attempt in prospeo_attempts:
+        assert attempt['outcome'] == 'miss', f"Prospeo NO_MATCH should be miss, not {attempt['outcome']}"
+
+
+async def test_limadata_404_is_treated_as_miss_not_error(
+    clients: AsyncClient, enrichment_with_miss_declarers_on, monkeypatch,
+):
+    """LimaData returns 404 for 'no email found' — with the miss status declared, this should
+    be treated as a miss and the waterfall should continue."""
+    seen = []
+    # LimaData returns 404 (declared miss), tomba returns 200 hit
+    monkeypatch.setattr(call_service, 'relay', _relay_by_provider({
+        '*': [(200, {'data': None})] * 10,  # Other providers miss
+        'limadata': [(404, {})],
+        'tomba': [(200, {'data': {'email': 'found@example.test', 'score': 99, 'verification': {'status': 'valid'}}})],
+    }, seen))
+
+    r = await clients.post(f'/call/{ROUTED}', json={'full_name': 'Example Person', 'domain': 'example.com'},
+                           headers={'X-Olywork-Route-Prefer': 'limadata'})  # ask it first; otherwise tomba's hit ends the waterfall before it runs
+    assert r.status_code == 200, r.text
+    doc = r.json()
+    # Waterfall continued past LimaData's 404
+    assert doc['_olywork']['outcome'] == 'hit'
+    tried = {t['endpoint_id']: t for t in doc['_olywork']['tried']}
+    # LimaData should be recorded as miss, not error
+    limadata_attempts = [t for t in doc['_olywork']['tried'] if t['provider'] == 'limadata']
+    assert limadata_attempts, doc['_olywork']['tried']
+    for attempt in limadata_attempts:
+        assert attempt['outcome'] == 'miss', f"LimaData 404 should be miss, not {attempt['outcome']}"
+
+
+# ---- miss.when: one status, two meanings (prospeo 400 NO_MATCH vs INVALID_DATAPOINTS) ----
+
+
+def test_declared_miss_honours_when_predicate_and_never_crashes():
+    from olywork.application.call import route as call_route
+    ep = {"id": "x", "miss": {"status": 400, "when": "error_code == 'NO_MATCH'", "means": "no match"}}
+    assert call_route._declared_miss(ep, 400, b'{"error":true,"error_code":"NO_MATCH"}')
+    assert not call_route._declared_miss(ep, 400, b'{"error":true,"error_code":"INVALID_DATAPOINTS"}')
+    assert not call_route._declared_miss(ep, 404, b'{"error":true,"error_code":"NO_MATCH"}')
+    assert not call_route._declared_miss(ep, 400, b'["NO_MATCH"]')      # array body: no crash, not a miss
+    assert not call_route._declared_miss(ep, 400, b'not json')
+    plain = {"id": "y", "miss": {"status": 404, "means": "gone"}}
+    assert call_route._declared_miss(plain, 404, b'Not Found')
+    assert not call_route._declared_miss(plain, 400, b'')
+
+
+def test_prospeo_and_limadata_person_finders_declare_their_miss():
+    cat = catalog_store.load()
+    from olywork.domain.catalog.routing.contracts import declared_miss
+    for eid in ("prospeo.people.email.find", "prospeo.people.phone.find", "prospeo.people.enrich"):
+        ep = cat.by_id[eid]
+        assert ep["miss"]["status"] == 400, eid
+        # evaluate the predicate, not just its spelling: a misspelt path would silently never match
+        assert declared_miss(ep, 400, {"error": True, "error_code": "NO_MATCH"}), eid
+        assert not declared_miss(ep, 400, {"error": True, "error_code": "INVALID_DATAPOINTS"}), eid
+        assert "when" not in catalog_store.endpoint_view(ep, "Prospeo", cat)["miss"], "internal predicate leaks to agents"
+    for eid in ("limadata.people.email.find.name", "limadata.people.email.find.linkedin", "limadata.people.phone.find"):
+        assert cat.by_id[eid]["miss"]["status"] == 404, eid
+
+
+async def test_prospeo_invalid_datapoints_400_stays_a_vendor_fault(
+    clients: AsyncClient, enrichment_with_miss_declarers_on, monkeypatch,
+):
+    """The same 400 with a non-NO_MATCH body is a rejected request: recorded as an error, the
+    waterfall goes on to free-on-failure providers, and the outcome is never a clean miss."""
+    seen = []
+    monkeypatch.setattr(call_service, 'relay', _relay_by_provider({
+        '*': [(200, {'data': None})] * 10,
+        'prospeo': [(400, {'error': True, 'error_code': 'INVALID_DATAPOINTS'})],
+    }, seen))
+    r = await clients.post(f'/call/{ROUTED}', json={'full_name': 'Example Person', 'domain': 'example.com'},
+                           headers={'X-Olywork-Route-Prefer': 'prospeo'})  # ask it first; otherwise tomba's hit ends the waterfall before it runs
+    assert r.status_code == 502, r.text
+    prospeo = [t for t in r.json()['detail']['tried'] if t['provider'] == 'prospeo']
+    assert prospeo and all(t['outcome'] == 'error' for t in prospeo)
+
+
+def test_linkedin_url_is_normalised_once_for_every_adapter():
+    from olywork.domain.catalog.routing import paths as P
+    from olywork.domain.catalog.routing.contracts import canonical_identity
+    assert P.linkedin_url("linkedin.com/in/patrickcollison") == "https://linkedin.com/in/patrickcollison"
+    assert P.linkedin_url("www.linkedin.com/in/patrickcollison/") == "https://www.linkedin.com/in/patrickcollison/"
+    assert P.linkedin_url("https://www.linkedin.com/in/patrickcollison") == "https://www.linkedin.com/in/patrickcollison"
+    assert P.linkedin_url("patrickcollison") == "https://www.linkedin.com/in/patrickcollison"
+    contract = catalog_store.load().contracts["people.email.find"]
+    ident, variant = canonical_identity(contract, {"linkedin_url": "linkedin.com/in/patrickcollison"})
+    assert variant == ("linkedin_url",)
+    assert ident["linkedin_url"] == "https://linkedin.com/in/patrickcollison"
+    assert ident["linkedin_handle"] == "patrickcollison"
+
+
+def test_linkedin_url_only_trusts_a_linkedin_host():
+    from olywork.domain.catalog.routing import paths as P
+    # a path that merely mentions linkedin.com is a handle-shaped string, never promoted to that host
+    assert P.linkedin_url("evil.example/?linkedin.com/in/x") == "https://www.linkedin.com/in/evil.example/?linkedin.com/in/x"
+    assert P.linkedin_url("uk.linkedin.com/in/x") == "https://uk.linkedin.com/in/x"
+
+
+def test_arena_and_router_read_the_miss_block_the_same_way():
+    from olywork.domain import arena
+    cat = catalog_store.load()
+    ep = cat.by_id["prospeo.people.email.find"]; ad = cat.adapters[ep["id"]]; contract = cat.contracts["people.email.find"]
+    assert arena.classify(contract, ad, ep, 400, {"error": True, "error_code": "NO_MATCH"})[0] == "miss"
+    assert arena.classify(contract, ad, ep, 400, {"error": True, "error_code": "INVALID_DATAPOINTS"})[0] == "error"
+
+
+def test_linkedin_url_lowercases_the_host_so_the_handle_derives():
+    from olywork.domain.catalog.routing import paths as P
+    assert P.linkedin_url("LinkedIn.com/in/Patrick") == "https://linkedin.com/in/Patrick"
+    assert P.linkedin_handle(P.linkedin_url("WWW.LinkedIn.com/in/Patrick")) == "Patrick"

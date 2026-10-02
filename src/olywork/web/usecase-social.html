@@ -205,31 +205,46 @@ paste the setup line from <code>/llms.txt</code> into Grok and it can use the ol
 (AGPL).</p></div>
 </div></section>
 
-<footer style="padding:80px 48px;background:var(--surface);border-top:1px solid var(--border);display:flex;justify-content:space-between;max-width:1200px;margin:100px auto 0;width:100%;">
-  <div class="foot-brand" style="max-width:300px;">
-    <div class="brand" style="display:flex;align-items:center;gap:8px;font-family:var(--display);font-weight:800;font-size:24px;letter-spacing:-0.04em;margin-bottom:16px;">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:24px;height:24px;"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-      Olywork
+<footer class="ow-footer">
+  <div class="ow-footer-inner">
+    <div class="ow-footer-brand-wrap">
+      <a class="ow-footer-brand" href="/" aria-label="olywork">
+        <img src="/media/brand/olywork_Official.svg" alt="olywork" style="height:28px;width:auto;display:block;">
+      </a>
+      <p class="ow-footer-tagline">The OpenRouter for AI Agent Tools.<br>One token for 2,800+ endpoints. Zero key management.</p>
     </div>
-    <div style="color:var(--muted);font-size:14px;line-height:1.5;">The OpenRouter for AI Agent Tools. One unified token for 2,800+ endpoints.</div>
+    <nav class="ow-footer-nav" aria-label="Site navigation">
+      <div class="ow-footer-col">
+        <div class="ow-footer-head">Explore</div>
+        <a href="/catalog">Catalog</a>
+        <a href="/pricing">Pricing</a>
+      </div>
+      <div class="ow-footer-col">
+        <div class="ow-footer-head">Build</div>
+        <a href="/docs">API Reference</a>
+        <a href="/tutorial">Tutorial</a>
+        <a href="/llms.txt">llms.txt</a>
+      </div>
+      <div class="ow-footer-col">
+        <div class="ow-footer-head">Resources</div>
+        <a href="/resources">Workflows</a>
+        <a href="/use-cases/seo-data-for-ai-agents">Use Cases</a>
+        <a href="/agents/claude-code">Agents</a>
+      </div>
+      <div class="ow-footer-col">
+        <div class="ow-footer-head">Company</div>
+        <a href="/blog">Blog</a>
+        <a href="/support">Support</a>
+        <a href="/terms">Terms</a>
+        <a href="/privacy">Privacy</a>
+        <a href="https://github.com/meettaqi/olywork-new" target="_blank" rel="noopener">GitHub ↗</a>
+      </div>
+    </nav>
   </div>
-  <nav class="foot-cols" style="display:flex;gap:64px;">
-    <div class="foot-col" style="display:flex;flex-direction:column;gap:12px;">
-      <div style="font-weight:700;color:var(--ink);margin-bottom:8px;">Explore</div>
-      <a href="/catalog" style="color:var(--muted);">Catalog</a>
-    </div>
-    <div class="foot-col" style="display:flex;flex-direction:column;gap:12px;">
-      <div style="font-weight:700;color:var(--ink);margin-bottom:8px;">Build</div>
-      <a href="/docs" style="color:var(--muted);">API Docs</a>
-      <a href="/tutorial" style="color:var(--muted);">Tutorial</a>
-    </div>
-    <div class="foot-col" style="display:flex;flex-direction:column;gap:12px;">
-      <div style="font-weight:700;color:var(--ink);margin-bottom:8px;">Company</div>
-      <a href="/support" style="color:var(--muted);">Support</a>
-      <a href="/terms" style="color:var(--muted);">Terms</a>
-      <a href="/privacy" style="color:var(--muted);">Privacy</a>
-    </div>
-  </nav>
+  <div class="ow-footer-bottom">
+    <span class="ow-footer-copy">&copy; 2026 Olywork. All rights reserved.</span>
+    <span class="ow-footer-note">Open source · Pay-per-call · No markup</span>
+  </div>
 </footer>
 
 <script>

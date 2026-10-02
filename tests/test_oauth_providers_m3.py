@@ -56,6 +56,12 @@ def test_every_provider_is_registered():
         "spyfu", "apify", "meta-ad-library", "serpapi",
         "coingecko", "polygon", "finnhub", "twelvedata", "fmp", "eodhd", "marketstack", "tiingo",
         "microsoft-ads", "snapchat-ads", "tiktok-ads", "pinterest-ads",
+        # Additional providers
+        "adyntel", "aiark", "anyapi", "bounceban", "cloro", "contactout", "datagma", "dropleads",
+        "fetchinio", "financialdatasets", "fishaudio", "getleadsio", "harvestapi", "keenable",
+        "limadata", "millionverifier", "moltsets", "olostep", "openmart", "piapi", "prospeo",
+        "quickenrich", "reapi", "scrapegraphai", "scrubby", "serper", "sumble", "tavily",
+        "tinyfish", "trestleiq", "trykitt", "wiza", "zerobounce",
         # BYOK token providers
         "minimax", "openrouter", "replicate",
     }

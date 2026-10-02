@@ -735,11 +735,8 @@ def _forward_headers(cfg: ProxyConfig, pairs: list[tuple[str, str]]) -> list[tup
     if not any(k.lower() == "accept-encoding" for k, _ in out):
         out.append(("Accept-Encoding", "identity"))
     out.append(("X-Olywork-Token", cfg.olywork_token))
-    out.append(("X-Olywork-Token", cfg.olywork_token))
     if cfg.org:
         out.append(("X-Olywork-Org", cfg.org))
-        out.append(("X-Olywork-Org", cfg.org))
-    out.append(("X-Olywork-Client", cfg.client_name))
     out.append(("X-Olywork-Client", cfg.client_name))
     out.append(("ngrok-skip-browser-warning", "1"))
     return out

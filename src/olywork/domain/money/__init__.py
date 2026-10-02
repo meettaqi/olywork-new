@@ -302,7 +302,7 @@ async def reserve_in_transaction(
                  endpoint_id=endpoint_id,
                  meta={**(meta or {}),
                        "estimated_micro": int(est_micro), "charged_micro": charged,
-                       "margin": get_settings().platform_margin})
+                       "margin": get_settings().platform_margin, "tags": dict(tags or {})})
     # One row per caller tag, at the estimate, in THIS transaction. A builder's budget and invoice are
     # read from these; writing them anywhere else (or later) would make both lossy.
     for dim, val in (tags or {}).items():
@@ -473,8 +473,11 @@ async def _consume_blocks(
     # write wins and one draw is LOST — the blocks then show more credit than the ledger's truth
     # (found live 2026-08-30: $1.70 of draws lost under an agent's parallel burst, org 2867).
     # Postgres locks the rows; SQLite ignores FOR UPDATE and is single-writer anyway.
+    # Lock in unique primary-key order so concurrent settles cannot acquire blocks in reverse
+    # order. This is NOT consumption priority: keep the promotional/age sort below unchanged.
     blocks = (await db.execute(
         select(CreditBlock).where(CreditBlock.org_id == org_id, CreditBlock.remaining_micro > 0)
+        .order_by(CreditBlock.id)
         .with_for_update()
     )).scalars().all()
     blocks.sort(key=lambda b: (_KIND_ORDER.get(b.kind, 99), b.created_at or _now(), b.id))

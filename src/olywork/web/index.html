@@ -15,6 +15,7 @@
      cannot reach used to leave the whole signed-in dashboard blank (issue #137). Version lives in
      the filename — bump it here and in src/olywork/web/vendor/ together. -->
 <script src="/vendor/vue-3.5.41.global.prod.js"></script>
+<script src="/agent-setup.js"></script>
 <script>
 // Fail loudly. `[v-cloak]{display:none}` hides the un-compiled template until Vue mounts, so
 // anything that stops Vue mounting turns the dashboard into a silent blank page with nothing in
@@ -30,9 +31,9 @@ addEventListener('load', function(){
     var box = document.createElement('div');
     box.setAttribute('role', 'alert');
     box.style.cssText = 'max-width:560px;margin:18vh auto;padding:22px 24px;border:1px solid ' +
-      'var(--line,#e3dac7);border-radius:14px;background:var(--panel,#fffdf8);color:var(--ink,#201c15);' +
-      'font:14px/1.55 ui-monospace,"SF Mono",Menlo,Consolas,monospace';
-    box.innerHTML = '<b>▚ olywork</b><p>' + why + ' This is usually a network hiccup between you and ' +
+      'var(--line,#E8E5DA);border-radius:16px;background:var(--panel,#FCFBFA);color:var(--ink,#202020);' +
+      'font:14px/1.55 var(--sans,"Inter",sans-serif)';
+    box.innerHTML = '<div style="margin-bottom:12px"><img src="/media/brand/olywork_Official.svg" alt="olywork" style="height:26px;width:auto;"></div><p>' + why + ' This is usually a network hiccup between you and ' +
       'the server.</p><p><button type="button" class="btn" id="dashReload">Reload</button></p>';
     document.body.appendChild(box);
     document.getElementById('dashReload').onclick = function(){ location.reload(); };
@@ -44,37 +45,52 @@ addEventListener('load', function(){
 <script src="/adtrack.js"></script>
 <style>
   [v-cloak]{display:none}  /* hide the raw template until Vue mounts — else a hard refresh flashes the un-compiled markup while the script downloads. Vue drops the attribute on mount, which is also how the loader guard above detects that it never did. */
-  /* ===== Ledger: warm paper + clay, mono-forward. Dark default. ===== */
-  :root{ --bg:#211d16;--panel:#2a251d;--panel2:#332d23;--ink:#f0e9d9;--muted:#a99e88;--line:#3b352a;
-    --accent:#e0703f;--onAccent:#231c14;--green:#7fae72;--amber:#d0a24a;--teal:#6aa89c;--red:#e08a7a;--r:14px;--rb:9px;
-    --mono:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
-    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  :root{
+    --bg: #F4F2EC; --surface: #FCFBFA; --panel: #FFFFFF; --panel2: #F0EEE6;
+    --ink: #202020; --muted: #7E7C74; --muted2: #A09E96;
+    --line: #E8E5DA; --line2: #D5D1C3;
+    --teal: #202020;
+    --green: #22C55E; --amber: #F59E0B; --red: #EF4444;
+    --accent: #9FF25F;
+    --onAccent: #111C06;
+    --inverse: #1A1A1A; --inverse-ink: #FCFBFA;
+    --shadow-sm: none;
+    --shadow-md: none;
+    --shadow-lg: none;
+    --ease: cubic-bezier(.2,.72,.25,1); --ease-out: cubic-bezier(.22,1,.36,1);
+    --r: 16px; --rb: 12px;
+    --mono: ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+    --sans: "Plus Jakarta Sans", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --display: "Plus Jakarta Sans", sans-serif;
+  }
   [data-theme="light"]{
-  --bg: #F4F2EC; --surface: #FCFBFA; --panel: #FFFFFF; --panel2: #F0EEE6;
-  --ink: #202020; --muted: #7E7C74; --muted2: #A09E96;
-  --line: #E8E5DA; --line2: #D5D1C3;
-  --teal: #202020;
-  --green: #22C55E; --amber: #F59E0B; --red: #EF4444;
-  --accent: #9FF25F;
-  --inverse: #1A1A1A; --inverse-ink: #FCFBFA;
-  --shadow-sm: none;
-  --shadow-md: none;
-  --shadow-lg: none;
-  --ease: cubic-bezier(.2,.72,.25,1); --ease-out: cubic-bezier(.22,1,.36,1);
-  --r: 16px; --rb: 12px;
-  --sans: "Inter", sans-serif;
-  --display: "Plus Jakarta Sans", sans-serif;
-}
+    --bg: #F4F2EC; --surface: #FCFBFA; --panel: #FFFFFF; --panel2: #F0EEE6;
+    --ink: #202020; --muted: #7E7C74; --muted2: #A09E96;
+    --line: #E8E5DA; --line2: #D5D1C3;
+    --teal: #202020;
+    --green: #22C55E; --amber: #F59E0B; --red: #EF4444;
+    --accent: #9FF25F;
+    --onAccent: #111C06;
+    --inverse: #1A1A1A; --inverse-ink: #FCFBFA;
+    --shadow-sm: none;
+    --shadow-md: none;
+    --shadow-lg: none;
+    --ease: cubic-bezier(.2,.72,.25,1); --ease-out: cubic-bezier(.22,1,.36,1);
+    --r: 16px; --rb: 12px;
+    --sans: "Plus Jakarta Sans", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --display: "Plus Jakarta Sans", sans-serif;
+  }
   *{box-sizing:border-box}
   /* a11y: a visible keyboard-focus indicator (there were none) + a skip-to-content link */
   :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:2px}
   .skip{position:absolute;left:-9999px;top:8px;z-index:100;background:var(--accent);color:var(--onAccent);padding:8px 12px;border-radius:var(--rb)}
   .skip:focus{left:8px}
-  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--mono);font-size:14px;line-height:1.5}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.5}
   .sub,.lead,.card p,.help p,.loginbox p{font-family:var(--sans)}
   button{font:inherit;cursor:pointer} .muted{color:var(--muted)} .mono{font-family:var(--mono)}
-  .btn{background:var(--panel2);border:1px solid var(--line);color:var(--ink);padding:6px 12px;border-radius:var(--rb);font-family:var(--mono);font-size:12.5px;line-height:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:34px;box-sizing:border-box;white-space:nowrap}
-  .btn:hover{border-color:var(--accent)} .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--onAccent);font-weight:600}
+  .btn{background:var(--panel2);border:1px solid var(--line);color:var(--ink);padding:6px 12px;border-radius:var(--rb);font-family:var(--sans);font-weight:600;font-size:12.5px;line-height:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:34px;box-sizing:border-box;white-space:nowrap;transition:all .15s}
+  .btn:hover{border-color:var(--ink)} .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--onAccent);font-weight:700}
+  .btn.primary:hover{background:#8EE250;border-color:#8EE250}
   .btn.sm{padding:4px 9px;font-size:12px} .btn:disabled{opacity:.45;cursor:not-allowed}
   .btn.ico{width:34px;min-width:34px;padding:0;flex:0 0 auto} .btn.sm.ico{width:30px;min-width:30px;min-height:30px}
   .btn.danger{border-color:var(--red);color:var(--red)} .btn.danger:hover{background:color-mix(in srgb,var(--red) 15%,transparent);border-color:var(--red)}
@@ -1056,6 +1072,82 @@ a:hover{text-decoration-color:var(--muted)}
 .s-path{font-weight:600}
 .hl-comment,.s-cmt{color:var(--sx-cmt);font-style:italic}
 .hl-punct,.hl-env{color:var(--sx-punct)}
+
+/* ---- Unified Footer (TryBounty Style) ---- */
+.ow-footer {
+  background: var(--bg);
+  border-top: 1px solid var(--line);
+  padding: 80px 48px 48px;
+  color: var(--ink);
+  margin-top: 60px;
+  box-sizing: border-box;
+  width: 100%;
+}
+.ow-footer-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 48px;
+}
+.ow-footer-brand-wrap { max-width: 320px; }
+.ow-footer-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 16px;
+  text-decoration: none;
+}
+.ow-footer-brand:hover { text-decoration: none; }
+.ow-footer-tagline {
+  font-size: 14px;
+  color: var(--muted);
+  line-height: 1.55;
+  margin: 0;
+}
+.ow-footer-nav {
+  display: flex;
+  gap: 64px;
+}
+.ow-footer-col {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.ow-footer-head {
+  font-family: var(--display, "Plus Jakarta Sans", sans-serif);
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--ink);
+  margin-bottom: 4px;
+  letter-spacing: -0.01em;
+}
+.ow-footer-col a {
+  font-size: 14px;
+  color: var(--muted);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.ow-footer-col a:hover { color: var(--ink); text-decoration: none; }
+.ow-footer-bottom {
+  max-width: 1200px;
+  margin: 64px auto 0;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  color: var(--muted);
+}
+.ow-footer-copy { font-family: var(--mono); }
+.ow-footer-note { font-family: var(--mono); }
+@media (max-width: 860px) {
+  .ow-footer-inner { flex-direction: column; gap: 40px; }
+  .ow-footer-nav { flex-wrap: wrap; gap: 36px; }
+  .ow-footer-bottom { flex-direction: column; align-items: flex-start; gap: 12px; }
+}
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1069,7 +1161,7 @@ a:hover{text-decoration-color:var(--muted)}
          sign-in page (no sandbox demo, no tour) — the marketing landing is for the front door. -->
     <template v-if="shareGate">
       <header class="lp-nav">
-        <div class="brand">▚ olywork</div>
+        <div class="brand"><img src="/media/brand/olywork_Official.svg" alt="olywork" style="height:22px;width:auto;vertical-align:middle;"></div>
         <nav class="lp-links"><a href="/tutorial">Docs</a><button class="iconbtn" @click="toggleTheme" :aria-label="theme==='dark'?'Light theme':'Dark theme'">{{theme==='dark'?'◐':'◑'}}</button></nav>
       </header>
       <section class="lp-hero" style="min-height:55vh">
@@ -1081,7 +1173,7 @@ a:hover{text-decoration-color:var(--muted)}
     </template>
     <template v-else>
     <header class="lp-nav">
-      <div class="brand">▚ olywork</div>
+      <div class="brand"><img src="/media/brand/olywork_Official.svg" alt="olywork" style="height:22px;width:auto;vertical-align:middle;"></div>
       <nav class="lp-links">
         <a href="/tutorial">Docs</a><a href="/llms.txt">llms.txt</a>
         <button class="iconbtn" @click="toggleTheme" :aria-label="theme==='dark'?'Light theme':'Dark theme'">{{theme==='dark'?'◐':'◑'}}</button>
@@ -1123,7 +1215,50 @@ a:hover{text-decoration-color:var(--muted)}
       </div>
     </section>
 
-    <footer class="lp-foot">olywork · a credential-injecting proxy · <a href="/tutorial">tutorial</a> · <a href="/llms.txt">llms.txt</a></footer>
+    <footer class="ow-footer">
+      <div class="ow-footer-inner">
+        <div class="ow-footer-brand-wrap">
+          <a class="ow-footer-brand" href="/" aria-label="olywork">
+            <img src="/media/brand/olywork_Official.svg" alt="olywork" style="height:28px;width:auto;display:block;">
+          </a>
+          <p class="ow-footer-tagline">The OpenRouter for AI Agent Tools.<br>One token for 2,800+ endpoints. Zero key management.</p>
+        </div>
+        <nav class="ow-footer-nav" aria-label="Site navigation">
+          <div class="ow-footer-col">
+            <div class="ow-footer-head">Explore</div>
+            <a href="/catalog">Catalog</a>
+            <a href="/pricing">Pricing</a>
+            <!--hosted--><a href="/use-cases">Use cases</a>
+            <a href="/workflows">Workflows</a>
+            <a href="/agents">Agents</a><!--/hosted-->
+          </div>
+          <div class="ow-footer-col">
+            <div class="ow-footer-head">Build</div>
+            <a href="/docs">API Reference</a>
+            <a href="/tutorial">Tutorial</a>
+            <a href="/llms.txt">llms.txt</a>
+          </div>
+          <div class="ow-footer-col">
+            <div class="ow-footer-head">Resources</div>
+            <a href="/resources">Workflows</a>
+            <!--hosted--><a href="/use-cases/seo-data-for-ai-agents">Use Cases</a>
+            <a href="/agents/claude-code">Agents</a><!--/hosted-->
+          </div>
+          <div class="ow-footer-col">
+            <div class="ow-footer-head">Company</div>
+            <!--hosted--><a href="/blog">Blog</a><!--/hosted-->
+            <a href="/support">Support</a>
+            <a href="/terms">Terms</a>
+            <a href="/privacy">Privacy</a>
+            <a href="https://github.com/meettaqi/olywork-new" target="_blank" rel="noopener">GitHub ↗</a>
+          </div>
+        </nav>
+      </div>
+      <div class="ow-footer-bottom">
+        <span class="ow-footer-copy">&copy; 2026 Olywork. All rights reserved.</span>
+        <span class="ow-footer-note">Open source · Pay-per-call · No markup</span>
+      </div>
+    </footer>
     </template>
 
   </div>
@@ -1135,7 +1270,7 @@ a:hover{text-decoration-color:var(--muted)}
          They get the marketing site's nav instead, so /catalog reads as part of olywork.com rather than
          as a dashboard someone forgot to lock. -->
     <div class="pubnav" v-if="publicCatalog">
-      <a class="brand" href="/">▚ olywork</a>
+      <a class="brand" href="/"><img src="/media/brand/olywork_Official.svg" alt="olywork" style="height:22px;width:auto;vertical-align:middle;"></a>
       <nav class="pubnav-links">
         <a href="/catalog" aria-current="page">Catalog</a>
         <a href="/tutorial">Tutorial</a>
@@ -1146,7 +1281,7 @@ a:hover{text-decoration-color:var(--muted)}
     </div>
     <div class="top" role="banner" v-else>
       <button class="mob-menu" @click="mobileNav=!mobileNav" aria-label="Toggle navigation" :aria-expanded="mobileNav">☰</button>
-      <div class="brand">▚ olywork</div>
+      <div class="brand"><img src="/media/brand/olywork_Official.svg" alt="olywork" style="height:22px;width:auto;vertical-align:middle;"></div>
       <div class="search"><span class="muted">/</span><input ref="search" v-model="q" :placeholder="view==='connections'?'search the catalog…':'search tools…'" aria-label="Search"/></div>
       <div class="spacer"></div>
     </div>
@@ -1947,7 +2082,7 @@ a:hover{text-decoration-color:var(--muted)}
               </template>
               <template v-if="detailParentSkill">
                 <div class="lbl">From skill</div>
-                <p style="margin:2px 0 0"><a :href="'/app/skills/'+encodeURIComponent(detailParentSkill.name)" @click.prevent="openDetail('skill',detailParentSkill.name)">▚ {{detailParentSkill.name}}</a> — the recipe + files that registered this tool.</p>
+                <p style="margin:2px 0 0"><a :href="'/app/skills/'+encodeURIComponent(detailParentSkill.name)" @click.prevent="openDetail('skill',detailParentSkill.name)"><span style="font-weight:600">{{detailParentSkill.name}}</span></a> — the recipe + files that registered this tool.</p>
               </template>
             </div>
           </template>
@@ -2932,7 +3067,7 @@ product, including per-customer usage tracking and billing.</pre>
                 <h3>▤ CLI tutorial</h3><p class="muted" style="font-family:var(--sans);margin:7px 0 0">The whole registry from your terminal - copy each command and follow along. {{tutSteps.length}} steps.</p>
               </div>
               <div class="card" @click="helpMode='dashboard'; tourI=0" style="cursor:pointer">
-                <h3>▚ Dashboard tour</h3><p class="muted" style="font-family:var(--sans);margin:7px 0 0">Everything you can do in this web UI, a screenshot per step. {{tourSteps.length}} steps.</p>
+                <h3>Dashboard tour</h3><p class="muted" style="font-family:var(--sans);margin:7px 0 0">Everything you can do in this web UI, a screenshot per step. {{tourSteps.length}} steps.</p>
               </div>
               <div class="card" @click="helpMode='import-shell'; xtut.i=0" style="cursor:pointer">
                 <h3>▞ Import &amp; shell</h3><p class="muted" style="font-family:var(--sans);margin:7px 0 0">Turn the CLIs on your machine into team tools, then use them in a shell where they just work - plus the security sandbox. {{(tutData.importShell||[]).length}} steps.</p>
@@ -3050,6 +3185,52 @@ product, including per-customer usage tracking and billing.</pre>
         </template>
       </main>
     </div>
+
+    <!-- Public Catalog Footer -->
+    <footer class="ow-footer" v-if="publicCatalog">
+      <div class="ow-footer-inner">
+        <div class="ow-footer-brand-wrap">
+          <a class="ow-footer-brand" href="/" aria-label="olywork">
+            <img src="/media/brand/olywork_Official.svg" alt="olywork" style="height:28px;width:auto;display:block;">
+          </a>
+          <p class="ow-footer-tagline">The OpenRouter for AI Agent Tools.<br>One token for 2,800+ endpoints. Zero key management.</p>
+        </div>
+        <nav class="ow-footer-nav" aria-label="Site navigation">
+          <div class="ow-footer-col">
+            <div class="ow-footer-head">Explore</div>
+            <a href="/catalog">Catalog</a>
+            <a href="/pricing">Pricing</a>
+            <!--hosted--><a href="/use-cases">Use cases</a>
+            <a href="/workflows">Workflows</a>
+            <a href="/agents">Agents</a><!--/hosted-->
+          </div>
+          <div class="ow-footer-col">
+            <div class="ow-footer-head">Build</div>
+            <a href="/docs">API Reference</a>
+            <a href="/tutorial">Tutorial</a>
+            <a href="/llms.txt">llms.txt</a>
+          </div>
+          <div class="ow-footer-col">
+            <div class="ow-footer-head">Resources</div>
+            <a href="/resources">Workflows</a>
+            <!--hosted--><a href="/use-cases/seo-data-for-ai-agents">Use Cases</a>
+            <a href="/agents/claude-code">Agents</a><!--/hosted-->
+          </div>
+          <div class="ow-footer-col">
+            <div class="ow-footer-head">Company</div>
+            <!--hosted--><a href="/blog">Blog</a><!--/hosted-->
+            <a href="/support">Support</a>
+            <a href="/terms">Terms</a>
+            <a href="/privacy">Privacy</a>
+            <a href="https://github.com/meettaqi/olywork-new" target="_blank" rel="noopener">GitHub ↗</a>
+          </div>
+        </nav>
+      </div>
+      <div class="ow-footer-bottom">
+        <span class="ow-footer-copy">&copy; 2026 Olywork. All rights reserved.</span>
+        <span class="ow-footer-note">Open source · Pay-per-call · No markup</span>
+      </div>
+    </footer>
 
     <!-- REGISTER SKILL (bundle) -->
     <!-- Marketplace dialogs. App-ROOT level, like every other dialog: nested inside the
@@ -3375,7 +3556,7 @@ product, including per-customer usage tracking and billing.</pre>
     <div class="scrim" role="dialog" aria-modal="true" v-if="inviteChoice && pendingInvites.length">
       <div class="modal" style="width:min(470px,94vw)">
         <div style="padding:26px 26px 22px">
-          <div style="color:var(--accent);font-size:15px;letter-spacing:.5px;margin-bottom:12px">▚ olywork</div>
+          <div style="margin-bottom:14px"><img src="/media/brand/olywork_Official.svg" alt="olywork" style="height:24px;width:auto;display:block;"></div>
           <h2 style="margin:0 0 8px;font-size:20px">You're invited 👋</h2>
           <p class="sub" style="margin:0 0 16px">{{pendingInvites.length===1 ? 'Accept to call the team\'s tools with' : 'You have '+pendingInvites.length+' pending invites — pick the teams to join and call their tools with'}} <b>no API keys on your machine</b>.</p>
           <label v-for="inv in sortedInvites" :key="inv.id" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:9px;margin-bottom:8px;cursor:pointer">
@@ -3395,14 +3576,14 @@ product, including per-customer usage tracking and billing.</pre>
       <div class="modal" :style="{width: welcome.step===0?'min(470px,94vw)':(welcome.step===3?'min(680px,94vw)':'min(560px,94vw)')}">
         <div style="padding:26px 26px 22px">
           <template v-if="welcome.step===0">
-            <div style="color:var(--accent);font-size:15px;letter-spacing:.5px;margin-bottom:12px">▚ olywork</div>
+            <div style="margin-bottom:14px"><img src="/media/brand/olywork_Official.svg" alt="olywork" style="height:24px;width:auto;display:block;"></div>
             <h2 style="margin:0 0 8px;font-size:20px">Welcome{{me?', '+me.split('@')[0]:''}} 👋</h2>
             <p class="sub" style="margin:0 0 18px">Create your team — it's where you keep API keys and skills so your teammates and their agents can call them <b>without holding the keys</b>. You can invite people and add secrets right after.</p>
             <div class="field"><input v-model="welcome.name" placeholder="Team name, e.g. Olywork" @keyup.enter="welcomeCreate"/></div>
             <button class="btn primary" style="width:100%;margin-top:4px" @click="welcomeCreate" :disabled="welcome.busy">{{welcome.busy?'Creating…':'Create team →'}}</button>
           </template>
           <template v-else-if="welcome.step===1">
-            <div style="color:var(--accent);font-size:15px;letter-spacing:.5px;margin-bottom:12px">▚ olywork</div>
+            <div style="margin-bottom:14px"><img src="/media/brand/olywork_Official.svg" alt="olywork" style="height:24px;width:auto;display:block;"></div>
             <h2 style="margin:0 0 8px;font-size:20px">Which agent are you using?</h2>
             <p class="sub" style="margin:0 0 18px">Choose your agent for the best setup instructions.</p>
             <div class="agent-grid">
@@ -6240,9 +6421,9 @@ createApp({
       // renders blank in an incognito window.
       if(catRoute.slug) this.openPlatform(catRoute.slug, true); else { this.view='connections'; this.loadConnections(); }
       return; }
-    if(route){ this.shareGate=route; this.demo.signin=true; }
-    else this.demo.signin=true;
-    if(inv){ this.invitePrefill=inv; this.emailInput=inv; this.emailStage=false; this.demo.signin=true; }
+    if(route){ this.shareGate=route; this.demo.signin=true; }  // shared link while logged out: the focused gate (no sandbox mint, no tour); after sign-in the boot lands on it (email verify reloads in place; OAuth restores via the olywork-next stash)
+    else this.demo.signin=true;  // OAuth returns, use-case CTA arrivals (?ref=) and every other logged-out flow open sign-in; nothing mints a sandbox any more
+    if(inv){ this.invitePrefill=inv; this.emailInput=inv; this.emailStage=false; this.demo.signin=true; }  // legacy code link while logged out: prefill + open sign-in; the invite auto-accepts after login (maybeOnboard)
   },
 }).mount('#app');
 </script>

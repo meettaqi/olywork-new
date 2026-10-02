@@ -6,10 +6,12 @@ import json
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import Response
+from fastapi.responses import Response, StreamingResponse
 
 from .. import audit, oauth_providers
+from ..application import catalog_find as find
 from ..config import get_settings
+from ..domain.capacity.routes_view import view as overflow_routes_view
 from ..domain.catalog import store as catalog_store
 from ..domain.catalog import stats as endpoint_stats
 
@@ -28,6 +30,14 @@ def _provider_display(service: str) -> str:
     return p.display_name if p else service
 
 
+def _run_hint(ep: dict) -> str:
+    auth = (
+        "no provider key required" if ep.get("platform_auth") == "anonymous"
+        else "key injected server-side"
+    )
+    return f"{catalog_store.call_template(ep)}   # run it — {auth}"
+
+
 def _platform_rows() -> list[dict]:
     """The platform shelves, busiest first — one builder shared by the JSON route below and the
     server-rendered /catalog page, so the two can never disagree about what is on the shelf."""
@@ -37,8 +47,9 @@ def _platform_rows() -> list[dict]:
         # The census counts the BROWSE surface only: account/utility ("management") endpoints are
         # real inventory but they are not what a marketplace tile advertises, so they never inflate
         # the endpoint/capability/verified counts or the "from …" price. They still ship in the
-        # platform-detail list (with `kind` set) — see catalog_platform's ?include_hidden.
-        eps = [e for e in cat.for_platform(slug) if e["kind"] not in catalog_store.HIDDEN_KINDS]
+        # platform-detail list (with `kind` set) — see catalog_platform's ?include_hidden. Routed
+        # rows are out too (`browsable`): they double-count their children and are olywork's, not a vendor's.
+        eps = [e for e in cat.for_platform(slug) if catalog_store.browsable(e)]
         if not eps:  # a taxonomy entry no provider implements (or only plumbing) is grid noise
             continue
         rows.append({
@@ -69,8 +80,11 @@ def _platform_rows() -> list[dict]:
 
 @app.get("/catalog/platforms")
 async def catalog_platforms() -> dict:
-    """Open: the platform shelves of the endpoint catalog, busiest first."""
-    return {"platforms": _platform_rows(), "generated_from": "catalog"}
+    """Open: the platform shelves of the endpoint catalog, busiest first, and the display name of
+    every vendor on them (the /search page's pile is one tile per vendor)."""
+    rows = _platform_rows()
+    names = {s: _provider_display(s) for s in sorted({s for r in rows for s in r["providers"]})}
+    return {"platforms": rows, "providers": names, "generated_from": "catalog"}
 
 
 @app.get("/catalog/platforms/{slug}")
@@ -130,7 +144,10 @@ async def catalog_platform(slug: str, include_hidden: int = 0) -> dict:
         # every row — an expanded endpoint needs them and shouldn't cost a second request.
         "providers": {
             service: {"service": service, "display_name": _provider_display(service),
-                      **cat.provider_meta.get(service, {})}
+                      **cat.provider_meta.get(service, {}),
+                      "auth_kind": getattr(oauth_providers.get(service), "auth_kind", None),
+                      "metered": bool(getattr(oauth_providers.get(service), "platform_billed", False)
+                                      and service in get_settings().oauth_billed_set)}
             for service in sorted({ep["provider"] for ep in eps})
         },
     }
@@ -154,6 +171,30 @@ def _plan_row(c) -> dict:
 
 def _endpoint_observation_reader(request: Request) -> endpoint_stats.EndpointObservationReader:
     return request.app.state.endpoint_observation_reader
+
+
+async def _overflow_disclosure(ep: dict, cat) -> dict:
+    """What a platform-eligible endpoint bills when olywork's own account is out and the deployment's
+    overflow relay serves it instead: the enabled route's aggregator price, on the row, so a "free"
+    endpoint is never silently a paid one. Same admission facts as the call path (`application.call.
+    overflow`: mode on, a key for the aggregator, an enabled route, Orthogonal first) minus the
+    per-process health marks, which change by the minute and are not a price. Empty when the
+    deployment cannot relay this endpoint at all; the route view is a 60 s in-process copy."""
+    settings = get_settings()
+    if settings.overflow_mode != "on" or not cat.platform_eligible(ep):
+        return {}
+    try:
+        await overflow_routes_view.load()
+    except Exception:  # noqa: BLE001 - a disclosure must never take the catalog down
+        logging.getLogger("olywork.catalog").warning("overflow routes unavailable", exc_info=True)
+        return {}
+    for route in overflow_routes_view.for_endpoint(ep["id"]):
+        if not settings.overflow_key_for(route.aggregator) or route.agg_price_micro is None:
+            continue
+        return {"overflow_price_usd": route.agg_price_micro / 1_000_000,
+                "overflow_price_unit": route.agg_unit or "call",
+                "overflow_via": route.aggregator}
+    return {}
 
 
 async def _observed_or_empty(
@@ -210,8 +251,9 @@ async def catalog_search(q: str = "", limit: int = 25,
                  "still missing? POST /tool-requests {\"capability\": \"<what you need>\"} — "
                  "requests steer which provider gets added next"]
     else:
+        first_endpoint = cat.by_id.get(results[0]['id'], ranked[0][0])
         hints = [f"olywork catalog get {results[0]['id']}   # params, cost and an example response",
-                 f"{catalog_store.call_template(cat.by_id.get(results[0]['id'], ranked[0][0]))}   # run it — key injected server-side"]
+                 _run_hint(first_endpoint)]
         routed_row = next((r for r in results if r.get("kind") == "routed"), None)
         if routed_row is not None:
             hints.insert(1, f"{routed_row['id']} is ROUTED: olywork picks among {len(routed_row.get('routed_children') or [])} "
@@ -236,6 +278,31 @@ async def catalog_search(q: str = "", limit: int = 25,
             hints.insert(1, f"nearest: {first['endpoint_id']} matches "
                             f"{', '.join(first['matches'])} but not {', '.join(first['missing'])}")
     return out
+
+
+@app.get("/catalog/find")
+async def catalog_find(request: Request, q: str = ""):
+    """Open, rate limited: find the endpoints that can do a described JOB (application.catalog_find).
+
+    Streams newline-delimited JSON, two events: `candidates` (the lexical recall, immediately) and
+    `judged` (the relevance judge's kept rows and a verdict, when it answers). The pages that call
+    this animate the gap between them. Agents keep `/catalog/search` and MCP `catalog_search`."""
+    from .auth import _client_ip   # auth imports web, which imports this module
+
+    query = find.clean_query(q)
+    if not query:
+        raise HTTPException(status_code=400, detail="describe the job in ?q=")
+    if not find.configured():
+        raise HTTPException(status_code=503, detail="finding tools by description is not configured on this server")
+    if not await find.admit(_client_ip(request)):
+        raise HTTPException(status_code=429, detail="too many searches from here this hour; try again later or use /catalog/search")
+
+    async def lines():
+        async for event in find.stream(query, _provider_display):
+            yield json.dumps(event) + "\n"
+
+    return StreamingResponse(lines(), media_type="application/x-ndjson",
+                             headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"})
 
 
 def _related_capabilities(ep: dict, cat) -> list[dict]:
@@ -300,7 +367,8 @@ async def catalog_endpoint(
     # Attached to the SAME response because the choice is made here; a second round-trip to compare
     # reliability is a round-trip an agent will skip.
     stats = await _observed_or_empty(observations, [endpoint_id] + [s["id"] for s in siblings])
-    view = view | {"observed": stats.get(endpoint_id)}
+    overflow = await _overflow_disclosure(ep, cat)
+    view = view | {"observed": stats.get(endpoint_id)} | overflow
     siblings = [s | {"observed": stats.get(s["id"])} for s in siblings]
 
     routing = None
@@ -316,7 +384,7 @@ async def catalog_endpoint(
             st = stats.get(k["id"]) or {}
             ad = cat.adapters.get(k["id"])
             cands.append(Candidate(k, ad, ad.accepts[0] if ad and ad.accepts else (), "platform",
-                                   cost_at(cat.cost_view(k.get("cost"), k["provider"]), {}), st.get("hit_rate"),
+                                   cost_at(cat.cost_view(k.get("cost"), k["provider"]), {}, ad), st.get("hit_rate"),
                                    st.get("ok_rate"), st.get("p50_ms"), st.get("last_ok_days")))
         routing = {
             "contract": {"identity": [list(v) for v in contract.identity], "output": contract.output,
@@ -341,7 +409,12 @@ async def catalog_endpoint(
         **({"routing": routing} if routing is not None else {}),
         "call_template": catalog_store.call_template(ep),
         "example_response": example,
-        "hints": [f"{catalog_store.call_template(ep)}   # run it — key injected server-side"]
+        "hints": [_run_hint(ep)]
+                 + ([f"when olywork's own {ep['provider']} account is out this may be served through the "
+                     f"overflow relay ({overflow['overflow_via']}) and bill "
+                     f"${overflow['overflow_price_usd']:g} per {overflow['overflow_price_unit']} instead "
+                     f"of the direct price; the answer says so (X-Olywork-Served-Via / served_via)"]
+                    if overflow else [])
                  + ([f"olywork catalog get {siblings[0]['id']}   # the same job from {siblings[0]['provider']}"]
                     if siblings else []),
     }

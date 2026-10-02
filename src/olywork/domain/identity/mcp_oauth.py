@@ -48,16 +48,14 @@ REFRESH_TTL_S = 30 * 24 * 3600   # a connector the user still uses keeps working
 # Hosted Claude can preserve requested scopes while omitting RFC 8707 `resource`. This V2-only
 # marker selects the directory audience in that case; it grants no additional API permission.
 DIRECTORY_SCOPE = "olywork:directory"
-LEGACY_DIRECTORY_SCOPE = "olywork:directory"
 BASE_SCOPES = ["olywork:catalog", "olywork:call", "olywork:read"]
-LEGACY_BASE_SCOPES = ["olywork:catalog", "olywork:call", "olywork:read"]
 
 
 def scopes_for_resource(version: str = "v1") -> list[str]:
     if version == "v1":
-        return [*BASE_SCOPES, *LEGACY_BASE_SCOPES]
+        return [*BASE_SCOPES]
     if version == "v2":
-        return [*BASE_SCOPES, *LEGACY_BASE_SCOPES, DIRECTORY_SCOPE, LEGACY_DIRECTORY_SCOPE]
+        return [*BASE_SCOPES, DIRECTORY_SCOPE]
     raise ValueError(f"unknown MCP resource version {version!r}")
 
 # Marks a token as an MCP access token and nothing else. olywork already mints session cookies and
@@ -65,8 +63,6 @@ def scopes_for_resource(version: str = "v1") -> list[str]:
 # validate here (and vice versa) — one class of token would silently become another, which is a
 # privilege escalation waiting for someone to notice it before we do.
 _TOKEN_TYPE = "olywork-mcp-at"
-_LEGACY_TOKEN_TYPE = "olywork-mcp-at"
-_VALID_TOKEN_TYPES = frozenset({_TOKEN_TYPE, _LEGACY_TOKEN_TYPE})
 
 
 def _key() -> bytes:
@@ -218,7 +214,7 @@ def looks_like_access_token(token: str) -> bool:
     if not token or "." not in token:
         return False
     try:
-        return json.loads(_unb64(token.split(".", 1)[0])).get("typ") in _VALID_TOKEN_TYPES
+        return json.loads(_unb64(token.split(".", 1)[0])).get("typ") == _TOKEN_TYPE
     except Exception:  # noqa: BLE001 — not even parseable → not our shape
         return False
 
@@ -240,7 +236,7 @@ def read_access_token(token: str, *, expected_audience: str) -> dict | None:
         if not hmac.compare_digest(_unb64(signature), expected_sig):
             return None
         data = json.loads(raw)
-        if data.get("typ") not in _VALID_TOKEN_TYPES:
+        if data.get("typ") != _TOKEN_TYPE:
             return None                      # a session cookie is not an access token
         if data.get("aud") != expected_audience:
             return None                      # minted for a different resource — not ours to honour

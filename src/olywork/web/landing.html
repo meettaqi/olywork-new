@@ -3,18 +3,64 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Olywork — The OpenRouter for Agent Tools</title>
-<meta name="description" content="One token. 2,800+ endpoints. 60+ providers. Give your AI agent every tool it needs — Google, Twitter, LinkedIn, GitHub and more — with zero API key management."/>
+<title>olywork.com: OpenRouter for agent tools and data, pay per call</title>
+<meta name="description" content="One MCP server, one key: {ENDPOINTS} tools across {PROVIDERS} providers for SEO, enrichment, ads, social and scraping data at the provider's own rate, no markup."/>
 <!-- {BASE} placeholder is substituted at runtime by the registry engine -->
 <link rel="canonical" href="{BASE}/"/>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg"/>
 <link rel="apple-touch-icon" href="/media/brand/logo.png"/>
 <meta property="og:type" content="website"/>
-<meta property="og:site_name" content="Olywork"/>
+<meta property="og:site_name" content="olywork"/>
 <meta property="og:url" content="{BASE}/"/>
-<meta property="og:title" content="Olywork — The OpenRouter for Agent Tools"/>
-<meta property="og:description" content="Every tool your agent needs with one token. 2,896+ endpoints across 60+ providers."/>
+<meta property="og:title" content="olywork.com: OpenRouter for agent tools and data, pay per call"/>
+<meta property="og:description" content="One MCP server, one key: {ENDPOINTS} tools across {PROVIDERS} providers for SEO, enrichment, ads, social and scraping data at the provider's own rate, no markup."/>
 <meta property="og:image" content="{BASE}/media/og.png"/>
+<meta property="og:image:width" content="1200"/>
+<meta property="og:image:height" content="630"/>
+<meta property="og:image:alt" content="olywork - one unified key for {ENDPOINTS} agent tools, priced per call, open source"/>
+<meta name="twitter:card" content="summary_large_image"/>
+<meta name="twitter:title" content="olywork.com: OpenRouter for agent tools and data, pay per call"/>
+<meta name="twitter:description" content="One MCP server, one key: {ENDPOINTS} tools across {PROVIDERS} providers for SEO, enrichment, ads, social and scraping data at the provider's own rate, no markup."/>
+<meta name="twitter:image" content="{BASE}/media/og.png"/>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "olywork",
+  "url": "{BASE}/",
+  "applicationCategory": "DeveloperApplication",
+  "applicationSubCategory": "API gateway for AI agents",
+  "operatingSystem": "Any (HTTP API, CLI, MCP)",
+  "description": "One MCP server, one key: {ENDPOINTS} tools across {PROVIDERS} providers for SEO, enrichment, ads, social and scraping data at the provider's own rate, no markup.",
+  "image": "{BASE}/media/og.png",
+  "license": "https://www.gnu.org/licenses/agpl-3.0.html",
+  "isAccessibleForFree": true,
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD",
+    "description": "$1.00 of free credit on every new team, then pay per call at the provider's own rate — olywork adds 0% on top. No subscription.",
+    "availability": "https://schema.org/InStock",
+    "url": "{BASE}/"
+  }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "name": "olywork",
+  "url": "{BASE}/",
+  "logo": "{BASE}/media/brand/logo.png",
+  "description": "One unified key for {ENDPOINTS} agent tools across {PROVIDERS} providers.",
+  "contactPoint": {
+    "@type": "ContactPoint",
+    "email": "taqi@olywork.com",
+    "contactType": "customer service"
+  }
+}
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -61,7 +107,7 @@ img, svg { display: block; }
   font-family: var(--font-h); font-size: 20px; font-weight: 800;
   letter-spacing: -0.04em; color: var(--ink);
 }
-.nav-brand svg { width: 22px; height: 22px; }
+.nav-brand img { height: 26px; width: auto; display: block; }
 .nav-links { display: flex; align-items: center; gap: 28px; font-size: 14px; }
 .nav-link { color: var(--muted); font-weight: 500; transition: color .18s; }
 .nav-link:hover { color: var(--ink); }
@@ -288,17 +334,19 @@ img, svg { display: block; }
   box-shadow: 0 1px 3px rgba(0,0,0,0.06);
 }
 .agent-trans-role {
-  color: #0284c7;
+  font-family: var(--font-m), "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  color: #0070F3;
   font-weight: 600;
   display: inline-flex;
   align-items: center;
+  letter-spacing: -0.01em;
 }
 .agent-trans-cursor {
   display: inline-block;
-  color: #0284c7;
+  color: #0070F3;
   font-weight: 300;
   animation: blink-cursor 1s step-start infinite;
-  margin-left: 2px;
+  margin-left: 3px;
 }
 @keyframes blink-cursor {
   0%, 100% { opacity: 1; }
@@ -317,14 +365,14 @@ img, svg { display: block; }
 .trans-card {
   background: #FFFFFF;
   border: 1px solid #EAE7DF;
-  border-radius: 16px;
+  border-radius: 20px;
   padding: 22px 24px;
   box-shadow: 0 4px 20px -2px rgba(0,0,0,0.03), 0 2px 6px -1px rgba(0,0,0,0.02);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   box-sizing: border-box;
-  min-height: 224px;
+  min-height: 236px;
   transition: opacity 0.2s ease;
 }
 .trans-card-label {
@@ -343,22 +391,22 @@ img, svg { display: block; }
   margin-bottom: 16px;
 }
 .trans-agent-avatar {
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #6366F1, #8B5CF6);
+  background: linear-gradient(135deg, #F59E0B, #EA580C);
   display: flex;
   align-items: center;
   justify-content: center;
   color: #FFF;
-  font-size: 15px;
-  box-shadow: 0 2px 6px rgba(99,102,241,0.25);
+  font-size: 16px;
+  box-shadow: 0 2px 6px rgba(245,158,11,0.25);
   transition: all 0.2s ease;
 }
 .trans-agent-name {
   font-family: var(--font-h);
   font-weight: 700;
-  font-size: 14.5px;
+  font-size: 15px;
   color: #1A1A1A;
 }
 .trans-agent-sub {
@@ -408,7 +456,7 @@ img, svg { display: block; }
 .trans-blackbox {
   background: #111113;
   border: 1px solid #27272A;
-  border-radius: 16px;
+  border-radius: 20px;
   padding: 26px 22px;
   text-align: center;
   display: flex;
@@ -417,28 +465,29 @@ img, svg { display: block; }
   color: #FFFFFF;
   box-shadow: 0 16px 36px -4px rgba(0,0,0,0.18), 0 4px 12px rgba(0,0,0,0.08);
   box-sizing: border-box;
-  min-height: 224px;
+  min-height: 236px;
 }
 .trans-blackbox-logo {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 12px;
   font-family: var(--font-h);
   font-weight: 800;
-  font-size: 22px;
+  font-size: 24px;
   letter-spacing: -0.03em;
   margin: auto 0;
+  color: #FFFFFF;
 }
 .trans-blackbox-logo svg {
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   color: #FFFFFF;
 }
 .trans-blackbox-cmd {
   background: #1C1C1F;
   border: 1px solid #2E2E33;
-  border-radius: 8px;
+  border-radius: 10px;
   padding: 10px 14px;
   display: flex;
   align-items: center;
@@ -481,8 +530,8 @@ img, svg { display: block; }
 .trans-tool-pill {
   background: #FFFFFF;
   border: 1px solid #EAE7DF;
-  border-radius: 8px;
-  padding: 5px 8px;
+  border-radius: 9px;
+  padding: 5px 9px;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -946,77 +995,98 @@ img, svg { display: block; }
 }
 
 /* ─── FOOTER (TryBounty Style) ─────────────────────────────────────────────── */
-.footer {
+.ow-footer, .footer {
   background: var(--bg);
   border-top: 1px solid var(--line);
   padding: 80px 48px 48px;
   color: var(--ink);
+  box-sizing: border-box;
+  width: 100%;
 }
-.footer-inner {
+.ow-footer-inner, .footer-inner {
   max-width: 1200px;
   margin: 0 auto;
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   gap: 48px;
+  flex-wrap: wrap;
 }
-.footer-brand {
+.ow-footer-brand-wrap {
   display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 320px;
+}
+.ow-footer-brand, .footer-brand {
+  display: inline-flex;
   align-items: center;
   gap: 10px;
-  font-family: var(--font-h);
-  font-weight: 800;
-  font-size: 26px;
-  letter-spacing: -0.04em;
-  color: var(--ink);
   text-decoration: none;
 }
-.footer-brand:hover { text-decoration: none; }
-.footer-brand svg {
-  width: 28px;
+.ow-footer-brand:hover, .footer-brand:hover { text-decoration: none; }
+.ow-footer-brand img, .footer-brand img {
   height: 28px;
-  color: var(--ink);
+  width: auto;
+  display: block;
 }
-.footer-nav {
+.ow-footer-tagline {
+  font-family: var(--font-b, var(--sans, 'Inter', sans-serif));
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--muted);
+  margin: 0;
+}
+.ow-footer-nav, .footer-nav {
   display: flex;
-  gap: 80px;
+  gap: 64px;
+  flex-wrap: wrap;
 }
-.footer-col {
+.ow-footer-col, .footer-col {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  min-width: 100px;
 }
-.footer-col-h {
+.ow-footer-head, .footer-col-h {
   font-family: var(--font-h);
   font-weight: 700;
-  font-size: 15px;
+  font-size: 14px;
   color: var(--ink);
   margin-bottom: 4px;
+  letter-spacing: -0.01em;
 }
-.footer-col a {
-  font-family: var(--font-b);
-  font-size: 14.5px;
+.ow-footer-col a, .footer-col a {
+  font-family: var(--font-b, var(--sans, 'Inter', sans-serif));
+  font-size: 14px;
   color: var(--muted);
   text-decoration: none;
-  transition: color 0.15s;
+  transition: color 0.15s ease;
 }
-.footer-col a:hover {
+.ow-footer-col a:hover, .footer-col a:hover {
   color: var(--ink);
   text-decoration: none;
 }
-.footer-bottom {
+.ow-footer-bottom, .footer-bottom {
   max-width: 1200px;
-  margin: 72px auto 0;
+  margin: 64px auto 0;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 24px;
-  font-size: 14px;
+  gap: 20px;
+  font-size: 13px;
   color: var(--muted);
 }
-.footer-copy {
+.ow-footer-copy, .footer-copy {
   color: var(--muted);
-  font-size: 14px;
+  font-size: 13px;
+}
+.ow-footer-note {
+  color: var(--muted2);
+  font-family: var(--font-m);
+  font-size: 11.5px;
 }
 .footer-theme-switcher {
   display: inline-flex;
@@ -1064,11 +1134,11 @@ img, svg { display: block; }
   color: var(--ink);
   transform: translateY(-1px);
 }
-@media (max-width: 820px) {
-  .footer { padding: 56px 24px 36px; }
-  .footer-inner { flex-direction: column; gap: 40px; }
-  .footer-nav { gap: 48px; }
-  .footer-bottom { flex-direction: column; align-items: center; gap: 20px; text-align: center; margin-top: 48px; }
+@media (max-width: 860px) {
+  .ow-footer, .footer { padding: 56px 24px 36px; }
+  .ow-footer-inner, .footer-inner { flex-direction: column; gap: 36px; }
+  .ow-footer-nav, .footer-nav { gap: 36px; width: 100%; display: grid; grid-template-columns: repeat(2, 1fr); }
+  .ow-footer-bottom, .footer-bottom { flex-direction: column; align-items: flex-start; gap: 14px; margin-top: 40px; }
 }
 
 /* ─── RESPONSIVE ─────────────────────────────────────────────────────────── */
@@ -1107,15 +1177,14 @@ img, svg { display: block; }
 
 <!-- ─── NAV ────────────────────────────────────────────────────────────── -->
 <nav class="nav" aria-label="Main navigation">
-  <a class="nav-brand" href="/">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-    Olywork
+  <a class="nav-brand" href="/" aria-label="Olywork">
+    <img src="/media/brand/olywork_Official.svg" alt="Olywork">
   </a>
   <div class="nav-links">
     <a class="nav-link" href="/catalog">Catalog</a>
-    <a class="nav-link" href="/use-cases">Use cases</a>
+    <!--hosted--><a class="nav-link" href="/use-cases">Use cases</a>
     <a class="nav-link" href="/workflows">Workflows</a>
-    <a class="nav-link" href="/agents">Agents</a>
+    <a class="nav-link" href="/agents">Agents</a><!--/hosted-->
     <a class="nav-link" href="/docs">Docs</a>
     <a class="nav-link" href="/pricing">Pricing</a>
     <a class="nav-link" href="/app?signin=1" style="font-weight:600;color:var(--ink);">Sign in</a>
@@ -1130,7 +1199,7 @@ img, svg { display: block; }
     <!-- Badge -->
     <div class="hero-badge">
       <span class="hero-badge-dot"></span>
-      Now live · 2,896+ endpoints
+      Now live · {ENDPOINTS} endpoints · {PROVIDERS} providers
     </div>
 
     <!-- Headline -->
@@ -1139,7 +1208,7 @@ img, svg { display: block; }
       <em>Every tool.</em>
     </h1>
     <p class="hero-sub">
-      The OpenRouter for AI Agent Tools. Connect your agent to 2,800+ endpoints across 60+ providers — no API keys, no signups, no markup.
+      The OpenRouter for AI Agent Tools. Connect your agent to {PROVIDERS} providers, <b>one credential</b> with <b>{ENDPOINTS} endpoints</b> priced up front — $1.00 free to start, 0% markup.
     </p>
 
     <!-- CTA -->
@@ -1155,17 +1224,17 @@ img, svg { display: block; }
     <div class="fan-wrap">
       <div class="fan-card">
         <div class="fan-icon">🔧</div>
-        <div class="fan-num">2K+</div>
-        <div class="fan-label">Tools ready</div>
+        <div class="fan-num">{ENDPOINTS}</div>
+        <div class="fan-label">Endpoints</div>
       </div>
       <div class="fan-card">
         <div class="fan-icon">⚡</div>
-        <div class="fan-num">60+</div>
+        <div class="fan-num">{PROVIDERS}</div>
         <div class="fan-label">Providers</div>
       </div>
       <div class="fan-card">
         <div class="fan-icon">💸</div>
-        <div class="fan-num">$0</div>
+        <div class="fan-num">0%</div>
         <div class="fan-label">Markup</div>
       </div>
       <div class="fan-card">
@@ -1194,7 +1263,7 @@ img, svg { display: block; }
     </span>
     <span>into</span>
     <span class="agent-trans-role">
-      <span id="trans-typewriter-text">a Social media manager</span>
+      <span id="trans-typewriter-text">a Performance ads director</span>
       <span class="agent-trans-cursor">|</span>
     </span>
   </h2>
@@ -1206,18 +1275,24 @@ img, svg { display: block; }
       <div>
         <div class="trans-card-label">AGENT</div>
         <div class="trans-agent-head">
-          <div class="trans-agent-avatar" id="trans-agent-avatar">🤖</div>
+          <div class="trans-agent-avatar" id="trans-agent-avatar" style="width:38px;height:38px;border-radius:50%;background:radial-gradient(circle at 35% 35%, #FF9500, #E05300);display:flex;align-items:center;justify-content:center;box-shadow:0 3px 10px rgba(224,83,0,0.32);flex-shrink:0;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <rect x="4.5" y="11" width="3.5" height="9" rx="1.5" fill="#22C55E"/>
+              <rect x="10.25" y="5" width="3.5" height="15" rx="1.5" fill="#3B82F6"/>
+              <rect x="16" y="9" width="3.5" height="11" rx="1.5" fill="#FACC15"/>
+            </svg>
+          </div>
           <div>
-            <div class="trans-agent-name" id="trans-agent-title">Codex</div>
-            <div class="trans-agent-sub" id="trans-agent-sub">agent:social</div>
+            <div class="trans-agent-name" id="trans-agent-title">Operator</div>
+            <div class="trans-agent-sub" id="trans-agent-sub">agent:ads</div>
           </div>
         </div>
       </div>
       <div class="trans-task-list" id="trans-tasks-box">
-        <div class="trans-task-row"><span><span class="task-icon">⚡</span>get trending sounds</span><span class="task-check">✓</span></div>
-        <div class="trans-task-row"><span><span class="task-icon">⚡</span>pull competitor posts</span><span class="task-check">✓</span></div>
-        <div class="trans-task-row"><span><span class="task-icon">⚡</span>size the comments</span><span class="task-check">✓</span></div>
-        <div class="trans-task-row"><span><span class="task-icon">⏱</span>drafted the content plan</span><span class="task-check">✓</span></div>
+        <div class="trans-task-row"><span><span class="task-icon">⚡</span>audit Meta Ad Library creatives</span><span class="task-check">✓</span></div>
+        <div class="trans-task-row"><span><span class="task-icon">⚡</span>track TikTok Ads retention</span><span class="task-check">✓</span></div>
+        <div class="trans-task-row"><span><span class="task-icon">⚡</span>optimize Google Ads search copy</span><span class="task-check">✓</span></div>
+        <div class="trans-task-row"><span><span class="task-icon">⏱</span>adjusted ROAS target budgets</span><span class="task-check">✓</span></div>
       </div>
     </div>
 
@@ -1229,11 +1304,11 @@ img, svg { display: block; }
     <!-- Card 2: BLACK PROXY BOX -->
     <div class="trans-blackbox">
       <div class="trans-blackbox-logo">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
         <span>olywork</span>
       </div>
       <div class="trans-blackbox-cmd">
-        <span class="trans-cmd-text" id="trans-cmd-call"><strong>$</strong> olywork call tikhub.tiktok.trending</span>
+        <span class="trans-cmd-text" id="trans-cmd-call"><strong>$</strong> olywork call meta.ad_library_se..</span>
         <span class="trans-cmd-slash">/</span>
         <span class="trans-cmd-status">200</span>
       </div>
@@ -1244,18 +1319,18 @@ img, svg { display: block; }
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
     </div>
 
-    <!-- Card 3: THE SOCIAL TOOLBELT -->
+    <!-- Card 3: THE ADS TOOLBELT -->
     <div class="trans-card" id="trans-toolbelt-card">
       <div>
-        <div class="trans-card-label" id="trans-toolbelt-label" style="color:#0284C7;">THE SOCIAL TOOLBELT</div>
+        <div class="trans-card-label" id="trans-toolbelt-label" style="color:#0070F3;">THE ADS TOOLBELT</div>
         <div class="trans-toolbelt-pills" id="trans-toolbelt-pills">
-          <div class="trans-tool-pill"><img src="/logos/platforms/tiktok.svg" alt="TikTok" loading="lazy">TikTok</div>
-          <div class="trans-tool-pill"><img src="/logos/platforms/instagram.svg" alt="Instagram" loading="lazy">Instagram</div>
-          <div class="trans-tool-pill"><img src="/logos/platforms/x.svg" alt="X" loading="lazy">X</div>
-          <div class="trans-tool-pill"><img src="/logos/platforms/youtube.svg" alt="YouTube" loading="lazy">YouTube</div>
-          <div class="trans-tool-pill"><img src="/logos/platforms/reddit.svg" alt="Reddit" loading="lazy">Reddit</div>
-          <div class="trans-tool-pill"><img src="/logos/platforms/linkedin.svg" alt="LinkedIn" loading="lazy">LinkedIn</div>
-          <div class="trans-tool-pill more">+1.6k endpoints</div>
+          <div class="trans-tool-pill"><img src="/logos/platforms/meta-ads.svg" alt="Meta Ads" loading="lazy" onerror="this.style.display='none'">Meta Ads</div>
+          <div class="trans-tool-pill"><img src="/logos/platforms/google-ads.svg" alt="Google Ads" loading="lazy" onerror="this.style.display='none'">Google Ads</div>
+          <div class="trans-tool-pill"><img src="/logos/platforms/tiktok-ads.svg" alt="TikTok Ads" loading="lazy" onerror="this.style.display='none'">TikTok Ads</div>
+          <div class="trans-tool-pill"><img src="/logos/platforms/microsoft-ads.svg" alt="Microsoft Ads" loading="lazy" onerror="this.style.display='none'">Microsoft Ads</div>
+          <div class="trans-tool-pill"><img src="/logos/platforms/google-analytics.svg" alt="GA4" loading="lazy" onerror="this.style.display='none'">GA4</div>
+          <div class="trans-tool-pill"><img src="/logos/platforms/pinterest-ads.svg" alt="Pinterest" loading="lazy" onerror="this.style.display='none'">Pinterest</div>
+          <div class="trans-tool-pill more">+1.4k endpoints</div>
         </div>
       </div>
       <div class="trans-toolbelt-footer">
@@ -1805,7 +1880,7 @@ img, svg { display: block; }
 
   <div class="cat-dir-bottom">
     <div class="cat-dir-more-text">+2,500 more expert tools in the catalog</div>
-    <a href="/catalog" class="cat-dir-browse-btn">Browse all 2,630 tools</a>
+    <a href="/catalog" class="cat-dir-browse-btn">Browse all {ENDPOINTS} tools</a>
   </div>
 </section>
 
@@ -1988,59 +2063,50 @@ img, svg { display: block; }
 </div>
 
 <!-- ─── FOOTER ────────────────────────────────────────────────────────── -->
-<footer class="footer">
-  <div class="footer-inner">
-    <a class="footer-brand" href="/">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-      olywork
-    </a>
-    <div class="footer-nav">
-      <div class="footer-col">
-        <div class="footer-col-h">Marketplace</div>
+<footer class="ow-footer">
+  <div class="ow-footer-inner">
+    <div class="ow-footer-brand-wrap">
+      <a class="ow-footer-brand" href="/" aria-label="olywork">
+        <img src="/media/brand/olywork_Official.svg" alt="olywork" style="height:28px;width:auto;display:block;">
+      </a>
+      <p class="ow-footer-tagline">The OpenRouter for AI Agent Tools.<br>One token for 2,800+ endpoints. Zero key management.</p>
+    </div>
+    <nav class="ow-footer-nav" aria-label="Site navigation">
+      <div class="ow-footer-col">
+        <div class="ow-footer-head">Explore</div>
         <a href="/catalog">Catalog</a>
-        <a href="/use-cases">Use cases</a>
+        <a href="/pricing">Pricing</a>
+        <!--hosted--><a href="/use-cases">Use cases</a>
         <a href="/workflows">Workflows</a>
         <a href="/agents">Agents</a>
+        <a href="/blog">Blog</a><!--/hosted-->
       </div>
-      <div class="footer-col">
-        <div class="footer-col-h">Company</div>
-        <a href="/support">Contact us</a>
-        <a href="/privacy">Privacy policy</a>
-        <a href="/terms">Terms of service</a>
+      <div class="ow-footer-col">
+        <div class="ow-footer-head">Build</div>
+        <a href="/docs">API Reference</a>
+        <a href="/tutorial">Tutorial</a>
+        <a href="/llms.txt">llms.txt</a>
       </div>
-    </div>
+      <div class="ow-footer-col">
+        <div class="ow-footer-head">Resources</div>
+        <a href="/resources">Workflows</a>
+        <a href="/use-cases/seo-data-for-ai-agents">Use Cases</a>
+        <a href="/agents/claude-code">Agents</a>
+      </div>
+      <div class="ow-footer-col">
+        <div class="ow-footer-head">Company</div>
+        <a href="/support">Support</a>
+        <a href="/terms">Terms</a>
+        <a href="/privacy">Privacy</a>
+        <a href="https://github.com/meettaqi/olywork-new" target="_blank" rel="noopener">GitHub ↗</a>
+      </div>
+    </nav>
   </div>
-  <div class="footer-bottom">
-    <div class="footer-copy">&#169; 2026 Olywork. All rights reserved.</div>
-    <div class="footer-theme-switcher" role="group" aria-label="Theme switcher">
-      <button type="button" class="footer-theme-btn active">Light</button>
-      <button type="button" class="footer-theme-btn">Dark</button>
-      <button type="button" class="footer-theme-btn">Auto</button>
-    </div>
-    <div class="footer-socials">
-      <a href="https://linkedin.com" target="_blank" rel="noopener" class="footer-social-link" aria-label="LinkedIn">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.88 8.56a1.68 1.68 0 0 0 1.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 0 0-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z"/></svg>
-      </a>
-      <a href="https://instagram.com" target="_blank" rel="noopener" class="footer-social-link" aria-label="Instagram">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>
-      </a>
-      <a href="https://x.com" target="_blank" rel="noopener" class="footer-social-link" aria-label="X (Twitter)">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-      </a>
-      <a href="https://discord.gg" target="_blank" rel="noopener" class="footer-social-link" aria-label="Discord">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.929 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.894.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
-      </a>
-    </div>
+  <div class="ow-footer-bottom">
+    <span class="ow-footer-copy">&copy; 2026 Olywork. All rights reserved.</span>
+    <span class="ow-footer-note">Open source · Pay-per-call · No markup</span>
   </div>
 </footer>
-<script>
-document.querySelectorAll('.footer-theme-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.footer-theme-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-  });
-});
-</script>
 
 <script>
 /* ─── 3D GRID CANVAS ──────────────────────────────────────────────────── */
@@ -2239,6 +2305,30 @@ document.querySelectorAll('.faq-q').forEach(btn => {
 (function(){
   const roles = [
     {
+      roleText: 'a Performance ads director',
+      agentTitle: 'Operator',
+      agentSub: 'agent:ads',
+      avatarBg: 'linear-gradient(135deg, #F59E0B, #EA580C)',
+      avatarIco: '📊',
+      tasks: [
+        { text: 'audit Meta Ad Library creatives', icon: '⚡' },
+        { text: 'track TikTok Ads retention', icon: '⚡' },
+        { text: 'optimize Google Ads search copy', icon: '⚡' },
+        { text: 'adjusted ROAS target budgets', icon: '⏱' }
+      ],
+      cmd: 'olywork call meta.ad_library_se..',
+      toolbeltLabel: 'THE ADS TOOLBELT',
+      pills: [
+        { name: 'Meta Ads', icon: '/logos/platforms/meta-ads.svg' },
+        { name: 'Google Ads', icon: '/logos/platforms/google-ads.svg' },
+        { name: 'TikTok Ads', icon: '/logos/platforms/tiktok-ads.svg' },
+        { name: 'Microsoft Ads', icon: '/logos/platforms/microsoft-ads.svg' },
+        { name: 'GA4', icon: '/logos/platforms/google-analytics.svg' },
+        { name: 'Pinterest', icon: '/logos/platforms/pinterest-ads.svg' },
+        { name: '+1.4k endpoints', isMore: true }
+      ]
+    },
+    {
       roleText: 'a Social media manager',
       agentTitle: 'Codex',
       agentSub: 'agent:social',
@@ -2308,30 +2398,6 @@ document.querySelectorAll('.faq-q').forEach(btn => {
         { name: 'Lusha', icon: '/logos/lusha.svg' },
         { name: 'Diffbot', icon: '/logos/diffbot.svg' },
         { name: '+1.5k endpoints', isMore: true }
-      ]
-    },
-    {
-      roleText: 'a Performance ads director',
-      agentTitle: 'Operator',
-      agentSub: 'agent:ads',
-      avatarBg: 'linear-gradient(135deg, #F59E0B, #EA580C)',
-      avatarIco: '📊',
-      tasks: [
-        { text: 'audit Meta Ad Library creatives', icon: '⚡' },
-        { text: 'track TikTok Ads retention', icon: '⚡' },
-        { text: 'optimize Google Ads search copy', icon: '⚡' },
-        { text: 'adjusted ROAS target budgets', icon: '⏱' }
-      ],
-      cmd: 'olywork call meta.ad_library_search',
-      toolbeltLabel: 'THE ADS TOOLBELT',
-      pills: [
-        { name: 'Meta Ads', icon: '/logos/meta-ads.svg' },
-        { name: 'Google Ads', icon: '/logos/platforms/google-ads.svg' },
-        { name: 'TikTok Ads', icon: '/logos/platforms/tiktok-ads.svg' },
-        { name: 'Microsoft Ads', icon: '/logos/platforms/microsoft-ads.svg' },
-        { name: 'GA4', icon: '/logos/platforms/google-analytics.svg' },
-        { name: 'Pinterest', icon: '/logos/platforms/pinterest-ads.svg' },
-        { name: '+1.4k endpoints', isMore: true }
       ]
     }
   ];
@@ -2421,7 +2487,8 @@ document.querySelectorAll('.faq-q').forEach(btn => {
     });
   }
 
-  setInterval(nextRole, 4800);
+  // Keep focused on Performance Ads Director as requested in reference diagram
+  // setInterval(nextRole, 4800);
 
   // Copy button
   const copyBtn = document.getElementById('trans-copy-btn');
@@ -2444,8 +2511,8 @@ document.querySelectorAll('.faq-q').forEach(btn => {
   }
 })();
 </script>
+<script src="/sitetrack.js"></script>
 <script src="/adtrack.js"></script>
 <script src="/gtag.js"></script>
-<script src="/sitetrack.js"></script>
 </body>
 </html>

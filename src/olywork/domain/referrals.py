@@ -546,7 +546,7 @@ async def offer_for_org(db: AsyncSession, org_id: int | None) -> dict | None:
     (see `qualify`), so the balance is the confirmation and a banner promising money that has
     already arrived is noise.
 
-    Names the referrer, MASKED (`j•••@olywork.com`). Not anonymous, because "you were invited"
+    Names the referrer, MASKED (`t•••@olywork.com`). Not anonymous, because "you were invited"
     with nobody attached reads as marketing copy rather than a fact, and someone who clicked a link
     off a tweet a week ago genuinely may not remember whose it was. Not the full address either: a
     referral link is PUBLIC by design, so printing it in full would publish one influencer's email to
@@ -588,7 +588,7 @@ async def offer_for_org(db: AsyncSession, org_id: int | None) -> dict | None:
 
 
 def mask_email(email: str) -> str:
-    """`taqi@olywork.com` -> `j•••@olywork.com`. "" for anything that isn't an address.
+    """`taqi@olywork.com` -> `t•••@olywork.com`. "" for anything that isn't an address.
 
     The local part collapses to its FIRST character only — a fixed three-bullet run, never one bullet
     per character, because a length-preserving mask leaks the length. The domain is kept whole: it is

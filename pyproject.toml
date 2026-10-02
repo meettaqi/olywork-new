@@ -292,3 +292,28 @@ source_modules = ["olywork.domain.capacity"]
 forbidden_modules = ["olywork.api", "olywork.routers", "olywork.application", "olywork.bootstrap", "fastapi", "starlette", "olywork.audit"]
 allow_indirect_imports = true
 as_packages = true
+
+[[tool.importlinter.contracts]]
+name = "Feedback domain does not depend on outer layers or sibling domains"
+type = "forbidden"
+source_modules = ["olywork.domain.feedback"]
+forbidden_modules = [
+    "olywork.api",
+    "olywork.bootstrap",
+    "olywork.routers",
+    "olywork.application",
+    "olywork.audit",
+    "olywork.domain.identity",
+    "olywork.domain.governance",
+    "olywork.domain.connections",
+    "olywork.domain.tools",
+    "olywork.domain.catalog",
+    "olywork.domain.capacity",
+    "olywork.domain.money",
+    "olywork.domain.asynctasks",
+    "fastapi",
+    "starlette",
+]
+allow_indirect_imports = true
+as_packages = true
+

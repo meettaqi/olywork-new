@@ -9,6 +9,7 @@ reachability, sitemap membership, FAQ schema that matches the visible page.
 from __future__ import annotations
 
 import html as html_mod
+from pathlib import Path
 import json
 import re
 
@@ -37,7 +38,7 @@ async def test_chatgpt_page_is_served_with_the_crawler_essentials(clients: Async
     html = r.text
     assert f'<link rel="canonical" href="{_base()}/agents/chatgpt"/>' in html
     title = re.search(r"<title>(.*?)</title>", html).group(1)
-    assert "ChatGPT" in title and ("olywork" in title or "olywork.com" in title)
+    assert "ChatGPT" in title and "olywork.com" in title
     assert "noindex" not in html
 
 
@@ -95,7 +96,7 @@ def test_every_use_case_capability_exists_in_the_catalog():
 
 async def test_chatgpt_page_install_block_has_the_setup_line(clients: AsyncClient):
     html = (await clients.get("/agents/chatgpt")).text
-    assert ("set up olywork" in html or "set up olywork" in html) and ("olywork.com/llms.txt" in html or "olywork.com/llms.txt" in html)
+    assert "set up olywork" in html and "olywork.com/llms.txt" in html
     # never a CTA into the authenticated app: a logged-out /app visit bounces to the landing
     body = html.split("<body>", 1)[1].split("<footer>", 1)[0]
     assert 'href="/app"' not in body.replace('href="/agents/', "")
@@ -151,7 +152,9 @@ async def test_agents_hub_lists_every_agent(clients: AsyncClient):
     assert r.status_code == 200, r.text[:200]
     html = r.text
     for slug, spec in agent_pages.AGENTS.items():
-        assert f'href="/agents/{slug}"' in html, slug
+        # grok-bot links to /grokbot (the launch page), not /agents/grok-bot
+        href = "/grokbot" if slug == "grok-bot" else f"/agents/{slug}"
+        assert f'href="{href}"' in html, slug
         assert spec["name"] in html, slug
     assert 'href="/agents"' in (await clients.get("/agents/chatgpt")).text  # nav + breadcrumb parent
     assert f"<loc>{_base()}/agents</loc>" in (await clients.get("/sitemap.xml")).text
@@ -168,7 +171,7 @@ async def test_use_case_page_is_served_with_the_crawler_essentials(clients: Asyn
     html = r.text
     assert f'<link rel="canonical" href="{_base()}{USECASE}"/>' in html
     title = re.search(r"<title>(.*?)</title>", html).group(1)
-    assert ("olywork" in title or "olywork.com" in title) and "providers" in title and "API" in title
+    assert "olywork.com" in title and "providers" in title and "API" in title
     assert "noindex" not in html
 
 
@@ -176,8 +179,7 @@ async def test_use_case_page_answers_the_four_questions_in_order(clients: AsyncC
     """The reader does one thing (the prompt); everything else is what the agent sees before it
     calls. Each part is headed as the question people ask, answered in its first sentence."""
     html = (await clients.get(USECASE)).text
-    why_hdr = "Why go through olywork" if "Why go through olywork" in html else "Why go through olywork.com"
-    order = ["best way to ask", why_hdr,
+    order = ["best way to ask", "Why go through olywork.com",
              "Which email finder API is cheapest", "How do the providers compare"]
     idx = [html.find(html_mod.escape(q, quote=False)) for q in order]
     assert all(i > 0 for i in idx), list(zip(order, idx))
@@ -200,7 +202,7 @@ async def test_use_case_page_compares_one_row_per_provider_with_every_endpoint_c
         assert f'data-provider="{p}"' in html, p
     # the page decides between PROVIDERS; the endpoint list belongs on the catalog shelf, which the
     # page links to. One runnable call stays as proof.
-    assert "olywork call " in html or "olywork call " in html
+    assert "olywork call " in html
     assert 'href="/catalog/' in html
     # up to the agent page's category anchor, or to a written sibling page: a related card
     # resolves to the page once one exists, so this stopped being an anchor the day the last
@@ -304,7 +306,6 @@ async def test_no_em_dashes_in_the_hand_written_copy():
     body = "\n".join(l for l in src.splitlines()
                      if not l.lstrip().startswith("#")
                      and "SETUP_LINE" not in l
-                     and "set up olywork —" not in l
                      and "set up olywork —" not in l)  # the literal setup line in install_steps
     # docstrings are not page copy; strip the module docstring
     body = body.split('"""', 2)[-1]
@@ -338,7 +339,7 @@ async def test_single_provider_job_uses_the_short_form(clients: AsyncClient):
     assert "Behind the scenes" not in html
     assert "How it works" in html                 # the short form's own section
     assert "your own account" in html.lower()     # and it says the job runs on the reader's key
-    assert "olywork call " in html or "olywork call " in html
+    assert "olywork call " in html
 
 
 async def test_multi_platform_job_groups_by_platform_not_by_price(clients: AsyncClient):
@@ -383,7 +384,9 @@ async def test_use_cases_hub_lists_every_written_page(clients: AsyncClient):
 
 # Every page that ships, not a hand-kept list: this set grows by 59 as the use-case pages land, and
 # a title that overflows is invisible in exactly the way nobody notices during review.
-ALL_PAGES = ([f"/agents/{a}" for a in agent_pages.AGENTS] + ["/agents", "/use-cases", "/workflows"]
+# Exclude grok-bot: it 301s to /grokbot (the launch page is the canonical).
+ALL_PAGES = ([f"/agents/{a}" for a in agent_pages.AGENTS if a != "grok-bot"]
+             + ["/agents", "/use-cases", "/workflows"]
              + [f"/use-cases/{j}" for j in agent_pages.USE_CASE_PAGES]
              + [f"/workflows/{w}" for w in agent_pages.WORKFLOWS])
 
@@ -415,7 +418,8 @@ async def test_non_canonical_casing_redirects_to_the_one_spelling(clients: Async
 @pytest.mark.parametrize("key", list(agent_pages.USE_CASE_PAGES))
 def test_no_use_case_page_ships_with_an_empty_section(key):
     """The template renders whatever the spec holds, so a missing field is a heading with nothing
-    under it rather than an error. The counts are the house shape: 4 reasons, 3 notes, 4 FAQ."""
+    under it rather than an error. The counts are the house shape: 4 reasons, 3 notes, 4 FAQ,
+    and, when a page carries failure modes, at least 4 of them."""
     spec = agent_pages.USE_CASE_PAGES[key]
     for field in ("label", "sentence", "title", "lede", "prompt", "what_is"):
         assert spec.get(field), (key, field)
@@ -423,6 +427,8 @@ def test_no_use_case_page_ships_with_an_empty_section(key):
     assert len(spec["notes"]) == 3, (key, "notes")
     assert len(spec["faq"]) == 4, (key, "faq")
     assert len(spec["related"]) == 4, (key, "related")
+    if "failure_modes" in spec:
+        assert len(spec["failure_modes"]) >= 4, (key, "failure_modes")
     # the voices section is optional, but half of one is a heading over nothing
     assert bool(spec.get("voices")) == bool(spec.get("voices_intro")), (key, "voices without intro")
     for v in spec.get("voices") or ():
@@ -568,11 +574,11 @@ async def test_workflow_page_is_served_with_the_crawler_essentials(clients: Asyn
     html = r.text
     assert f'<link rel="canonical" href="{_base()}{WORKFLOW}"/>' in html
     title = re.search(r"<title>(.*?)</title>", html).group(1)
-    assert "olywork" in title or "olywork.com" in title
+    assert "olywork.com" in title
     assert "noindex" not in html
     ld = _ld(html)
     howto = next(b for b in ld if b["@type"] == "HowTo")
-    assert len(howto["step"]) == 5
+    assert len(howto["step"]) == 7  # five data steps and two jev decision steps
     assert any(b["@type"] == "FAQPage" for b in ld)
     spec = agent_pages.WORKFLOWS["find-and-verify-a-lead-list"]
     md = await clients.get(WORKFLOW + ".md")
@@ -614,10 +620,18 @@ async def test_workflow_pages_are_hosted_only(monkeypatch):
 def test_every_workflow_step_capability_and_endpoint_exist():
     """A step names a capability and the endpoint the worked run used. Both must be in the catalog,
     or the page prices a step from nothing."""
+    from olywork.routers import web
     cat = catalog_store.load()
     for key, spec in agent_pages.WORKFLOWS.items():
         for name, cap, _asks, ep_id, _why in spec["steps"]:
-            eps = [e for e in cat.for_capability(cap) if e["kind"] not in catalog_store.HIDDEN_KINDS]
+            if cap == "decision":
+                # a judgement step is priced from DECISION_STEPS, the one table that carries its rate
+                dec = agent_pages.DECISION_STEPS[ep_id]
+                assert dec["usd"] and dec["unit"] and dec["link"].startswith("/"), (key, name, ep_id)
+                continue
+            # the same filter the page applies: a routed meta-row would render as provider "olywork"
+            # with no price and drop out of the live total
+            eps = [e for e in cat.for_capability(cap) if web._pub(e)]
             assert eps, (key, name, cap)
             assert ep_id in {e["id"] for e in eps}, (key, name, ep_id)
 
@@ -632,8 +646,10 @@ def test_no_workflow_ships_with_an_empty_section(key):
     assert spec["run"]["receipt"], (key, "receipt")
     assert spec["run"]["narrative"], (key, "narrative")
     assert spec["run"].get("date") and spec["run"].get("csv"), (key, "run date/csv")
+    # A workflow page carries more "where it goes wrong" and FAQ copy than a use-case page: at
+    # least four failure modes, four to six FAQ entries (the use-case shape is exactly four).
     assert len(spec["failure_modes"]) >= 4, (key, "failure_modes")
-    assert len(spec["faq"]) == 4, (key, "faq")
+    assert 4 <= len(spec["faq"]) <= 6, (key, "faq")
     assert len(spec["related"]) == 4, (key, "related")
     menu = {lbl for _c, jobs in agent_pages.USE_CASES for lbl, _ in jobs}
     for lbl in spec["related"]:
@@ -739,3 +755,20 @@ async def test_routed_rows_never_surface_a_provider_named_olywork(clients: Async
     assert "olywork" not in {r["service"] for r in _provider_rows()}
     assert (await clients.get("/tools/olywork")).status_code == 404
     assert "/tools/olywork<" not in (await clients.get("/sitemap.xml")).text
+
+
+def test_every_workflow_run_has_its_csv_on_disk():
+    """`run.csv` is the href of "Download the CSV of this run"; the route serves
+    src/olywork/workflow_runs/<slug>.csv. A workflow whose receipt has no file behind it is a
+    receipt nobody can check."""
+    runs_dir = Path(agent_pages.__file__).parent / "workflow_runs"
+    for slug, spec in agent_pages.WORKFLOWS.items():
+        assert spec["run"]["csv"] == f"/workflows/{slug}.csv", slug
+        assert (runs_dir / f"{slug}.csv").is_file(), f"{slug}: no recorded run CSV"
+
+
+async def test_every_workflow_csv_route_serves(clients: AsyncClient):
+    for slug in agent_pages.WORKFLOWS:
+        r = await clients.get(f"/workflows/{slug}.csv")
+        assert r.status_code == 200, (slug, r.status_code)
+        assert r.headers["content-type"].startswith("text/csv"), slug

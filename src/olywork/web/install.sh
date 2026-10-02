@@ -51,14 +51,13 @@ else
   exit 1
 fi
 
-CMD_NAME="olywork"
-command -v olywork >/dev/null 2>&1 && CMD_NAME="olywork"
-
 # point the CLI at this server (falls back silently on older CLIs)
-$CMD_NAME config --base-url "$BASE" >/dev/null 2>&1 || true
+olywork config --base-url "$BASE" >/dev/null 2>&1 || true
 
 # install the official olywork skill into every detected agent so it knows how to use olywork.
-if $CMD_NAME skill bootstrap 2>/dev/null; then
+# `olywork skill bootstrap` fans out across all supported agents (Claude Code, Cursor, Codex, Gemini,
+# Copilot, OpenCode, Windsurf, …). Fall back to the Claude-only drop for older CLIs without it.
+if olywork skill bootstrap 2>/dev/null; then
   :
 else
   SKILL_DIR="$HOME/.claude/skills/olywork"
@@ -67,18 +66,20 @@ else
   fi
 fi
 
-# One-shot authed setup when a token was passed
+# One-shot authed setup when a token was passed: sign in (the key bakes in the team) and register the
+# MCP server into every supported agent, header-authed. Both are best-effort — a failure here never
+# fails the install, since the CLI + skill are already in place.
 if [ -n "$TOKEN" ]; then
-  if $CMD_NAME login --token "$TOKEN" >/dev/null 2>&1; then
+  if olywork login --token "$TOKEN" >/dev/null 2>&1; then
     printf '\033[32m✓\033[0m Signed in.\n'
-    $CMD_NAME mcp install 2>/dev/null || true
+    olywork mcp install 2>/dev/null || true
   else
-    printf '\033[33m!\033[0m That token did not verify — run \033[1m%s login\033[0m to sign in.\n' "$CMD_NAME"
+    printf '\033[33m!\033[0m That token did not verify — run \033[1molywork login\033[0m to sign in.\n'
   fi
   printf '\n\033[32m✓\033[0m olywork is set up. Docs & tutorial:  %s/tutorial\n\n' "$BASE"
 else
   printf '\n\033[32m✓\033[0m Installed \033[1molywork\033[0m. Next:\n'
-  printf '    \033[38;5;173m%s login\033[0m      # sign in (GitHub or email) - first login registers you\n' "$CMD_NAME"
-  printf '    \033[38;5;173m%s mcp install\033[0m  # optional: add olywork as an MCP server in your agents\n' "$CMD_NAME"
+  printf '    \033[38;5;173molywork login\033[0m      # sign in (GitHub or email) - first login registers you\n'
+  printf '    \033[38;5;173molywork mcp install\033[0m  # optional: add olywork as an MCP server in your agents\n'
   printf '\nDocs & interactive tutorial:  %s/tutorial\n\n' "$BASE"
 fi

@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from .. import sandbox as demo_sandbox
 from ..application import onboard as onboard_use_cases
 from ..config import get_settings
+from ..domain.governance import teams
 from ..domain.identity.access import (
     Caller,
     _require_can_register,
@@ -17,7 +18,7 @@ from ..domain.identity.access import (
 )
 from ..models import User
 from .auth import _client_ip
-from .orgs import _require_admin_of
+from .orgs import _owned_team_limit_error, _require_admin_of
 
 
 # app is the APIRouter alias so mechanically moved @app decorators stay byte-identical.
@@ -64,8 +65,11 @@ async def onboard_demo(
     """Seed a sandbox team owned by the caller — fake teammates (one per role) + a working `echo`
     tool + sample activity — so a brand-new user can feel the product immediately. Idempotent
     (reuses an existing demo team); marks the caller onboarded. Same seed for dashboard + CLI."""
-    return await onboard_use_cases.provision_demo(
-        user_id=user.id, team_name=(body.team_name if body else "Acme Design"))
+    try:
+        return await onboard_use_cases.provision_demo(
+            user_id=user.id, team_name=(body.team_name if body else "Acme Design"))
+    except teams.OwnedTeamLimitReached as exc:
+        raise _owned_team_limit_error() from exc
 
 
 @app.post("/onboard/skip")

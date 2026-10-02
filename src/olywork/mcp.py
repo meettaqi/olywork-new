@@ -35,12 +35,14 @@ not initialized". `bootstrap.py` composes this module's lifespan with its own; s
 
 from __future__ import annotations
 
+import base64
+import binascii
 import json
 import logging
 import os
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from typing import Any, TypedDict
+from typing import Annotated, Any, TypedDict
 from urllib.parse import parse_qsl, urlsplit
 
 import httpx
@@ -49,11 +51,13 @@ from mcp.server.context import CallNext, HandlerResult, ServerRequestContext
 from mcp.server.mcpserver import Context
 from mcp.server.transport_security import TransportSecuritySettings
 from mcp.shared.exceptions import MCPError
-from mcp.types import METHOD_NOT_FOUND, ToolAnnotations
+from mcp.types import AudioContent, CallToolResult, METHOD_NOT_FOUND, TextContent, ToolAnnotations
 
-from . import audit
+from . import analytics, audit, hints
+from .application import search_experiment
 from .domain.catalog import store as catalog_store
 from .config import PUBLIC_HOST_ALIASES, get_settings
+from .feedback_contract import FeedbackCategory, FEEDBACK_DESCRIPTION, ReviewUsefulness, REVIEW_DESCRIPTION
 from .domain.catalog.stats import EndpointObservationReader
 
 # Every tool must declare what it can DO, and the review process checks these against real behaviour.
@@ -148,16 +152,20 @@ mcp = MCPServer(
     name="olywork",
     title="olywork — the tool catalog for your agent",
     description=(
-        "Reach for this first for external or live data — ~2,600 curated endpoints across ~40 "
-        "providers (SEO, SERP, backlinks, social, people and company enrichment, ads, scraping), "
-        "plus your team's own tools."
+        "Reach for this first for external or live data: curated endpoints across "
+        "providers (SEO, SERP, backlinks, social, people and company enrichment, ads, "
+        "scraping, image and video generation (Seedance, Gemini Image, GPT Image, Seedream, Veo, "
+        "Wan) and voice), plus your team's own tools."
     ),
     instructions=(
-        "Reach for olywork FIRST when a task needs external or live data — SEO, SERP, backlinks, "
-        "social & trends, enrichment, ads, scraping. ~2,600 endpoints across ~40 providers, plus "
-        "your team's own tools. Flow: catalog_search (say what you want to DO, not a vendor name) → "
-        "catalog_get (params) → call. Multiple providers for one job? catalog_get ranks them by "
-        "measured success, speed and price — you pick."
+        "Reach for olywork first when a task needs external or live data or a generative model: SEO and "
+        "SERP, backlinks, social and trends, people and company enrichment, ads, scraping, image and "
+        "video generation (Seedance, Gemini Image, GPT Image, Seedream, Veo, Wan) and voice, plus your "
+        "team's own tools. Flow: catalog_search (say what you want to do, not a vendor name), then "
+        "catalog_get (parameters, price, measured reliability), then call. When several providers "
+        "cover one job, catalog_get ranks them by measured success, speed and price; you pick. "
+        "If a call result invites a review, rate that one call with review(call_id, usefulness, "
+        "reason?) after using it, then continue."
     ),
     middleware=[_StaticSurfaceCapabilities()],
 )
@@ -215,6 +223,19 @@ class RequestOut(TypedDict, total=False):
     detail: str | None
 
 
+class ReviewOut(TypedDict, total=False):
+    review_id: int | None
+    status: str | None
+    detail: Any
+
+
+class FeedbackOut(TypedDict, total=False):
+    feedback_id: int | None
+    status: str | None
+    error: str | None
+    detail: Any
+
+
 class CatalogGetOut(TypedDict, total=False):
     endpoint: dict[str, Any] | None        # the full catalog entry: params, cost, observed reliability
     provider: dict[str, Any] | None
@@ -224,21 +245,42 @@ class CatalogGetOut(TypedDict, total=False):
                                            # response is a list of records (brightdata datasets)
     hints: list[str] | None
     did_you_mean: list[str] | None         # real ids close to one that missed
+    usd_per_call: float | None             # typical-call quote (display_usd when grouped; else usd)
+    overflow_price_usd: float | None       # what a call bills when olywork's own account is out and the
+                                           # overflow relay serves it instead (absent = never relayed)
+    overflow_price_unit: str | None        # "call" | "result": what one unit of that price buys
+    overflow_via: str | None               # the relay aggregator that price belongs to
     error: str | None
     detail: str | None
 
 
 class CallOut(TypedDict, total=False):
+    call_id: str | None
     status: int | None              # the UPSTREAM status, relayed
     endpoint_id: str | None
     replayed: bool | None           # answered from an earlier call with the same idempotency_key
     body: Any                       # the provider's response, verbatim
     cost_usd: float | None
+    served_via: str | None          # "overflow:<aggregator>" when an olywork-owned relay account served
+                                    # the call at ITS price (X-Olywork-Served-Via); absent on a direct call
     whose_error: str | None         # "olywork" or "provider" — who to blame, and whether to retry
     hint: str | None
     did_you_mean: list[str] | None  # real ids close to one that missed
     error: str | None
     detail: str | None
+
+
+class ResourcesOut(TypedDict, total=False):
+    team: str | None
+    source: str | None
+    count: int | None
+    resources: list[dict[str, Any]] | None
+    error: str | None
+    detail: Any
+
+
+class MediaOut(CallOut, total=False):
+    """Structured metadata paired with native MCP audio content."""
 
 
 class BalanceOut(TypedDict, total=False):
@@ -566,12 +608,34 @@ async def _whose_grant(client: httpx.AsyncClient, slug: str | None, *, oauth: bo
     annotations=_READS,
     structured_output=True
 )
-async def catalog_search(query: str, limit: int = 8) -> SearchOut:
-    return await _catalog_search_impl(query, limit, surface=_TEAM_SURFACE)
+async def catalog_search(query: str, ctx: Context, limit: int = 8) -> SearchOut:
+    return await _catalog_search_impl(query, limit, ctx=ctx, surface=_TEAM_SURFACE)
+
+
+async def _search_identity(ctx: Context | None) -> tuple[str | None, int | None, str | None]:
+    """`(caller_key, org_id, email)` for the discovery experiment — best effort, never a gate.
+
+    The key deals the arm and needs only the token. The team and email are what a later `call`
+    (audit.CallRecord) carries, so they are what the outcome joins on; resolving them costs the
+    same in-process round trips `balance` makes, and only while the experiment is on.
+    """
+    token = _bearer(ctx) if ctx is not None else ""
+    key = search_experiment.caller_key(token)
+    if not token:
+        return key, None, None
+    try:
+        async with _api(token) as client:
+            org_id, _slug, _problem = await _resolve_org(client)
+            me = await client.get("/auth/me")
+            email = _body(me).get("email") if me.status_code == 200 else None
+            return key, org_id, email
+    except Exception:  # noqa: BLE001 — attribution, never a reason to fail a search
+        logging.getLogger("olywork.mcp").warning("search experiment: identity unresolved", exc_info=True)
+        return key, None, None
 
 
 async def _catalog_search_impl(
-    query: str, limit: int = 8, *, surface: _SurfacePolicy
+    query: str, limit: int = 8, *, ctx: Context | None = None, surface: _SurfacePolicy
 ) -> SearchOut:
     cat = catalog_store.load()
     limit = max(1, min(limit, 25))
@@ -595,6 +659,32 @@ async def _catalog_search_impl(
         max_children=catalog_store.MAX_ROUTED_CHILDREN)
     hidden = {r["ep"]["id"]: r["children_hidden"] for r in grouped if r.get("children_hidden")}
     ranked = [(r["ep"], r["score"]) for r in grouped][:limit]
+    baseline_page = ranked
+    if query.strip() and search_experiment.mode() != "off":
+        # The discovery experiment (application.search_experiment): a relevance judge over a wider
+        # recall, compared with the page above on what the caller does next. `shadow` serves this
+        # page unchanged and only logs; `interleave` may serve a merge. Whatever the judge does,
+        # `ranked` stays a page — an abstaining judge leaves the baseline in place.
+        async def _finish(rows):
+            st = await _observed_stats([ep["id"] for ep, _ in rows])
+            rows = catalog_store.rerank(rows, st, cat)
+            g = catalog_store.group_routed(
+                [{"ep": ep, "score": sc, "capability": ep.get("capability"), "kind": ep.get("kind")}
+                 for ep, sc in rows], max_children=catalog_store.MAX_ROUTED_CHILDREN)
+            return [(r["ep"], r["score"]) for r in g][:limit], st
+        key, org_id, email = await _search_identity(ctx)
+        exp = await search_experiment.run(query, cat, baseline=baseline_page, baseline_total=total,
+                                          limit=limit, caller=key, finish=_finish)
+        stats = {**exp.stats, **stats}
+        ranked = exp.shown
+        audit.record_search(query=query.strip(), source=surface.event_source, org_id=org_id,
+                            user_email=email, **exp.log)
+        analytics.capture(key or "anonymous", "catalog_search_judged", {
+            "source": surface.event_source, "mode": exp.log["mode"], "arm": exp.arm,
+            "baseline_total": total, "baseline_empty": not baseline_page,
+            "differs": exp.log["differs"], "judge_ms": exp.log["judge_ms"],
+            "judge_error": exp.log["judge_error"], "judge_tokens_in": exp.log["judge_tokens_in"],
+            "shown": len(ranked)})
     for ep, score in ranked:
         obs = stats.get(ep["id"]) or {}
         cost = cat.cost_view(ep.get("cost"), ep.get("provider")) or {}
@@ -608,7 +698,7 @@ async def _catalog_search_impl(
                           + (f" — {hidden[ep['id']]} more than shown here; catalog_get('{ep['id']}') ranks them all"
                              if ep["id"] in hidden else " below")}
                if _steering and ep.get("kind") == "routed" else {}),
-            "usd_per_call": cost.get("usd"),
+            "usd_per_call": cat.advertised_usd(cost),
             # BOTH halves of tier 4's own truth, not just the price side: `platform_eligible` says
             # the row is priceable, `platform_key_for` says this deploy actually holds an enabled
             # key. Eligible-but-keyless rows used to advertise `no_key_needed: true` here and then
@@ -633,11 +723,13 @@ async def _catalog_search_impl(
         out["ranking_note"] = (f"{query!r} matches too broadly to rank on measured reliability past "
                                f"the first {catalog_store.RERANK_BAND} equally-scoring rows — "
                                f"add a word to narrow it")
-    if not results:
+    if not baseline_page and query.strip():
         # Same miss log as GET /catalog/search (see models.SearchMiss) — this tool reads the catalog
-        # in-process, so the HTTP route's logging never sees an MCP agent's empty search.
-        if query.strip():
-            audit.record_search_miss(query=query.strip(), source=surface.event_source)
+        # in-process, so the HTTP route's logging never sees an MCP agent's empty search. Judged by
+        # the LEXICAL page: the miss log measures the shipped ranker's coverage, and a judged page
+        # that found something is the experiment's result, not a reason to stop recording the gap.
+        audit.record_search_miss(query=query.strip(), source=surface.event_source)
+    if not results:
         # the zero-result answer carries the rows that JUST missed the gate and which words they
         # missed — the caller is an LLM, and told exactly what to drop it re-queries correctly
         near = catalog_store.near_misses(query, cat)
@@ -677,6 +769,60 @@ async def catalog_request(capability: str, ctx: Context, note: str = "") -> Requ
     return await _catalog_request_impl(
         capability, ctx, note, surface=_TEAM_SURFACE,
     )
+
+
+@mcp.tool(
+    description=FEEDBACK_DESCRIPTION,
+    annotations=ToolAnnotations(read_only_hint=False, destructive_hint=False, open_world_hint=False,
+                                idempotent_hint=False),
+    structured_output=True,
+)
+async def feedback(
+    category: FeedbackCategory, message: str, ctx: Context,
+    call_ids: list[str] | None = None, endpoint_id: str | None = None,
+) -> FeedbackOut:
+    return await _feedback_impl(category, message, ctx, call_ids, endpoint_id, surface=_TEAM_SURFACE)
+
+
+@mcp.tool(
+    description=REVIEW_DESCRIPTION,
+    annotations=ToolAnnotations(read_only_hint=False, destructive_hint=False, open_world_hint=False,
+                                idempotent_hint=False),
+    structured_output=True,
+)
+async def review(
+    call_id: str, usefulness: ReviewUsefulness, ctx: Context, reason: str | None = None,
+) -> ReviewOut:
+    return await _review_impl(call_id, usefulness, ctx, reason, surface=_TEAM_SURFACE)
+
+
+async def _review_impl(
+    call_id: str, usefulness: ReviewUsefulness, ctx: Context, reason: str | None,
+    *, surface: _SurfacePolicy,
+) -> ReviewOut:
+    token = _bearer(ctx)
+    api_context = (_api(token) if surface is _TEAM_SURFACE
+                   else _api(token, client_name=surface.client_name))
+    async with api_context as client:
+        response = await client.post("/reviews", json={
+            "call_id": call_id, "usefulness": usefulness, "reason": reason,
+        })
+    return _body(response)
+
+
+async def _feedback_impl(
+    category: FeedbackCategory, message: str, ctx: Context,
+    call_ids: list[str] | None, endpoint_id: str | None, *, surface: _SurfacePolicy,
+) -> FeedbackOut:
+    token = _bearer(ctx)
+    api_context = (_api(token) if surface is _TEAM_SURFACE
+                   else _api(token, client_name=surface.client_name))
+    async with api_context as client:
+        response = await client.post("/feedback", json={
+            "category": category, "message": message, "call_ids": call_ids or [],
+            "endpoint_id": endpoint_id,
+        })
+    return _body(response)
 
 
 async def _catalog_request_impl(
@@ -731,7 +877,20 @@ async def _catalog_get_impl(
                 "hints": [catalog_store.unknown_id_hint(endpoint_id, cat),
                           "or use catalog_search to find the right id"],
                 "did_you_mean": catalog_store.near_ids(endpoint_id, cat)}
-    return _body(r)
+    out = _body(r)
+    # Lifted onto the result so the schema advertises it: the direct price is not the only price
+    # a "free" endpoint can bill (found 2026-09-08 - apollo.people.search, catalog cost free, billed
+    # $0.002 through the overflow relay 8,810 times in a day and nothing on this surface said so).
+    ep = (out.get("endpoint") or {}) if isinstance(out, dict) else {}
+    if isinstance(ep, dict):
+        # Same quote catalog_search already leads with, so an agent that inspects by id
+        # does not fall back to the per-record `cost.usd` slice on a grouped credit.
+        out["usd_per_call"] = catalog_store.load().advertised_usd(ep.get("cost") or {})
+        if ep.get("overflow_price_usd") is not None:
+            out["overflow_price_usd"] = ep["overflow_price_usd"]
+            out["overflow_price_unit"] = ep.get("overflow_price_unit")
+            out["overflow_via"] = ep.get("overflow_via")
+    return out
 
 
 # --------------------------------------------------------------------------------------------
@@ -776,11 +935,13 @@ async def call(endpoint_id: str, params: dict | list | None = None,
                method: str | None = None, idempotency_key: str | None = None,
                query: dict | None = None, body: dict | list | str | None = None,
                headers: dict | None = None, content_type: str | None = None,
+               form: dict | None = None, uploads: list[dict] | None = None,
                authorization_method: str | None = None,
                ctx: Context = None) -> CallOut:  # type: ignore[assignment]
     return await _call_impl(
         endpoint_id, params=params, method=method, idempotency_key=idempotency_key,
         query=query, body=body, headers=headers, content_type=content_type,
+        form=form, uploads=uploads,
         authorization_method=authorization_method, ctx=ctx,
         catalog_only=False, surface=_TEAM_SURFACE, allowed_methods=None,
     )
@@ -790,6 +951,7 @@ async def _call_impl(endpoint_id: str, params: dict | list | None = None,
                      method: str | None = None, idempotency_key: str | None = None,
                      query: dict | None = None, body: dict | list | str | None = None,
                      headers: dict | None = None, content_type: str | None = None,
+                     form: dict | None = None, uploads: list[dict] | None = None,
                      authorization_method: str | None = None,
                      ctx: Context = None, *, catalog_only: bool,
                      allowed_methods: frozenset[str] | None,
@@ -938,42 +1100,194 @@ async def _call_impl(endpoint_id: str, params: dict | list | None = None,
                 kw["content"] = the_body.encode()
             else:
                 kw["json"] = the_body
+        if form is not None or uploads:
+            parts: list[tuple[str, tuple]] = []
+            for name, value in (form or {}).items():
+                values = value if isinstance(value, list) else [value]
+                for item in values:
+                    if isinstance(item, (dict, list)):
+                        rendered = json.dumps(item, separators=(",", ":"))
+                    elif isinstance(item, bool):
+                        rendered = str(item).lower()
+                    else:
+                        rendered = str(item)
+                    parts.append((str(name), (None, rendered)))
+            total = 0
+            for upload in uploads or []:
+                if not isinstance(upload, dict):
+                    return {"error": "each upload must be an object", "endpoint_id": endpoint_id}
+                name = str(upload.get("name") or "").strip()
+                filename = str(upload.get("filename") or "upload.bin").strip()
+                mime = str(upload.get("content_type") or "application/octet-stream").strip()
+                encoded = upload.get("data_base64")
+                if not name or not isinstance(encoded, str):
+                    return {"error": "each upload needs name and data_base64",
+                            "endpoint_id": endpoint_id}
+                try:
+                    data = base64.b64decode(encoded, validate=True)
+                except (ValueError, binascii.Error):
+                    return {"error": f"upload {name!r} is not valid base64",
+                            "endpoint_id": endpoint_id}
+                total += len(data)
+                if total > 30 * 1024 * 1024:
+                    return {"error": "multipart uploads may total at most 30 MiB",
+                            "endpoint_id": endpoint_id}
+                parts.append((name, (filename, data, mime)))
+            kw["files"] = parts
         route = "/catalog/call" if catalog_only else "/call"
         r = await client.request(method, f"{route}/{endpoint_id}", **kw)
 
     out: dict[str, Any] = {"status": r.status_code, "endpoint_id": endpoint_id, "body": _body(r)}
+    if call_id := (r.headers.get("X-Olywork-Call-Id") or r.headers.get("X-Olywork-Call-Id")):
+        out["call_id"] = call_id
     if r.headers.get("X-Olywork-Idempotent-Replay") == "true" or r.headers.get("X-Olywork-Idempotent-Replay") == "true":
         out["replayed"] = True
         out["hint"] = ("this is the stored answer from the earlier call with the same "
                        "idempotency_key — nothing was charged for it")
-    # Set by /call/ on a METERED call only — a team's own key is never charged, and its absence
-    # therefore means "not applicable" rather than "free". This header did not exist when the tool
-    # first read it: I wrote against a convention I had invented, so `cost_usd` was always null and
-    # an agent could not report what it spent. Same mistake as the `?next=` redirect.
     spent = r.headers.get("X-Olywork-Cost-Micro") or r.headers.get("X-Olywork-Cost-Micro")
     if spent is not None:
         try:
             out["cost_usd"] = round(int(spent) / 1_000_000, 6)
         except ValueError:
             pass
+    served_via = r.headers.get("X-Olywork-Served-Via") or r.headers.get("X-Olywork-Served-Via")
+    if served_via:
+        out["served_via"] = served_via
+        if served_via.startswith("overflow:") and not out.get("hint"):
+            provider = endpoint_id.split(".", 1)[0]
+            out["hint"] = (f"served through the overflow relay ({served_via.removeprefix('overflow:')}) "
+                           f"at its real price because olywork's {provider} account is out; cost_usd is "
+                           f"what the relay billed, not the catalog's direct price")
+    if 200 <= r.status_code < 300 and not out.get("hint") and not out.get("replayed"):
+        kind = r.headers.get("X-Olywork-Hint") or r.headers.get("X-Olywork-Hint")
+        if kind == "review" and out.get("call_id"):
+            out["hint"] = hints.review_hint(out["call_id"])
+        elif kind == "feedback":
+            out["hint"] = hints.HINT
     if r.status_code == 402:
-        # States the fact and stops. No link, and `topup_url` is stripped from the relayed body, so
-        # nothing on this path points a user at a payment page.
-        #
-        # ChatGPT's submission form asks whether a plugin "links or directs users out of ChatGPT to
-        # make purchases", and says only PHYSICAL goods can be supported. olywork sells prepaid API
-        # credit, which is a digital good — so a top-up link made the honest answer a yes, in the one
-        # category they cannot support. The link was a convenience, not the product: someone out of
-        # balance can find their own dashboard.
-        #
-        # Scoped to the MCP path deliberately. `/call/`'s 402 still carries `topup_url` for the CLI
-        # and the dashboard, where no such policy applies and the shortcut is genuinely useful.
         out["body"] = _without_purchase_pointers(out.get("body"))
-        out["hint"] = "the team's prepaid balance is not enough for this call"
+        if not out.get("replayed"):
+            out["hint"] = "the team's prepaid balance is not enough for this call"
     elif r.status_code >= 400:
-        # Whose fault it was matters to an agent deciding whether to retry elsewhere.
         out["whose_error"] = "olywork" if (r.headers.get("X-Olywork-Error") or r.headers.get("X-Olywork-Error")) else "provider"
     return out
+
+
+async def _call_media_impl(
+    endpoint_id: str, *, body: dict | list | str, headers: dict | None,
+    idempotency_key: str | None, ctx: Context, catalog_only: bool,
+    surface: _SurfacePolicy,
+) -> Annotated[CallToolResult, MediaOut]:
+    """Call one media-producing endpoint and preserve its bytes as native MCP audio."""
+    token = _bearer(ctx)
+    if not token:
+        problem = _need_token()
+        return CallToolResult(
+            content=[TextContent(type="text", text=json.dumps(problem))],
+            structuredContent=problem, isError=True,
+        )
+    extra_headers = {k: str(v) for k, v in (headers or {}).items()
+                     if k.lower() not in ("x-olywork-token", "x-olywork-org", "authorization",
+                                          "idempotency-key", "x-olywork-meta")}
+    api_context = (_api(token) if surface is _TEAM_SURFACE
+                   else _api(token, client_name=surface.client_name))
+    async with api_context as client:
+        _, slug, problem = await _resolve_org(client)
+        if problem:
+            return CallToolResult(
+                content=[TextContent(type="text", text=json.dumps(problem))],
+                structuredContent=problem, isError=True,
+            )
+        if slug:
+            extra_headers["X-Olywork-Org"] = slug
+        inbound_meta = (ctx.headers or {}).get("x-olywork-meta") or (ctx.headers or {}).get("X-Olywork-Meta")
+        if inbound_meta:
+            extra_headers["X-Olywork-Meta"] = str(inbound_meta)
+        if idempotency_key:
+            client.headers["Idempotency-Key"] = idempotency_key[:200]
+        kw: dict[str, Any] = {"headers": extra_headers} if extra_headers else {}
+        if isinstance(body, str):
+            kw["content"] = body.encode()
+        else:
+            kw["json"] = body
+        route = "/catalog/call" if catalog_only else "/call"
+        response = await client.post(f"{route}/{endpoint_id}", **kw)
+    metadata: dict[str, Any] = {"status": response.status_code, "endpoint_id": endpoint_id}
+    if call_id := (response.headers.get("X-Olywork-Call-Id") or response.headers.get("X-Olywork-Call-Id")):
+        metadata["call_id"] = call_id
+    if response.headers.get("X-Olywork-Idempotent-Replay") == "true" or response.headers.get("X-Olywork-Idempotent-Replay") == "true":
+        metadata["replayed"] = True
+    if spent := (response.headers.get("X-Olywork-Cost-Micro") or response.headers.get("X-Olywork-Cost-Micro")):
+        try:
+            metadata["cost_usd"] = round(int(spent) / 1_000_000, 6)
+        except ValueError:
+            pass
+    mime = response.headers.get("content-type", "").split(";", 1)[0].strip().lower()
+    if 200 <= response.status_code < 300 and mime.startswith("audio/"):
+        return CallToolResult(
+            content=[AudioContent(type="audio", data=base64.b64encode(response.content).decode(),
+                                  mimeType=mime)],
+            structuredContent=metadata,
+        )
+    metadata["body"] = _body(response)
+    return CallToolResult(
+        content=[TextContent(type="text", text=json.dumps(metadata, ensure_ascii=False, default=str))],
+        structuredContent=metadata, isError=response.status_code >= 400,
+    )
+
+
+@mcp.tool(
+    description=("Call an audio-producing endpoint through the same olywork proxy as `call`, returning "
+                 "the successful binary response as native MCP AudioContent. Use this for Fish "
+                 "Audio TTS; use `call` for JSON endpoints."),
+    annotations=_CALLS,
+)
+async def call_media(
+    endpoint_id: str, body: dict | list | str, ctx: Context,
+    headers: dict | None = None, idempotency_key: str | None = None,
+) -> Annotated[CallToolResult, MediaOut]:
+    return await _call_media_impl(
+        endpoint_id, body=body, headers=headers, idempotency_key=idempotency_key,
+        ctx=ctx, catalog_only=False, surface=_TEAM_SURFACE,
+    )
+
+
+async def _resources_list_impl(
+    provider: str, kind: str, ctx: Context, *, surface: _SurfacePolicy,
+) -> ResourcesOut:
+    token = _bearer(ctx)
+    if not token:
+        return _need_token()
+    api_context = (_api(token) if surface is _TEAM_SURFACE
+                   else _api(token, client_name=surface.client_name))
+    async with api_context as client:
+        org_id, slug, problem = await _resolve_org(client)
+        if problem:
+            return problem
+        request_headers = {"X-Olywork-Org": slug or ""}
+        response = await client.get(
+            f"/orgs/{org_id}/provider-resources",
+            params={k: v for k, v in {"provider": provider, "kind": kind}.items() if v},
+            headers=request_headers,
+        )
+        source = response.headers.get("X-Olywork-Resource-Source", "platform")
+    body = _body(response)
+    if response.status_code != 200:
+        return {"error": "could not list provider resources", "detail": body}
+    resources = body if isinstance(body, list) else []
+    return {"team": slug, "source": source, "count": len(resources), "resources": resources}
+
+
+@mcp.tool(
+    description=("List durable resources created with olywork-provided provider credentials for the "
+                 "current team. Filter Fish voices with provider='fishaudio', kind='voice'."),
+    annotations=_READS,
+    structured_output=True,
+)
+async def resources_list(
+    ctx: Context, provider: str = "", kind: str = "",
+) -> ResourcesOut:
+    return await _resources_list_impl(provider, kind, ctx, surface=_TEAM_SURFACE)
 
 
 @mcp.tool(
@@ -1064,6 +1378,14 @@ _DIRECTORY_WRITE = ToolAnnotations(
     title="Call a Write Endpoint",
     read_only_hint=False, destructive_hint=True, open_world_hint=True, idempotent_hint=False,
 )
+_DIRECTORY_MEDIA = ToolAnnotations(
+    title="Call an Audio Endpoint",
+    read_only_hint=False, destructive_hint=True, open_world_hint=True, idempotent_hint=False,
+)
+_DIRECTORY_RESOURCES = ToolAnnotations(
+    title="List Team Resources",
+    read_only_hint=True, destructive_hint=False, open_world_hint=False, idempotent_hint=True,
+)
 _DIRECTORY_BALANCE = ToolAnnotations(
     title="Check Olywork Balance",
     read_only_hint=True, destructive_hint=False, open_world_hint=False, idempotent_hint=True,
@@ -1081,9 +1403,13 @@ directory_mcp = MCPServer(
         "information available before a call."
     ),
     instructions=(
-        "This connector exposes Olywork catalog endpoints only. catalog_search finds endpoint ids; "
-        "catalog_get returns parameters, provider documentation, price and reliability; "
-        "catalog_call_read and catalog_call_write execute the selected endpoint."
+        "This connector exposes Olywork's catalog only. catalog_search finds endpoint ids by what you "
+        "want to do; catalog_get returns parameters, provider documentation, price and measured "
+        "reliability; catalog_call_read and catalog_call_write execute the selected endpoint. When "
+        "several providers cover one job, catalog_get ranks them by measured success, speed and "
+        "price; you pick. "
+        "If a call result invites a review, rate that one call with review(call_id, usefulness, "
+        "reason?) after using it, then continue."
     ),
     middleware=[_StaticSurfaceCapabilities()],
 )
@@ -1099,8 +1425,8 @@ directory_mcp = MCPServer(
     annotations=_DIRECTORY_SEARCH,
     structured_output=True,
 )
-async def directory_catalog_search(query: str, limit: int = 8) -> SearchOut:
-    return await _catalog_search_impl(query, limit, surface=_DIRECTORY_SURFACE)
+async def directory_catalog_search(query: str, ctx: Context, limit: int = 8) -> SearchOut:
+    return await _catalog_search_impl(query, limit, ctx=ctx, surface=_DIRECTORY_SURFACE)
 
 
 @directory_mcp.tool(
@@ -1166,16 +1492,49 @@ async def directory_catalog_call_write(
     body: dict | list | str | None = None,
     headers: dict | None = None,
     content_type: str | None = None,
+    form: dict | None = None,
+    uploads: list[dict] | None = None,
     authorization_method: str | None = None,
     ctx: Context = None,  # type: ignore[assignment]
 ) -> CallOut:
     return await _call_impl(
         endpoint_id, params=params, idempotency_key=idempotency_key, query=query, body=body,
-        headers=headers, content_type=content_type, authorization_method=authorization_method,
+        headers=headers, content_type=content_type, form=form, uploads=uploads,
+        authorization_method=authorization_method,
         ctx=ctx, catalog_only=True,
         surface=_DIRECTORY_SURFACE,
         allowed_methods=frozenset({"POST", "PUT", "PATCH", "DELETE"}),
     )
+
+
+@directory_mcp.tool(
+    name="catalog_call_media",
+    title="Call an Audio Endpoint",
+    description=("Calls a catalog audio endpoint and returns a successful binary response as "
+                 "native MCP AudioContent, with call and cost metadata."),
+    annotations=_DIRECTORY_MEDIA,
+)
+async def directory_catalog_call_media(
+    endpoint_id: str, body: dict | list | str, ctx: Context,
+    headers: dict | None = None, idempotency_key: str | None = None,
+) -> Annotated[CallToolResult, MediaOut]:
+    return await _call_media_impl(
+        endpoint_id, body=body, headers=headers, idempotency_key=idempotency_key,
+        ctx=ctx, catalog_only=True, surface=_DIRECTORY_SURFACE,
+    )
+
+
+@directory_mcp.tool(
+    name="resources_list",
+    title="List Team Resources",
+    description="Lists durable provider resources owned by the connected team.",
+    annotations=_DIRECTORY_RESOURCES,
+    structured_output=True,
+)
+async def directory_resources_list(
+    ctx: Context, provider: str = "", kind: str = "",
+) -> ResourcesOut:
+    return await _resources_list_impl(provider, kind, ctx, surface=_DIRECTORY_SURFACE)
 
 
 @directory_mcp.tool(
@@ -1203,6 +1562,33 @@ async def directory_catalog_request(capability: str, ctx: Context, note: str = "
     return await _catalog_request_impl(
         capability, ctx, note, surface=_DIRECTORY_SURFACE,
     )
+
+
+@directory_mcp.tool(
+    name="feedback",
+    title="Submit Feedback",
+    description=FEEDBACK_DESCRIPTION,
+    annotations=_DIRECTORY_ADDITIVE.model_copy(update={"title": "Submit Feedback"}),
+    structured_output=True,
+)
+async def directory_feedback(
+    category: FeedbackCategory, message: str, ctx: Context,
+    call_ids: list[str] | None = None, endpoint_id: str | None = None,
+) -> FeedbackOut:
+    return await _feedback_impl(
+        category, message, ctx, call_ids, endpoint_id, surface=_DIRECTORY_SURFACE,
+    )
+
+
+@directory_mcp.tool(
+    name="review", title="Review a Catalog Call", description=REVIEW_DESCRIPTION,
+    annotations=_DIRECTORY_ADDITIVE.model_copy(update={"title": "Review a Catalog Call"}),
+    structured_output=True,
+)
+async def directory_review(
+    call_id: str, usefulness: ReviewUsefulness, ctx: Context, reason: str | None = None,
+) -> ReviewOut:
+    return await _review_impl(call_id, usefulness, ctx, reason, surface=_DIRECTORY_SURFACE)
 
 
 # --------------------------------------------------------------------------------------------

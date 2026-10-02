@@ -25,7 +25,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlmodel import select
 
-from conftest import make_upstream
+from conftest import make_upstream, verified_signup
 
 from olywork.application import billing
 from olywork.domain import money as ledger
@@ -65,7 +65,7 @@ def _ref_cookie(code: str) -> dict:
 
 async def _signup(c: AsyncClient, email: str, *, ref: str = "") -> tuple[int, str]:
     """Register a user (and their first team), optionally carrying a referral cookie."""
-    r = await c.post("/users", json={"email": email}, headers=_ref_cookie(ref) if ref else None)
+    r = await verified_signup(c, json={"email": email}, headers=_ref_cookie(ref) if ref else None)
     assert r.status_code == 200, r.text
     return r.json()["org_id"], r.json()["token"]
 
@@ -150,6 +150,14 @@ async def _ready_referrer(c: AsyncClient, monkeypatch, email="ann@olywork.com") 
 
 
 # ---- the link ----------------------------------------------------------------------------------
+async def test_meta_names_the_configured_rewards(c, monkeypatch):
+    """The top-bar entry reads the offer from open /meta, so it must follow config, not a constant."""
+    monkeypatch.setattr(get_settings(), "referral_referrer_micro", 7_000_000)
+    monkeypatch.setattr(get_settings(), "referral_referred_micro", 3_000_000)
+    body = (await c.get("/meta")).json()
+    assert body["referral"] == {"referrer_micro": 7_000_000, "referred_micro": 3_000_000}
+
+
 async def test_ref_link_serves_the_landing_and_parks_the_code(c):
     """`/?ref=CODE` must show the PITCH. It used to fall through to the SPA, because the landing
     route treats any query string as the dashboard's — which would send a stranger who clicked a
@@ -566,8 +574,8 @@ def test_the_referrer_is_named_but_never_in_full():
     volume this program is built to produce. The domain survives because that is what makes a real
     friend recognisable; the local part collapses to one character plus a FIXED bullet run, so the
     mask does not leak its own length."""
-    assert referrals.mask_email("taqi@olywork.com") == "j•••@olywork.com"
-    assert referrals.mask_email("jz@olywork.com") == "j•••@olywork.com", "length must not leak"
+    assert referrals.mask_email("taqi@olywork.com") == "t•••@olywork.com"
+    assert referrals.mask_email("tz@olywork.com") == "t•••@olywork.com", "length must not leak"
     assert referrals.mask_email("notanemail") == ""
     assert referrals.mask_email("") == ""
 

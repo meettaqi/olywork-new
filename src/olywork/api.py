@@ -32,26 +32,35 @@ from .caller_metadata import _client_of
 from .config import get_settings
 from .domain.catalog import store as catalog_store
 from .infra.db import get_session, session_maker
+from .domain.governance.access import pinned_tag_predicates
 from .domain.governance.teams import _unique_slug
 from .domain.identity.access import (
     Caller,
     _membership_by_token,
     _require_can_register,
+    _resolve_org,
     _role_at_least,
     _user_from_identity_token,
     _user_from_session,
     require_member,
 )
+from .domain.identity import api_keys as managed_keys
+from .domain.identity import session as identity_session
 from .models import (CallRecord, CapabilityPin, LedgerEntry, Membership, Org, RunRecord, Secret,
                      Tool, ToolRequest, User)
 from .routers import admin as admin_routes
+from .routers import api_keys as api_key_routes
+from .routers import arena as arena_routes
 from .routers import auth as auth_routes
 from .routers import billing as billing_routes
 from .routers import call as call_routes
 from .routers import catalog as catalog_routes
 from .routers import connections as connection_routes
+from .routers import feedback as feedback_routes
+from .routers import media as media_routes
 from .routers import onboard as onboard_routes
 from .routers import orgs as org_routes
+from .routers import provider_resources as provider_resource_routes
 from .routers import referrals as referral_routes
 from .routers import resources as resources_routes
 from .routers import web as web_routes
@@ -108,11 +117,16 @@ async def _bootstrap_single_user() -> None:
             membership = Membership(user_id=user.id, org_id=org.id, role="owner",
                                     token_hash=crypto.hash_token(token))
             db.add(membership)
+            await db.flush()
+            await managed_keys.register_membership_token(db, membership, user, token)
         else:
             org = await db.get(Org, membership.org_id)
             if not path.exists():
                 token = crypto.new_token()  # the token file was removed — mint a replacement
-                membership.token_hash = crypto.hash_token(token)
+                await managed_keys.replace_membership_token(
+                    db, membership, user, token, actor_email=user.email,
+                    name="Local installation key",
+                )
         team = org.slug if org is not None else LOCAL_ORG_NAME
         await db.commit()
     if token:
@@ -168,9 +182,12 @@ def _app_version() -> str:
         mtime = index.stat().st_mtime
     except OSError:
         return "dev"
-    if _app_version_cache is None or _app_version_cache[0] != mtime:
-        digest = hashlib.sha256(index.read_bytes()).hexdigest()[:12]
-        _app_version_cache = (mtime, digest)
+    s = get_settings()
+    cache_key = (mtime, s.dashboard_rollout_enabled, s.dashboard_rollout_percent)
+    if _app_version_cache is None or _app_version_cache[0] != cache_key:
+        content = index.read_bytes() + f":rollout:{s.dashboard_rollout_enabled}:{s.dashboard_rollout_percent}".encode()
+        digest = hashlib.sha256(content).hexdigest()[:12]
+        _app_version_cache = (cache_key, digest)
     return _app_version_cache[1]
 
 
@@ -193,7 +210,8 @@ async def meta() -> dict:
             # public ingestion key — only present when this deployment opts in (self-hosters send nothing)
             "posthog_key": s.posthog_key, "posthog_host": s.posthog_host.rstrip("/") if s.posthog_key else "",
             # public workspace id — only present when this deployment opts in (self-hosters load no widget)
-            "intercom_app_id": s.intercom_app_id}
+            "intercom_app_id": s.intercom_app_id,
+            "referral": {"referrer_micro": s.referral_referrer_micro, "referred_micro": s.referral_referred_micro}}
 
 
 @app.get("/providers.json", include_in_schema=False)
@@ -257,7 +275,15 @@ async def create_tool_request(
         m = await _membership_by_token(x_olywork_token, db)
         user = await db.get(User, m.user_id) if m else await _user_from_identity_token(x_olywork_token, db)
         if user is not None and not user.suspended:
-            org_id, user_email = (m.org_id if m else None), user.email
+            if m:
+                org_id = m.org_id
+            else:
+                claims = identity_session.read_identity_claims(x_olywork_token)
+                if claims and claims.get("org"):
+                    org = await _resolve_org(claims["org"], db)
+                    if org is not None:
+                        org_id = org.id
+            user_email = user.email
     elif olywork_session and _same_origin(request):
         user = await _user_from_session(olywork_session, db)
         if user is not None:
@@ -277,6 +303,8 @@ async def create_tool_request(
             "note": "logged — requests steer which provider gets keyed next"}
 
 
+router.routes.extend(feedback_routes.app.routes)
+router.routes.extend(media_routes.app.routes)
 router.routes.extend(auth_routes.social_router.routes)
 router.routes.extend(auth_routes.cli_router.routes)         # CLI pairing
 router.routes.extend(auth_routes.session_router.routes)
@@ -313,6 +341,8 @@ router.routes.extend(referral_routes.router.routes)
 router.routes.extend(billing_routes.webhook_router.routes)
 router.routes.extend(org_routes.member_management_router.routes)
 router.routes.extend(org_routes.machine_identity_router.routes)
+router.routes.extend(api_key_routes.router.routes)
+router.routes.extend(provider_resource_routes.router.routes)
 
 
 # ---- projects: an optional sub-scope inside an org ------------------------------------------
@@ -471,7 +501,10 @@ async def _grant_audit(db: AsyncSession, caller: Caller, tool_name: str, method:
     run-report can prove it follows a real grant. One insert; this is not the hot proxy path."""
     rec = CallRecord(org_id=caller.org_id, user_email=caller.email, tool_name=tool_name,
                      method=method, path=path[:500], status_code=status, kind="local_run",
-                     client=client)
+                     client=client, tags=dict(caller.membership.pinned_tags or {}) or None,
+                     api_key_id=caller.api_key.id if caller.api_key else None,
+                     api_key_name=caller.api_key.name if caller.api_key else None,
+                     api_key_prefix=caller.api_key.safe_prefix if caller.api_key else None)
     db.add(rec)
     await db.commit()
     return rec.id
@@ -623,6 +656,7 @@ router.routes.extend(resources_routes.skill_router.routes)
 @app.get("/calls")
 async def list_calls(
     limit: int = 50, days: int | None = None, before_id: int | None = None,
+    api_key_id: int | None = None,
     caller: Caller = Depends(require_member), db: AsyncSession = Depends(get_session)
 ) -> list[dict]:
     """This team's recent calls. `days` windows it and `before_id` pages backwards — a builder
@@ -639,16 +673,19 @@ async def list_calls(
     # Keep owned free polling in diagnostic audit, but out of Activity before applying the limit.
     q = (select(CallRecord)
          .options(defer(CallRecord.error_request), defer(CallRecord.error_response))
-         .where(CallRecord.org_id == caller.org_id, CallRecord.kind != "async_poll"))
+         .where(CallRecord.org_id == caller.org_id, CallRecord.kind != "async_poll",
+                *pinned_tag_predicates(CallRecord.tags, caller.membership.pinned_tags)))
     if days is not None:
         q = q.where(CallRecord.created_at >= _day_start_utc() - timedelta(days=max(1, min(days, 365)) - 1))
     if before_id is not None:
         q = q.where(CallRecord.id < before_id)
+    if api_key_id is not None:
+        q = q.where(CallRecord.api_key_id == api_key_id)
     rows = (await db.execute(q.order_by(CallRecord.id.desc()).limit(limit))).scalars().all()
-    # A metered async submission audited its RESERVE as the charge. The task record is the account
-    # of what happened afterwards (settled, refunded, timed out) and what the caller bought.
+    await db.close()  # release the request session before terminal archive object I/O
     tasks = await async_task_app.views_for(
-        caller.org_id, [c.call_ref for c in rows if c.call_ref and c.credential_tier == "platform"])
+        caller.org_id, [c.call_ref for c in rows if c.call_ref and c.credential_tier == "platform"],
+        pinned_tags=caller.membership.pinned_tags)
     return [
         {
             "id": c.id,
@@ -659,6 +696,9 @@ async def list_calls(
             "status_code": c.status_code,
             "kind": c.kind,
             "client": c.client,
+            "api_key_id": c.api_key_id,
+            "api_key_name": c.api_key_name,
+            "api_key_prefix": c.api_key_prefix,
             # Marketplace telemetry — all null for a plain tool call (see models.CallRecord). Kept in
             # the same row a caller already reads, so "what did this cost me" needs no second endpoint.
             "endpoint_id": c.endpoint_id,
@@ -719,24 +759,34 @@ async def get_call_result(
     row = (await db.execute(
         select(CallRecord)
         .options(defer(CallRecord.error_request), defer(CallRecord.error_response))
-        .where(CallRecord.org_id == caller.org_id, CallRecord.id == call_id))).scalars().first()
+        .where(CallRecord.org_id == caller.org_id, CallRecord.id == call_id,
+               *pinned_tag_predicates(CallRecord.tags, caller.membership.pinned_tags)))).scalars().first()
     if row is None:
+        await db.commit()
         raise HTTPException(status_code=404, detail="no call with that id")
     out = {"id": row.id, "call_ref": row.call_ref, "endpoint_id": row.endpoint_id,
            "provider": row.provider, "credential_tier": row.credential_tier,
            "method": row.method, "path": row.path, "status_code": row.status_code,
            "cached": row.cached, "created_at": row.created_at.isoformat() if row.created_at else None,
            "stored": False, "note": None, "request": None, "response": None}
-    if not row.archive_key_hash or not row.archive_content_hash:
-        if row.credential_tier != "platform":
-            out["note"] = ("not stored: calls on your own key or your own tools are relayed "
-                           "without being kept")
-        elif not (200 <= row.status_code < 300):
+    archive_key_hash = row.archive_key_hash
+    archive_content_hash = row.archive_content_hash
+    endpoint_id = row.endpoint_id
+    credential_tier = row.credential_tier
+    status_code = row.status_code
+    await db.commit()
+    if not archive_key_hash or not archive_content_hash:
+        if credential_tier != "platform":
+            if not endpoint_id:
+                out["note"] = "not stored: calls on your own tools are relayed without being kept"
+            else:
+                out["note"] = "not stored: calls on your own key are relayed without being kept"
+        elif not (200 <= status_code < 300):
             out["note"] = "not stored: the call failed, so there is no answer on file"
         else:
             out["note"] = "not stored: recording was off when this call was made"
         return out
-    found = await archive.resolve_result(db, row.archive_key_hash, row.archive_content_hash)
+    found = await archive.resolve_result(archive_key_hash, archive_content_hash)
     if found is None:
         out["note"] = "expired: this answer is no longer on file"
         return out
@@ -759,13 +809,24 @@ async def get_call(
     body before concluding anything about money.
     """
     row = (await db.execute(select(CallRecord).where(
-        CallRecord.org_id == caller.org_id, CallRecord.call_ref == call_ref))).scalars().first()
+        CallRecord.org_id == caller.org_id, CallRecord.call_ref == call_ref,
+        *pinned_tag_predicates(CallRecord.tags, caller.membership.pinned_tags)))).scalars().first()
+    reserve_matched = False
+    if caller.membership.pinned_tags:
+        reserve_matched = (await db.execute(select(LedgerEntry.id).where(
+            LedgerEntry.org_id == caller.org_id,
+            LedgerEntry.call_id == call_ref,
+            LedgerEntry.kind == "reserve",
+            *pinned_tag_predicates(LedgerEntry.meta["tags"], caller.membership.pinned_tags),
+        ))).scalar_one_or_none() is not None
+        if row is None and not reserve_matched:
+            raise HTTPException(status_code=404, detail="no call with that id")
     entries = (await db.execute(select(LedgerEntry).where(
         LedgerEntry.org_id == caller.org_id, LedgerEntry.call_id == call_ref)
         .order_by(LedgerEntry.created_at))).scalars().all()
     if row is None and not entries:
         raise HTTPException(status_code=404, detail="no call with that id")
-    task = (await async_task_app.views_for(caller.org_id, [call_ref])).get(call_ref)
+    task = (await async_task_app.views_for(caller.org_id, [call_ref], pinned_tags=caller.membership.pinned_tags)).get(call_ref)
     view = None
     if row is not None:
         view = {"id": row.id, "call_ref": row.call_ref, "user_email": row.user_email,
@@ -800,14 +861,19 @@ async def list_runs(
     Ids are prefixed (s/l) so the two sources never collide as list keys."""
     limit = max(1, min(limit, 500))
     server = (await db.execute(
-        select(RunRecord).where(RunRecord.org_id == caller.org_id)
+        select(RunRecord).where(
+            RunRecord.org_id == caller.org_id,
+            *pinned_tag_predicates(RunRecord.tags, caller.membership.pinned_tags),
+        )
         .order_by(RunRecord.id.desc()).limit(limit)
     )).scalars().all()
     # A local run is audited as its GRANT (kind="local_run"); the redacted argv lives in `path`.
     local = (await db.execute(
         select(CallRecord).where(
             CallRecord.org_id == caller.org_id, CallRecord.kind == "local_run",
-            CallRecord.method == "GRANT")
+            CallRecord.method == "GRANT",
+            *pinned_tag_predicates(CallRecord.tags, caller.membership.pinned_tags),
+        )
         .order_by(CallRecord.id.desc()).limit(limit)
     )).scalars().all()
     rows = [
@@ -845,6 +911,7 @@ router.routes.extend(admin_routes.reports_router.routes)
 
 # ---- the proxy: call a tool without holding its credential; tier-4 metering ----------------
 router.routes.extend(call_routes.router.routes)
+router.routes.extend(arena_routes.router.routes)
 
 
 # ---- server-side CLI execution (Tier 0 `olywork run`) ---------------------------------------
@@ -901,6 +968,10 @@ async def run_tool_server(
         org_id=caller.org_id, user_email=caller.email, bundle_name=tool.name,
         argv=_redact_argv_list(list(body.args)),  # redact any credential typed inline before it's stored
         exit_code=result.exit_code, duration_ms=result.duration_ms, client=_client_of(request),
+        tags=dict(caller.membership.pinned_tags or {}) or None,
+        api_key_id=caller.api_key.id if caller.api_key else None,
+        api_key_name=caller.api_key.name if caller.api_key else None,
+        api_key_prefix=caller.api_key.safe_prefix if caller.api_key else None,
     )
     return {
         "tool": tool.name,

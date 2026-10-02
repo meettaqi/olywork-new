@@ -32,6 +32,11 @@ API, ADMIN, BACKGROUND = "session_maker", "admin_session_maker", "background_ses
 EXPECTED_MAKERS: dict[str, set[str]] = {
     # Request path.
     "api.py": {API}, "mcp.py": {API}, "routers/resources.py": {API},
+    "application/arena.py": {API}, "application/arena_insights.py": {API},
+    "application/arena_verification_insights.py": {API},
+    "application/catalog_find.py": {API}, "application/catalog_stats.py": {API},
+    "application/feedback.py": {API}, "application/media.py": {API},
+    "application/provider_resources.py": {API},
     "application/auth.py": {API}, "application/billing.py": {API}, "application/connect.py": {API},
     "application/asynctasks.py": {API},
     "application/referrals.py": {API}, "application/signup.py": {API},
@@ -43,6 +48,7 @@ EXPECTED_MAKERS: dict[str, set[str]] = {
     "application/call/settle.py": {API},
     "domain/capacity/marks.py": {API}, "domain/capacity/routes_view.py": {API},
     "domain/capacity/view.py": {API},
+    "domain/identity/api_keys.py": {BACKGROUND},
     # `olywork-worker` is its own process; it shares the API pool because nothing else is running in it.
     "worker.py": {API},
     # Staff pages take their pool through `Depends(get_admin_session)`, not a maker import; the one
@@ -53,6 +59,7 @@ EXPECTED_MAKERS: dict[str, set[str]] = {
     "bootstrap.py": {BACKGROUND},
     # `lookup` is on the API pool inside a caller's /call/; every write here is background.
     "archive.py": {API, BACKGROUND},
+    "archive_bodies.py": {API, BACKGROUND},
 }
 
 

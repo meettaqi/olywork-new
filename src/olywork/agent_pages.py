@@ -304,10 +304,25 @@ PROVIDER_DOMAINS: dict[str, str] = {
     "youtube": "youtube.com", "akta": "akta.pro",
 }
 
-# Why go through olywork at all: (lead, one short line). Same on every use-case page, except for
+# Decision steps. A workflow step whose capability is `decision` is a judgement on data the
+# earlier steps already fetched, not a fetch: jev reads the row and returns a probability. jev is
+# not a catalog capability (the run goes through the team's own TypeSafe key), so the step table
+# cannot price it from the catalog the way it prices every other step. This table is the one
+# place its rate lives; the receipt records what one dated run actually spent on it. A rate here
+# is the provider's published list price restated per row, never a number from a run.
+DECISION_STEPS: dict[str, dict] = {
+    "typesafe.jev": {
+        "provider": "typesafe", "provider_name": "Jev by TypeSafe", "domain": "typesafe.ai",
+        # $0.042 per million input tokens, output free; a company row with its criteria is about
+        # 500 input tokens, so one verdict is about two thousandths of a cent.
+        "usd": 0.00002, "unit": "verdict", "link": "/jev",
+    },
+}
+
+# Why go through olywork.com at all: (lead, one short line). Same on every use-case page, except for
 # free own-key jobs where the metering/multi-account cards are misleading.
 WHY_OLYWORK: tuple[tuple[str, str], ...] = (
-    ("One key, not 9 accounts", "olywork holds the provider keys. Neither you nor the agent sees them."),
+    ("One key, not 9 accounts", "olywork.com holds the provider keys. Neither you nor the agent sees them."),
     ("Price before the call", "The provider's own rate, $0.000 markup, from a prepaid balance."),
     ("No subscription, no seats", "Charged per call. $1.00 free per new team, no card to start."),
     ("Your own keys are free", "Already pay Hunter? Register it and those calls are never metered."),
@@ -355,16 +370,16 @@ AGENTS: dict[str, dict] = {
     "chatgpt": {
         "name": "ChatGPT",
         "h1_noun": "Connector",
-        "title": "ChatGPT Connector: call {n} APIs without keys | olywork",
+        "title": "ChatGPT Connector: call {n} APIs without keys | olywork.com",
         "description": (
-            "olywork is a ChatGPT Connector that lets ChatGPT call {n} APIs across {p} platforms: "
+            "olywork.com is a ChatGPT Connector that lets ChatGPT call {n} APIs across {p} platforms: "
             "find work emails, LinkedIn profiles, creators, keyword volumes, backlinks, competitor "
             "ads. Priced per call at the provider's own rate, with no markup and no provider signup."),
         # The one quotable sentence an answer engine should lift. Server-rendered first, under the H1.
         "definition": (
-            "olywork is a ChatGPT Connector (and MCP server) that gives ChatGPT {n} ready-to-call "
+            "olywork.com is a ChatGPT Connector (and MCP server) that gives ChatGPT {n} ready-to-call "
             "APIs across {p} platforms: SEO data, LinkedIn and people enrichment, Reddit, YouTube, "
-            "ads and e-commerce. Calls run on olywork's own keys and are metered from a prepaid "
+            "ads and e-commerce. Calls run on olywork.com's own keys and are metered from a prepaid "
             "balance at the provider's rate with $0.000 markup. Every new team starts with $1.00 "
             "free, and there are no provider accounts to open."),
         # Steps shown as numbered HTML list items. The setup line is the universal install.
@@ -378,22 +393,22 @@ AGENTS: dict[str, dict] = {
         # No install screenshot: the setup-line flow has none yet, and a page ships without the
         # slot rather than with a broken image (the old Plugins-directory PNG shows a dead UI).
         "faq": [
-            ("Is olywork free to use in ChatGPT?",
+            ("Is olywork.com free to use in ChatGPT?",
              "Installing is free and every new team starts with $1.00 of calls. After that, each call "
              "is metered from the team's prepaid balance at the provider's own rate, with no markup "
              "and no subscription. Calls on your team's own keys are free."),
             ("Do I need API keys from the providers?",
-             "No. olywork makes the upstream request on its own key and relays the answer. If your "
+             "No. olywork.com makes the upstream request on its own key and relays the answer. If your "
              "team already has a key for a provider, you can register it and those calls are never "
              "metered."),
             ("What does a call cost?",
              "It depends on the job and the provider: from well under a cent for a keyword lookup "
-             "to a few cents for a verified work email. olywork adds $0.000 on top of the provider's "
+             "to a few cents for a verified work email. olywork.com adds $0.000 on top of the provider's "
              "rate. Every row on this page shows the lowest price for that job, and ChatGPT tells "
              "you the price before it spends it."),
-            ("Does olywork pick the provider for me?",
+            ("Does olywork.com pick the provider for me?",
              "No. Where several providers do the same job they are shown side by side with prices "
-             "and measured reliability, and ChatGPT (or you) chooses. olywork does not route or "
+             "and measured reliability, and ChatGPT (or you) chooses. olywork.com does not route or "
              "fail over between them automatically."),
         ],
     },
@@ -417,13 +432,12 @@ USE_CASE_PAGES: dict[str, dict] = {
         # The H1, in the buyer's words; the title is built from it plus live catalog numbers.
         # H1 and title carry the words people type ("email finder", "linkedin email finder", "api");
         # the buyer's-words label stays on the menu.
-        "sentence": "Email finder API: a work email from a name, company or LinkedIn URL",
-        "title": "Email finder API: {n} providers compared | olywork",
+        "sentence": "LinkedIn email finder and email finder API: work email from a name or URL",
+        "title": "LinkedIn Email Finder API: {n} providers | olywork.com",
         "lede": (
-            "Give your agent a name and a company domain, or a LinkedIn URL, and get back a "
-            "verified work address. {n} providers do this job. They differ in what they need as "
-            "input, what they charge for a miss, and how they bill. Every row below is callable "
-            "right now through one olywork key, at the provider's rate with no markup."),
+            "LinkedIn email finder: give your agent a name and company domain, or a LinkedIn URL, "
+            "and get back a verified work address. {n} providers do this job. Pay per result, not "
+            "per seat. Every row below is callable through one olywork.com key, at the provider's rate."),
         # What to type, per client. One URL, tabs on the page.
         # One prompt, the same in every client. Copy button on the page.
         "prompt": "Using olywork, find the work email of the VP of Marketing at stripe.com. Show me "
@@ -434,7 +448,7 @@ USE_CASE_PAGES: dict[str, dict] = {
             ("Give it what you have",
              "Name plus company domain works everywhere. A LinkedIn URL works with 3 of the 9."),
             ("Ask for the price first",
-             "olywork returns the cost before the call, so ChatGPT can say what it will spend."),
+             "olywork.com returns the cost before the call, so ChatGPT can say what it will spend."),
             ("Name your preference, the agent picks",
              "“cheapest” · “most reliable” · “only bill me when you find one” · “takes a LinkedIn URL”."),
             ("Say what to do on a miss",
@@ -456,12 +470,12 @@ USE_CASE_PAGES: dict[str, dict] = {
              "low coverage means most of the list never even gets contacted. high bounces hurt deliverability.",
              "r/GrowthHacking", "https://www.reddit.com/r/GrowthHacking/comments/1rle23d/which_email_finder_actually_scales/",
              "This page does not reprint anyone's accuracy claim. It shows the price, what the "
-             "provider bills for a miss, and the success rate olywork measured on live calls."),
+             "provider bills for a miss, and the success rate olywork.com measured on live calls."),
             ("Nobody trusts one provider, so everyone builds a waterfall",
              "Most agencies use one email finder, get 45-50% coverage, and immediately lose half their list before even emailing.",
              "@itsalexvacca on X", "https://x.com/i/status/1976301889634566420",
              "All nine are callable through one key, so a miss costs one more call to try the next "
-             "one. Tell the agent the order you want; olywork compares, it does not fail over on "
+             "one. Tell the agent the order you want; olywork.com compares, it does not fail over on "
              "its own."),
             ("The lead is a LinkedIn URL and nothing else",
              "I tried GetProspect and Apollo.io to extract the email address but most of them were wrong.",
@@ -502,20 +516,20 @@ USE_CASE_PAGES: dict[str, dict] = {
         "faq": [
             ("How much does it cost to find a work email?",
              "Between a fraction of a cent and a few cents per found address, depending on the "
-             "provider. The lowest live price is shown at the top of this page, and olywork adds "
+             "provider. The lowest live price is shown at the top of this page, and olywork.com adds "
              "no markup. Most providers here charge only on success, so a miss costs nothing."),
             ("Do I need a Hunter or Apollo account?",
-             "No. olywork calls the provider on its own key and bills your team's prepaid balance per "
+             "No. olywork.com calls the provider on its own key and bills your team's prepaid balance per "
              "call. If you already have a key for one of them, register it and those calls are "
              "never metered."),
             ("Which provider should I use?",
              "It depends on what you have. Name plus domain: start with the cheapest verified "
-             "per-success provider. A LinkedIn URL: use one that accepts it directly. olywork shows "
+             "per-success provider. A LinkedIn URL: use one that accepts it directly. olywork.com shows "
              "them side by side but does not choose or fail over for you."),
             ("Is the data legal to use?",
              "These providers return business contact data under their own terms; you are "
              "responsible for how you use it, including consent and anti-spam law in your "
-             "jurisdiction. olywork relays the provider's answer and stores no copy."),
+             "jurisdiction. olywork.com relays the provider's answer and stores no copy."),
         ],
         "related": ("Verify an email before you send", "Enrich a person from an email or LinkedIn URL",
                     "Find people by role, company or location", "A company's email format"),
@@ -525,15 +539,15 @@ USE_CASE_PAGES: dict[str, dict] = {
 USE_CASE_PAGES["search-console-queries"] = {
     "label": "Search Console: clicks, impressions and top queries",
     "sentence": "Google Search Console API: clicks, impressions and top queries, read by your agent",
-    "title": "Search Console API for {agent}: queries and clicks | olywork",
+    "title": "Search Console API for {agent}: queries and clicks | olywork.com",
     "lede": (
         "Connect the Search Console property you already own and your agent can read the same "
         "numbers the UI shows: every query, its clicks, impressions, CTR and average position, for "
-        "any date range. It runs on your own Google account, so olywork never meters it."),
+        "any date range. It runs on your own Google account, so olywork.com never meters it."),
     "prompt": "Using olywork, show me the queries olywork.com ranked 8 to 20 for in the last 28 days with "
               "more than 50 impressions, sorted by impressions, and tell me which ones have the worst CTR.",
     "prompt_why": [
-        ("Connect once", "One OAuth click for the property you own. olywork holds the token, not you."),
+        ("Connect once", "One OAuth click for the property you own. olywork.com holds the token, not you."),
         ("Ask in plain words", "Date ranges, filters and sorting are the agent's job, not yours."),
         ("End the window 3 days back", "Search Console lags 2 to 3 days; yesterday is preliminary data."),
         ("It costs nothing", "Your own account, so the call is never metered."),
@@ -555,15 +569,15 @@ USE_CASE_PAGES["search-console-queries"] = {
     ],
     "faq": [
         ("Does this cost anything?",
-         "No. Search Console runs on your own Google account, so olywork relays the call and meters "
-         "nothing. Only calls on olywork's own provider keys are billed."),
+         "No. Search Console runs on your own Google account, so olywork.com relays the call and meters "
+         "nothing. Only calls on olywork.com's own provider keys are billed."),
         ("What do I have to connect?",
          "The Google account that already has access to the property, once, through an OAuth "
-         "screen. olywork stores the token server side; your agent never sees it."),
+         "screen. olywork.com stores the token server side; your agent never sees it."),
         ("Can my agent see other people's sites?",
          "No. The API returns only the properties your connected account can access."),
         ("Which agents can do this?",
-         "Any client that can reach olywork: ChatGPT, Claude, Claude Code, Cursor and the rest of "
+         "Any client that can reach olywork.com: ChatGPT, Claude, Claude Code, Cursor and the rest of "
          "the supported list."),
     ],
     "related": ("Is this page indexed, and why not", "Google Analytics: traffic and behaviour reports",
@@ -573,7 +587,7 @@ USE_CASE_PAGES["search-console-queries"] = {
 USE_CASE_PAGES["find-creators-by-keyword"] = {
     "label": "Find creators by keyword",
     "sentence": "Find creators by keyword on Instagram, TikTok, YouTube and X",
-    "title": "Creator search API: 4 platforms compared | olywork",
+    "title": "Creator search API: 4 platforms compared | olywork.com",
     "lede": (
         "Search each platform's own user index by keyword and get back profiles with follower "
         "counts, bios and links, so your agent can shortlist creators instead of you scrolling. "
@@ -612,7 +626,7 @@ USE_CASE_PAGES["find-creators-by-keyword"] = {
          "people enrichment endpoints can resolve a work address from a name and company."),
         ("Which platform should I search?",
          "The one your audience uses. The comparison below shows who serves each platform and what "
-         "a search costs there; olywork does not pick a platform for you."),
+         "a search costs there; olywork.com does not pick a platform for you."),
         ("Is this the official API?",
          "For most of these platforms it is a data provider reading the public index, not the "
          "platform's own API. Each row names the provider and links its documentation."),
@@ -623,40 +637,40 @@ USE_CASE_PAGES["find-creators-by-keyword"] = {
 AGENTS["claude"] = {
     "name": "Claude",
     "h1_noun": "MCP server",
-    "title": "Claude MCP server: {n} APIs without keys | olywork",
+    "title": "Claude MCP server: {n} APIs without keys | olywork.com",
     "description": (
-        "olywork gives Claude {n} ready-to-call APIs across {p} platforms: work emails, LinkedIn profiles, creators, keyword volumes, backlinks, competitor ads. Priced per call at the provider's own rate with no markup and no provider signup."),
+        "olywork.com gives Claude {n} ready-to-call APIs across {p} platforms: work emails, LinkedIn profiles, creators, keyword volumes, backlinks, competitor ads. Priced per call at the provider's own rate with no markup and no provider signup."),
     "definition": (
-        "olywork is an MCP server for Claude that gives it {n} ready-to-call APIs across {p} "
+        "olywork.com is an MCP server for Claude that gives it {n} ready-to-call APIs across {p} "
         "platforms: SEO data, LinkedIn and people enrichment, Reddit, YouTube, ads and e-commerce. "
-        "Calls run on olywork's own keys and are metered from a prepaid balance at the provider's "
+        "Calls run on olywork.com's own keys and are metered from a prepaid balance at the provider's "
         "rate with $0.000 markup. Every new team starts with $1.00 free, and there are no provider "
         "accounts to open."),
     "install_steps": [
         "In Claude, send this in the chat: <code>set up olywork &mdash; https://olywork.com/llms.txt</code>",
         "It reads that page and sets itself up. If it asks for a key, give it your team token from "
-        "the olywork dashboard (header <code>X-Olywork-Token</code>).",
+        "the olywork.com dashboard (header <code>X-Olywork-Token</code>).",
         "Your first team starts with $1.00 of free calls. No card, no subscription, no seats.",
         "Ask for what you want done. Claude searches the catalog, tells you the price, and calls the "
         "endpoint. You never hold a provider key.",
     ],
     "install_image": None,
         "faq": [
-            ("Is olywork free to use in Claude?",
+            ("Is olywork.com free to use in Claude?",
              "Installing is free and every new team starts with $1.00 of calls. After that each call "
              "is metered from the team's prepaid balance at the provider's own rate, with no markup, "
              "no subscription and no seats. Calls on your team's own keys are free."),
             ("Do I need API keys from the providers?",
-             "No. olywork makes the upstream request on its own key and relays the answer, so Claude "
+             "No. olywork.com makes the upstream request on its own key and relays the answer, so Claude "
              "never holds a provider credential. If your team already pays for a provider, register "
              "that key and those calls are never metered."),
             ("What does a call cost?",
              "It depends on the job and the provider: from well under a cent for a keyword lookup to "
-             "a few cents for a verified work email. olywork adds $0.000 on top of the provider's "
+             "a few cents for a verified work email. olywork.com adds $0.000 on top of the provider's "
              "rate, and Claude tells you the price before it spends it."),
-            ("Does olywork pick the provider for me?",
+            ("Does olywork.com pick the provider for me?",
              "No. Where several providers do one job they are shown side by side with prices and "
-             "measured reliability, and Claude picks, or you tell it how. olywork does not route or "
+             "measured reliability, and Claude picks, or you tell it how. olywork.com does not route or "
              "fail over between providers automatically."),
         ],
 }
@@ -664,17 +678,17 @@ AGENTS["claude"] = {
 AGENTS["claude-code"] = {
     "name": "Claude Code",
     "h1_noun": "MCP server",
-    "title": "Claude Code MCP server: {n} APIs, no keys | olywork",
+    "title": "Claude Code MCP server: {n} APIs, no keys | olywork.com",
     "description": (
-        "olywork gives Claude Code {n} ready-to-call APIs across {p} platforms: work emails, LinkedIn profiles, creators, keyword volumes, backlinks, competitor ads. Priced per call at the provider's own rate with no markup and no provider signup."),
+        "olywork.com gives Claude Code {n} ready-to-call APIs across {p} platforms: work emails, LinkedIn profiles, creators, keyword volumes, backlinks, competitor ads. Priced per call at the provider's own rate with no markup and no provider signup."),
     "definition": (
-        "olywork is an MCP server for Claude Code that gives it {n} ready-to-call APIs across {p} "
+        "olywork.com is an MCP server for Claude Code that gives it {n} ready-to-call APIs across {p} "
         "platforms: SEO data, LinkedIn and people enrichment, Reddit, YouTube, ads and e-commerce. "
-        "One command registers it, calls run on olywork's keys at the provider's rate with $0.000 "
+        "One command registers it, calls run on olywork.com's keys at the provider's rate with $0.000 "
         "markup, and your own keys are never metered."),
     "install_steps": [
         "In Claude Code, send this in the chat: <code>set up olywork &mdash; https://olywork.com/llms.txt</code>",
-        "It reads that page and registers olywork as an MCP server for you. Prefer to do it "
+        "It reads that page and registers olywork.com as an MCP server for you. Prefer to do it "
         "yourself? <code>curl -fsSL https://olywork.com/install.sh | sh</code> then "
         "<code>olywork login</code> and <code>olywork mcp install</code>.",
         "Your first team starts with $1.00 of free calls. No card, no subscription, no seats.",
@@ -683,21 +697,21 @@ AGENTS["claude-code"] = {
     ],
     "install_image": None,
         "faq": [
-            ("Is olywork free to use in Claude Code?",
+            ("Is olywork.com free to use in Claude Code?",
              "Installing is free and every new team starts with $1.00 of calls. After that each call "
              "is metered from the team's prepaid balance at the provider's own rate, with no markup, "
              "no subscription and no seats. Calls on your team's own keys are free."),
             ("Do I need API keys from the providers?",
-             "No. olywork makes the upstream request on its own key and relays the answer, so Claude Code "
+             "No. olywork.com makes the upstream request on its own key and relays the answer, so Claude Code "
              "never holds a provider credential. If your team already pays for a provider, register "
              "that key and those calls are never metered."),
             ("What does a call cost?",
              "It depends on the job and the provider: from well under a cent for a keyword lookup to "
-             "a few cents for a verified work email. olywork adds $0.000 on top of the provider's "
+             "a few cents for a verified work email. olywork.com adds $0.000 on top of the provider's "
              "rate, and Claude Code tells you the price before it spends it."),
-            ("Does olywork pick the provider for me?",
+            ("Does olywork.com pick the provider for me?",
              "No. Where several providers do one job they are shown side by side with prices and "
-             "measured reliability, and Claude Code picks, or you tell it how. olywork does not route or "
+             "measured reliability, and Claude Code picks, or you tell it how. olywork.com does not route or "
              "fail over between providers automatically."),
         ],
 }
@@ -705,39 +719,39 @@ AGENTS["claude-code"] = {
 AGENTS["cursor"] = {
     "name": "Cursor",
     "h1_noun": "MCP server",
-    "title": "Cursor MCP server: {n} APIs, no keys | olywork",
+    "title": "Cursor MCP server: {n} APIs, no keys | olywork.com",
     "description": (
-        "olywork gives Cursor {n} ready-to-call APIs across {p} platforms: work emails, LinkedIn profiles, creators, keyword volumes, backlinks, competitor ads. Priced per call at the provider's own rate with no markup and no provider signup."),
+        "olywork.com gives Cursor {n} ready-to-call APIs across {p} platforms: work emails, LinkedIn profiles, creators, keyword volumes, backlinks, competitor ads. Priced per call at the provider's own rate with no markup and no provider signup."),
     "definition": (
-        "olywork is an MCP server for Cursor that gives its agent {n} ready-to-call APIs across {p} "
+        "olywork.com is an MCP server for Cursor that gives its agent {n} ready-to-call APIs across {p} "
         "platforms: SEO data, LinkedIn and people enrichment, Reddit, YouTube, ads and e-commerce. "
-        "Calls run on olywork's own keys at the provider's rate with $0.000 markup, from a prepaid "
+        "Calls run on olywork.com's own keys at the provider's rate with $0.000 markup, from a prepaid "
         "balance that starts with $1.00 free."),
     "install_steps": [
         "In Cursor's agent chat, send: <code>set up olywork &mdash; https://olywork.com/llms.txt</code>",
         "It reads that page and sets itself up. If it asks for a key, give it your team token from "
-        "the olywork dashboard (header <code>X-Olywork-Token</code>).",
+        "the olywork.com dashboard (header <code>X-Olywork-Token</code>).",
         "Your first team starts with $1.00 of free calls. No card, no subscription, no seats.",
         "Ask for what you want done. Cursor searches the catalog, tells you the price, and calls the "
         "endpoint. You never hold a provider key.",
     ],
     "install_image": None,
         "faq": [
-            ("Is olywork free to use in Cursor?",
+            ("Is olywork.com free to use in Cursor?",
              "Installing is free and every new team starts with $1.00 of calls. After that each call "
              "is metered from the team's prepaid balance at the provider's own rate, with no markup, "
              "no subscription and no seats. Calls on your team's own keys are free."),
             ("Do I need API keys from the providers?",
-             "No. olywork makes the upstream request on its own key and relays the answer, so Cursor "
+             "No. olywork.com makes the upstream request on its own key and relays the answer, so Cursor "
              "never holds a provider credential. If your team already pays for a provider, register "
              "that key and those calls are never metered."),
             ("What does a call cost?",
              "It depends on the job and the provider: from well under a cent for a keyword lookup to "
-             "a few cents for a verified work email. olywork adds $0.000 on top of the provider's "
+             "a few cents for a verified work email. olywork.com adds $0.000 on top of the provider's "
              "rate, and Cursor tells you the price before it spends it."),
-            ("Does olywork pick the provider for me?",
+            ("Does olywork.com pick the provider for me?",
              "No. Where several providers do one job they are shown side by side with prices and "
-             "measured reliability, and Cursor picks, or you tell it how. olywork does not route or "
+             "measured reliability, and Cursor picks, or you tell it how. olywork.com does not route or "
              "fail over between providers automatically."),
         ],
 }
@@ -745,11 +759,11 @@ AGENTS["cursor"] = {
 USE_CASE_PAGES["verify-an-email"] = {
     "label": "Verify an email before you send",
     "sentence": "Email verification API: is this address deliverable, before you send",
-    "title": "Email verification API: {n} verifiers compared | olywork",
+    "title": "Email verification API: {n} verifiers compared | olywork.com",
     "lede": (
         "Hand your agent an address and get back a verdict: deliverable, undeliverable, or the "
         "third bucket every verifier has and each one names differently. {n} providers do this "
-        "through one olywork key, and what separates them is not accuracy claims. It is what they "
+        "through one olywork.com key, and what separates them is not accuracy claims. It is what they "
         "charge for an answer of “unknown”, which on a real B2B list is about a fifth of it."),
     "prompt": "Using olywork, verify these 40 addresses before I send. Show me the price first, then "
               "give me three lists: safe to send, do not send, and unknown with the reason.",
@@ -790,7 +804,7 @@ USE_CASE_PAGES["verify-an-email"] = {
          "zerobounce wants $65 per 10k emails. neverbounce wants $80. hunter wants $100. i built the same thing in n8n for $0.",
          "r/n8n, 214 points", "https://www.reddit.com/r/n8n/comments/1ra50to/zerobounce_wants_65_per_10k_emails_neverbounce/",
          "Fair complaint, and the reason we publish per-check prices side by side rather than per "
-         "10k tiers. Through olywork the same checks run from a fraction of a cent, and you can "
+         "10k tiers. Through olywork.com the same checks run from a fraction of a cent, and you can "
          "compare what each one charges for an inconclusive answer."),
         ("Catch-all domains are a fifth of the list and nobody knows what to do with them",
          "Catch-all domains are about 20% of any B2B list. Most operators throw them away because the bounce risk is real",
@@ -825,11 +839,11 @@ USE_CASE_PAGES["verify-an-email"] = {
          "A domain whose server accepts mail for every address without saying whether the mailbox "
          "exists. No verifier can resolve it. Expect roughly a fifth of a B2B list to land there."),
         ("How much does verification cost here?",
-         "A fraction of a cent per check at the provider's own rate, with $0.000 added by olywork. "
+         "A fraction of a cent per check at the provider's own rate, with $0.000 added by olywork.com. "
          "The prices and how each provider bills an inconclusive result are in the comparison below."),
         ("Can I run several verifiers over the same list?",
          "Yes, they are all callable through one key, and heavy senders do exactly that because "
-         "verifiers disagree on the ambiguous rows. Your agent chains them; olywork compares the "
+         "verifiers disagree on the ambiguous rows. Your agent chains them; olywork.com compares the "
          "options but does not route or fail over on its own."),
     ],
     "related": ("Find professional emails", "Enrich a person from an email or LinkedIn URL",
@@ -839,10 +853,10 @@ USE_CASE_PAGES["verify-an-email"] = {
 USE_CASE_PAGES["enrich-a-person"] = {
     "label": "Enrich a person from an email or LinkedIn URL",
     "sentence": "Person enrichment API: a full profile from an email or LinkedIn URL",
-    "title": "Person enrichment API: {n} providers compared | olywork",
+    "title": "Person enrichment API: {n} providers compared | olywork.com",
     "lede": (
         "Give your agent an email address or a LinkedIn URL and get back the person: current title, "
-        "employer, seniority, location, work history. {n} providers do this through one olywork "
+        "employer, seniority, location, work history. {n} providers do this through one olywork.com "
         "key, and they are not close on price. The same match costs {cheapest} at one and about "
         "eighty times that at another, so what you are really choosing is how much a miss costs you."),
     "prompt": "Using olywork, enrich these 20 LinkedIn URLs into a table: name, current title, company, "
@@ -926,13 +940,11 @@ USE_CASE_PAGES["enrich-a-person"] = {
 
 USE_CASE_PAGES["people-search"] = {
     "label": "Find people by role, company or location",
-    "sentence": "People search API: find people by job title, company or location",
-    "title": "People search API: {n} providers compared | olywork",
+    "sentence": "AI people search and LinkedIn email finder: contacts by title or company",
+    "title": "AI People Search and LinkedIn Email Finder | olywork.com",
     "lede": (
-        "Search across companies for the people who match a role, a seniority, a location or a tech "
-        "stack, and get back a list your agent can work with. {n} providers do this through one "
-        "olywork key. The trap is the billing unit: some charge per row returned, so an unbounded "
-        "search is an unbounded bill."),
+        "AI people search: find contacts by job title, seniority, company or location. LinkedIn email "
+        "finder included. {n} providers through one key. Pay per row, not per seat."),
     "prompt": "Using olywork, find 25 heads of growth at US SaaS companies with 50 to 200 employees. "
               "Show me the price first, keep the result set small, and give me name, title, company and LinkedIn URL.",
     "prompt_why": [
@@ -983,7 +995,7 @@ USE_CASE_PAGES["people-search"] = {
          "r/openclaw, 72 points", "https://www.reddit.com/r/openclaw/comments/1sft22e/kept_getting_my_accounts_banned_trying_to_get/",
          "The providers here run their own infrastructure, so your accounts are not in the loop. "
          "That is an operational answer, not a legal one: check each provider's terms for your use, "
-         "because olywork relays their answer and makes nothing lawful that was not."),
+         "because olywork.com relays their answer and makes nothing lawful that was not."),
         ("Coverage outside the US and outside tech is a guess",
          "I've heard of ZoomInfo, Apollo, LeadSquared, IndiaMART but no idea about quality for Indian market specifically.",
          "r/b2bmarketing", "https://www.reddit.com/r/b2bmarketing/comments/1r08jcy/need_recommendations_for_b2b_contact_data/",
@@ -1007,18 +1019,23 @@ USE_CASE_PAGES["people-search"] = {
          "are priced separately."),
     ],
     "related": ("Find professional emails", "Enrich a person from an email or LinkedIn URL",
-                "Build a company list by industry, size or tech", "Get a LinkedIn profile"),
+                "Find phone numbers", "Verify an email before you send"),
+    "extra_links": (
+        ("Run with your agent", "/people-search", "The people search launch page"),
+        ("Waterfall enrichment", "/use-cases/lead-enrichment-for-ai-agents", "Find, enrich and verify in one agent run"),
+        ("Multi-step verified lead list", "/workflows/find-and-verify-a-lead-list", "Build a list with the receipt from a real run"),
+    ),
 }
 
 USE_CASE_PAGES["enrich-a-company"] = {
     "label": "Enrich a company from its domain",
-    "sentence": "Company enrichment API: firmographics from a domain",
-    "title": "Company enrichment API: {n} providers compared | olywork",
+    "sentence": "Company enrichment API: domain to firmographics, providers compared on price and fill",
+    "title": "Company Enrichment API: {n} Providers Compared | olywork.com",
     "lede": (
-        "Give your agent a domain and get the company behind it: industry, headcount, location, "
-        "founding year, tech stack, funding, sometimes revenue. {n} providers do this through one "
-        "olywork key. Resolution is a solved problem, so the useful comparison is which fields come "
-        "back filled, what a miss costs, and how fast."),
+        "Turn a domain into firmographics: industry, headcount, location, founding year, tech stack, "
+        "funding. {n} providers do this job through one olywork.com key, from {cheapest} a call, with no "
+        "seat fee and no annual contract. Your agent compares them on price and measured fill rate, "
+        "picks one, and you pay only for the calls it makes."),
     "prompt": "Using olywork, enrich these 30 domains into a table: company name, industry, headcount, "
               "country, founded year and tech stack. Show me the price first, and mark any field that came back empty.",
     "prompt_why": [
@@ -1074,6 +1091,29 @@ USE_CASE_PAGES["enrich-a-company"] = {
          "r/Data_Enrichment", "https://www.reddit.com/r/Data_Enrichment/comments/1vrl2q4/data_enrichment_pricing_2026_august_update/",
          "Which is why every price on this page is in dollars per call, converted from each "
          "provider's own unit at their published rate, with the date we last verified it."),
+        ("Seat pricing kills small teams",
+         "For a 5-person team, they quoted 15k-30k/year minimum. The pricing games are brutal.",
+         "r/coldemail", "https://www.reddit.com/r/coldemail/comments/1tplckc/what_are_you_actually_paying_for_zoominfo_vs/",
+         "Seat-based enrichment tools bill whether or not you pull a record. Every provider here "
+         "bills per call with no seat, so a quiet month costs nothing and a busy one scales."),
+    ],
+    "failure_modes": [
+        ("Inferred headcount is often wrong",
+         "Most providers model employee count from job postings, LinkedIn, and traffic signals. "
+         "Subsidiaries, international companies, and fast-growing teams are frequently misclassified. "
+         "Treat headcount as a range, not a fact, and validate any record that will drive routing."),
+        ("Empty vs guessed fields",
+         "Some providers return a blank when they have no data; others return an inferred value with "
+         "no flag. A confidently wrong industry or revenue estimate does more damage than a gap. Ask "
+         "the agent to surface blanks, and know which providers distinguish observed from modelled."),
+        ("Fuzzy name match returns the wrong company",
+         "A company name like 'Acme' matches dozens of records; the provider picks one and you pay. "
+         "A domain is deterministic: one input, one company, no ambiguity. Use the by-domain route "
+         "when you have it."),
+        ("Billing units differ wildly",
+         "One provider charges per section of the record you request; another per company found; "
+         "another only when name, size and location all return. Compare in dollars per call, not in "
+         "credits, because a credit means something different at every vendor."),
     ],
     "faq": [
         ("What do I send in?",
@@ -1093,16 +1133,21 @@ USE_CASE_PAGES["enrich-a-company"] = {
     ],
     "related": ("Build a company list by industry, size or tech", "Hiring, headcount and news signals",
                 "Find people by role, company or location", "A company's funding rounds"),
+    "extra_links": (
+        ("Pricing", "/pricing", "How olywork.com pricing works"),
+        ("Verified lead list workflow", "/workflows/find-and-verify-a-lead-list", "Build a list with the receipt from a real run"),
+        ("People search", "/people-search", "Find and enrich people by role, company or location"),
+    ),
 }
 
 
 USE_CASE_PAGES["youtube-transcript-api"] = {
     "label": "Get a video's transcript",
     "sentence": "YouTube transcript API: a video's captions as plain text",
-    "title": "YouTube transcript API: {n} providers compared | olywork",
+    "title": "YouTube transcript API: {n} providers compared | olywork.com",
     "lede": (
         "Give your agent a YouTube URL and get the spoken words back as text, ready to summarise, "
-        "search or quote. {n} providers do this through one olywork key, from {cheapest} a video. "
+        "search or quote. {n} providers do this through one olywork.com key, from {cheapest} a video. "
         "The official YouTube Data API cannot do it for a video you do not own, which is the whole "
         "reason this job has a price at all."),
     "prompt": "Using olywork, get the transcript of https://www.youtube.com/watch?v=dQw4w9WgXcQ in "
@@ -1110,7 +1155,7 @@ USE_CASE_PAGES["youtube-transcript-api"] = {
     "prompt_why": [
         ("Give it the URL", "Both providers take a watch or Shorts URL. No video id lookup first."),
         ("Name the language", "Ask for a language you know the video carries, or you get an empty result."),
-        ("Ask for the price first", "olywork returns the cost before the call, so the agent can say what it will spend."),
+        ("Ask for the price first", "olywork.com returns the cost before the call, so the agent can say what it will spend."),
         ("Say what to do with it", "Transcript plus instruction in one turn beats fetching then pasting."),
     ],
     "result_noun": "transcript",
@@ -1125,7 +1170,7 @@ USE_CASE_PAGES["youtube-transcript-api"] = {
          "r/SaaS, 5 points", "https://www.reddit.com/r/SaaS/comments/1fgjjd1/looking_for_a_saas_tool_to_fetch_youtube_video/",
          "This is the single most repeated failure in the research, and it is structural: the "
          "unofficial route reads from your address, and datacentre ranges get blocked. A call "
-         "through olywork leaves the provider's infrastructure instead. What no table can tell you "
+         "through olywork.com leaves the provider's infrastructure instead. What no table can tell you "
          "is whether a given provider's pool is clear today at your volume, which is why the "
          "observed success rates on this page are measured rather than promised."),
         ("Nobody can promise it still works next month",
@@ -1177,7 +1222,7 @@ USE_CASE_PAGES["youtube-transcript-api"] = {
     ],
     "faq": [
         ("How much does a YouTube transcript cost?",
-         "A fraction of a cent per video at the provider's own rate, with $0.000 added by olywork. "
+         "A fraction of a cent per video at the provider's own rate, with $0.000 added by olywork.com. "
          "The live prices are in the comparison above, and one provider bills only on success while "
          "the other bills the attempt."),
         ("Why not use youtube-transcript-api myself?",
@@ -1201,10 +1246,10 @@ USE_CASE_PAGES["youtube-transcript-api"] = {
 USE_CASE_PAGES["video-details-views-and-stats"] = {
     "label": "Video details, views and stats",
     "sentence": "YouTube video statistics: views, likes and metadata by video id",
-    "title": "YouTube video statistics API: {n} providers | olywork",
+    "title": "YouTube video statistics API: {n} providers | olywork.com",
     "lede": (
         "Views, likes, comment count, duration, title, description, tags and publish date, for any "
-        "public video. {n} providers do this through one olywork key, and one of them is Google's "
+        "public video. {n} providers do this through one olywork.com key, and one of them is Google's "
         "own API on the account you already have, which is free but rationed."),
     "prompt": "Using olywork, get the view count, like count and publish date for these 30 YouTube "
               "video ids and put them in a table sorted by views. Show me the price first.",
@@ -1227,7 +1272,7 @@ USE_CASE_PAGES["video-details-views-and-stats"] = {
          "The daily budget resets at midnight Pacific, so a bug in the morning costs the rest of the "
          "day. Reading a video costs 1 unit of 10,000 and batches 50 ids into that one unit, so most "
          "people who hit the wall were spending it on search. The paid rows have no daily ceiling; "
-         "olywork shows you both and you pick, it does not switch over on its own."),
+         "olywork.com shows you both and you pick, it does not switch over on its own."),
         ("You cannot tell whether you ran out or something else broke",
          "The strange thing is, my daily usage counter (which I'm tracking in the script) shows that I'm nowhere near the daily quota limit.",
          "r/pythontips, 2 points", "https://www.reddit.com/r/pythontips/comments/1epf9dk/youtube_api_quota_issue_despite_not_reaching_the/",
@@ -1238,7 +1283,7 @@ USE_CASE_PAGES["video-details-views-and-stats"] = {
          "Apparently that IP address is for AWS.",
          "r/MailChimp, 6 points", "https://www.reddit.com/r/MailChimp/comments/1g9ft0z/youtube_api_error/",
          "The error underneath that thread is API_KEY_IP_ADDRESS_BLOCKED, and it is the same story as "
-         "the transcript job: it worked until it was deployed. A call through olywork leaves the "
+         "the transcript job: it worked until it was deployed. A call through olywork.com leaves the "
          "provider's infrastructure, not your host's. Whether your own host is blocked is a property "
          "of your host, and no comparison table has that column."),
         ("The counts themselves are not stable at fine granularity",
@@ -1278,14 +1323,14 @@ USE_CASE_PAGES["video-details-views-and-stats"] = {
     ],
     "faq": [
         ("Is the YouTube Data API free?",
-         "Yes, on your own Google account, and olywork never meters a call on your own key. What it "
+         "Yes, on your own Google account, and olywork.com never meters a call on your own key. What it "
          "is not is unlimited: 10,000 quota units a day by default, which this method spends 1 at a "
          "time. The paid providers exist for when that runs out."),
         ("Can I get watch time or retention?",
          "No. Those are YouTube Analytics numbers and only the channel's owner can read them, "
          "through a connected account. Everything on this page is the public record of the video."),
         ("Do I need a Google account for this?",
-         "Only for the free row. The other providers are called on olywork's keys and billed per "
+         "Only for the free row. The other providers are called on olywork.com's keys and billed per "
          "call from your prepaid balance, so you can read a video's stats with no Google project at all."),
         ("How current are the view counts?",
          "They are what the platform is publishing at the moment of the call. YouTube itself updates "
@@ -1299,10 +1344,10 @@ USE_CASE_PAGES["video-details-views-and-stats"] = {
 USE_CASE_PAGES["youtube-channel-stats"] = {
     "label": "A channel's profile and lifetime stats",
     "sentence": "YouTube channel stats API: subscribers, total views and profile",
-    "title": "YouTube channel stats API: {n} providers | olywork",
+    "title": "YouTube channel stats API: {n} providers | olywork.com",
     "lede": (
         "Subscriber count, lifetime views, video count, description, country and links, for any "
-        "public channel. {n} providers do this through one olywork key, including Google's own API "
+        "public channel. {n} providers do this through one olywork.com key, including Google's own API "
         "on your account, which resolves an @handle without you having to find the UC id first."),
     "prompt": "Using olywork, get the subscriber count, total views and video count for @MrBeast and "
               "@mkbhd, and tell me which has more views per video. Show me the price first.",
@@ -1353,7 +1398,7 @@ USE_CASE_PAGES["youtube-channel-stats"] = {
          "That is four jobs chained: the profile, the uploads list, per video stats, then comments. "
          "Asking Google for part=contentDetails hands you the uploads playlist id, which is the "
          "cheap way into the catalogue without spending a search. Your agent runs the chain; "
-         "olywork prices each step."),
+         "olywork.com prices each step."),
     ],
     "q_cheapest": "Which YouTube channel stats API is cheapest?",
     "q_reliable": "Which one is the most reliable?",
@@ -1385,8 +1430,8 @@ USE_CASE_PAGES["youtube-channel-stats"] = {
          "Search for it first, then read the profile. Channel search is a separate job on this menu "
          "and returns the ids these endpoints take."),
         ("Is Google's API really free here?",
-         "Yes. It runs on the Google account you connect, so olywork relays the call and meters "
-         "nothing. Only calls on olywork's own provider keys are billed."),
+         "Yes. It runs on the Google account you connect, so olywork.com relays the call and meters "
+         "nothing. Only calls on olywork.com's own provider keys are billed."),
         ("Can I read another channel's analytics?",
          "No, and no provider can. Watch time, traffic sources and audience data are visible only to "
          "the channel's owner through a connected account. Everything here is public."),
@@ -1398,11 +1443,11 @@ USE_CASE_PAGES["youtube-channel-stats"] = {
 USE_CASE_PAGES["search-videos-and-channels-by-keyword"] = {
     "label": "Search videos and channels by keyword",
     "sentence": "YouTube search API: find videos and channels by keyword",
-    "title": "YouTube search API: {n} providers compared | olywork",
+    "title": "YouTube search API: {n} providers compared | olywork.com",
     "lede": (
         "Run a YouTube search from your agent and get the results as data: titles, video ids, "
         "channels, publish dates and thumbnails, with the filters the site itself offers. {n} "
-        "providers do this through one olywork key. Google's own API is free on your account and "
+        "providers do this through one olywork.com key. Google's own API is free on your account and "
         "the single most quota-expensive call it has, which is why the others are here."),
     "prompt": "Using olywork, search YouTube for videos about home espresso uploaded in the last month, "
               "sorted by view count. Show me the price first, then give me the top 20 with links.",
@@ -1496,10 +1541,10 @@ USE_CASE_PAGES["search-videos-and-channels-by-keyword"] = {
 USE_CASE_PAGES["youtube-video-comments"] = {
     "label": "A video's comments",
     "sentence": "YouTube comment scraper: every comment on a video, as data",
-    "title": "YouTube comment scraper API: {n} providers | olywork",
+    "title": "YouTube comment scraper API: {n} providers | olywork.com",
     "lede": (
         "Pull a video's comments with authors, like counts, timestamps and replies, so your agent "
-        "can read the audience instead of you scrolling. {n} providers do this through one olywork "
+        "can read the audience instead of you scrolling. {n} providers do this through one olywork.com "
         "key, and Google's own API is free on the account you already have."),
     "prompt": "Using olywork, get the comments on https://www.youtube.com/watch?v=dQw4w9WgXcQ sorted by "
               "relevance. Show me the price first, then group them into the five things people complain about.",
@@ -1545,7 +1590,7 @@ USE_CASE_PAGES["youtube-video-comments"] = {
          "I want to archive everything from the videos, to the likes, view and comments on it, lives and the same for it",
          "r/DataHoarder, 20 points", "https://www.reddit.com/r/DataHoarder/comments/1s426uf/need_help_with_youtube_channel_archivescraping/",
          "That is several jobs chained, not one call: list the channel's videos, then pull comments "
-         "per video, then paginate each. Your agent can run that loop and olywork prices every "
+         "per video, then paginate each. Your agent can run that loop and olywork.com prices every "
          "step, but it does not run the loop for you, and on a large channel the bill is the sum of "
          "the parts."),
     ],
@@ -1583,7 +1628,7 @@ USE_CASE_PAGES["youtube-video-comments"] = {
          "what you do with the data, including the privacy law that applies to you."),
         ("Can I get comments from a whole channel?",
          "Not in one call. List the channel's videos first, then fetch comments per video. Your "
-         "agent can chain that; olywork prices each step but does not run the loop for you."),
+         "agent can chain that; olywork.com prices each step but does not run the loop for you."),
     ],
     "related": ("Get a video's transcript", "Video details, views and stats",
                 "Mine the comments", "A channel's profile and lifetime stats"),
@@ -1593,10 +1638,10 @@ USE_CASE_PAGES["youtube-video-comments"] = {
 USE_CASE_PAGES["google-results-for-a-keyword"] = {
     "label": "Google results for a keyword",
     "sentence": "SERP API: Google organic results for a keyword",
-    "title": "SERP API: {n} providers compared, from {cheapest} | olywork",
+    "title": "SERP API: {n} providers compared, from {cheapest} | olywork.com",
     "lede": (
         "Send a keyword, get Google's organic results back as data: the ranking URLs in order, with "
-        "their titles and snippets. {n} providers do this through one olywork key, from {cheapest} a "
+        "their titles and snippets. {n} providers do this through one olywork.com key, from {cheapest} a "
         "call, billed from a prepaid balance instead of a monthly plan. What you are really choosing "
         "between is the billing unit, how deep each one goes, and how much of the page beyond ten "
         "blue links it can see."),
@@ -1607,7 +1652,7 @@ USE_CASE_PAGES["google-results-for-a-keyword"] = {
         ("Give it the keyword, not a URL", "These take a query the way a person types it. Keep multi-word phrases together."),
         ("Say where and in what language", "A result set is location specific. Leave it out and you get whichever default the provider picked."),
         ("Say how deep to go", "Depth is the cost dial on every row here: ten results is one unit of work, a hundred is ten."),
-        ("Ask for the price first", "olywork returns the cost before the call, so the agent can say what it will spend."),
+        ("Ask for the price first", "olywork.com returns the cost before the call, so the agent can say what it will spend."),
     ],
     "result_noun": "result",
     "result_image": None,
@@ -1644,7 +1689,7 @@ USE_CASE_PAGES["google-results-for-a-keyword"] = {
         ("The free tier runs out before the project starts",
          "APIs like SerpAPI have pretty limited free tiers, so I'm looking into alternative ways to handle search without running into those limits.",
          "r/Playwright, 2 points", "https://www.reddit.com/r/Playwright/comments/1u8h42h/google_search_using_playwright/",
-         "A new olywork team starts with a dollar of prepaid balance and no card, which at these "
+         "A new olywork.com team starts with a dollar of prepaid balance and no card, which at these "
          "rates is hundreds of searches rather than a fortnight of a trial. What that does not buy "
          "you is a decision: the same dollar spread across three of these providers on your own "
          "queries is a better answer than any table, and it is the experiment this page would "
@@ -1655,7 +1700,7 @@ USE_CASE_PAGES["google-results-for-a-keyword"] = {
          "This page is one of those threads, so the only decent thing it can do is show its working. "
          "Every price above is read from the provider's own rate card or documentation on the date "
          "in the row, where a provider publishes no dollar price the row says so rather than "
-         "guessing, and any reliability figure comes from live olywork traffic rather than a "
+         "guessing, and any reliability figure comes from live olywork.com traffic rather than a "
          "benchmark we designed. What no comparison can tell you is which of these companies still "
          "exists in eighteen months. Nobody selling you a table knows that either."),
     ],
@@ -1689,7 +1734,7 @@ USE_CASE_PAGES["google-results-for-a-keyword"] = {
     ],
     "faq": [
         ("How much does one Google search cost?",
-         "The provider's own rate with $0.000 added by olywork, taken from a prepaid balance rather "
+         "The provider's own rate with $0.000 added by olywork.com, taken from a prepaid balance rather "
          "than a subscription. The live figure per provider is in the comparison above, and the "
          "units differ: one row bills the request, one bills each returned row, one bills only the "
          "searches that succeed."),
@@ -1716,10 +1761,10 @@ USE_CASE_PAGES["google-results-for-a-keyword"] = {
 USE_CASE_PAGES["your-own-campaign-performance"] = {
     "label": "Your own campaign performance",
     "sentence": "Google Ads API and Meta Ads API: your own campaign numbers",
-    "title": "Google Ads API and Meta Ads API, free | olywork",
+    "title": "Google Ads API and Meta Ads API, free | olywork.com",
     "lede": (
         "Spend, impressions, clicks and conversions for the campaigns you are already running, read "
-        "by {agent} off your own connected accounts. Both platforms are free through olywork: you "
+        "by {agent} off your own connected accounts. Both platforms are free through olywork.com: you "
         "connect once, the token stays server side, and nothing here is metered. The research behind "
         "this page says the wall was never the endpoint. It was getting a credential in front of it."),
     "prompt": "Using olywork, pull last month's spend, impressions, clicks and conversions for every "
@@ -1743,7 +1788,7 @@ USE_CASE_PAGES["your-own-campaign-performance"] = {
         ("The wall is the credential, not the endpoint",
          "A test developer token can only access whitelisted accounts. Move to standard access before you rely on it.",
          "r/PPC, 50 points", "https://www.reddit.com/r/PPC/comments/1ubluzq/i_got_tired_of_logging_into_google_ads_every/",
-         "This was the largest theme in the research and it is the one thing olywork genuinely "
+         "This was the largest theme in the research and it is the one thing olywork.com genuinely "
          "changes the shape of: the credential is injected server side, so it never reaches your "
          "agent, your prompt or your repository. Be clear about what that does not do. It does not "
          "grant you access you do not have, and a token that only sees whitelisted accounts still "
@@ -1774,7 +1819,7 @@ USE_CASE_PAGES["your-own-campaign-performance"] = {
         ("The numbers move under you, and that is not going to stop",
          "Meta deprecated Reach in the Facebook Graph API and it is breaking dashboards everywhere.",
          "r/GoogleDataStudio, 6 points", "https://www.reddit.com/r/GoogleDataStudio/comments/1uv8e3n/meta_deprecated_reach_in_the_facebook_graph_api/",
-         "Honest answer: this is the opposite of a fix. olywork never models an upstream API, it "
+         "Honest answer: this is the opposite of a fix. olywork.com never models an upstream API, it "
          "relays the response as it came, so a deprecated field reaches you as a deprecated field "
          "rather than as a mapping layer quietly returning something stale. You find out faster and "
          "you find out truthfully. What no page can tell you is what Meta deprecates next."),
@@ -1806,11 +1851,11 @@ USE_CASE_PAGES["your-own-campaign-performance"] = {
     ],
     "faq": [
         ("Does this cost anything?",
-         "No. Both rows run on accounts you already own, so olywork relays the call and meters "
+         "No. Both rows run on accounts you already own, so olywork.com relays the call and meters "
          "nothing, and the price shown before the call is zero. The provider's rate is the "
          "provider's rate with $0.000 added, and here the provider's rate is nothing."),
         ("Do I still need API access from Google and Meta?",
-         "Yes. olywork holds the credential server side so it never reaches your agent, and it does "
+         "Yes. olywork.com holds the credential server side so it never reaches your agent, and it does "
          "not stand between you and each platform's own access rules. A test developer token still "
          "sees only the accounts it was whitelisted for, and a Meta permission you were not granted "
          "is still not granted when the call arrives through here."),
@@ -1832,18 +1877,16 @@ USE_CASE_PAGES["your-own-campaign-performance"] = {
 
 USE_CASE_PAGES["amazon-product-detail-by-asin"] = {
     "label": "Amazon product detail by ASIN",
-    "sentence": "Amazon product API: any product's detail by ASIN",
-    "title": "Amazon product API: {n} providers from {cheapest} | olywork",
+    "sentence": "Pull any Amazon product by ASIN",
+    "title": "Amazon Product by ASIN: from {cheapest} | olywork.com",
     "lede": (
-        "Give your agent an ASIN and get the listing back as data: title, current price, images, "
-        "specifications and the review summary. {n} providers do this through one olywork key, from "
-        "{cheapest} a product, with no Amazon programme to be approved for first. That last part is "
-        "most of the reason this job has a price at all."),
+        "Get the price, title, images, specs and reviews for any ASIN. {n} providers through one "
+        "olywork.com key, from {cheapest} per lookup. No Amazon affiliate account required."),
     "prompt": "Using olywork, get the Amazon product detail for ASIN B08N5WRWNW on amazon.com. Show me "
               "the price first, then give me the title, current price, rating and review count.",
     "prompt_why": [
         ("Give it the ASIN and the marketplace", "One ASIN is a different listing and a different price on each Amazon domain. Name the one you mean."),
-        ("Ask for the price first", "olywork returns the cost before the call, so the agent can say what it will spend."),
+        ("Ask for the price first", "olywork.com returns the cost before the call, so the agent can say what it will spend."),
         ("Name the fields you want back", "A product payload is large. Saying which fields matter keeps the answer short and the context small."),
         ("Say what to do on a miss", "Dead and region locked ASINs are normal in any list. Tell it to skip and report rather than retry."),
     ],
@@ -1928,7 +1971,7 @@ USE_CASE_PAGES["amazon-product-detail-by-asin"] = {
     "faq": [
         ("How much does one product lookup cost?",
          "A fraction of a cent to about a cent and a half depending on the row, at the provider's "
-         "own rate with $0.000 added by olywork. The live figures are in the comparison above, and "
+         "own rate with $0.000 added by olywork.com. The live figures are in the comparison above, and "
          "all three bill only when the lookup works."),
         ("Why not use Amazon's own API?",
          "Because neither of Amazon's APIs is a general read any product API. The Product "
@@ -1943,7 +1986,7 @@ USE_CASE_PAGES["amazon-product-detail-by-asin"] = {
          "amount of paying for data changes that."),
         ("Can I look up thousands of ASINs?",
          "Yes, and the cost is linear because it is one call per ASIN with no batch endpoint. Your "
-         "agent runs the list; olywork prices each call and shows the running total, and since all "
+         "agent runs the list; olywork.com prices each call and shows the running total, and since all "
          "three rows bill only on success, the dead entries in a scraped list do not cost you "
          "anything."),
     ],
@@ -1955,10 +1998,10 @@ USE_CASE_PAGES["amazon-product-detail-by-asin"] = {
 USE_CASE_PAGES["find-local-businesses-by-keyword-and-location"] = {
     "label": "Find local businesses by keyword and location",
     "sentence": "Yelp API and Tripadvisor API: local businesses by keyword",
-    "title": "Yelp API and Tripadvisor API, from {cheapest} | olywork",
+    "title": "Yelp API and Tripadvisor API, from {cheapest} | olywork.com",
     "lede": (
         "Ask for a kind of business and a place, and get the listings back as data: names, ratings, "
-        "review counts, addresses and categories. Two sources through one olywork key, from "
+        "review counts, addresses and categories. Two sources through one olywork.com key, from "
         "{cheapest} a call, with no Yelp or Tripadvisor developer programme to be admitted to "
         "first. They are different listings rather than two copies of one, so the comparison below "
         "groups them rather than ranking them against each other."),
@@ -1969,7 +2012,7 @@ USE_CASE_PAGES["find-local-businesses-by-keyword-and-location"] = {
         ("Give the thing and the place separately", "Both sources take a description and a location as two fields. One blob of text resolves badly."),
         ("Name the city and the state", "The commonest empty result on this job is a location string neither source recognises."),
         ("Say which source you want", "Yelp and Tripadvisor hold different businesses. Ask for both and you get both, side by side."),
-        ("Ask for the price first", "olywork returns the cost before the call, so the agent can say what it will spend."),
+        ("Ask for the price first", "olywork.com returns the cost before the call, so the agent can say what it will spend."),
     ],
     "result_noun": "business",
     "result_image": None,
@@ -1987,7 +2030,7 @@ USE_CASE_PAGES["find-local-businesses-by-keyword-and-location"] = {
          "This shape recurred six times in the research and it is the one theme this page can "
          "honestly own. The key is fine and the request is fine; what is wrong is where the call "
          "came from, usually a browser preflight or a key that ended up inside a front end bundle. "
-         "A call through olywork leaves a server with the credential injected there, so that class "
+         "A call through olywork.com leaves a server with the credential injected there, so that class "
          "of failure stops existing. It will not rescue you from a parameter the source rejects."),
         ("A thousand results is the ceiling, and no proxy raises it",
          "don't expect to pull more than 1,000 results as the Yelp Fusion API has a hard limitation in that regard",
@@ -2016,7 +2059,7 @@ USE_CASE_PAGES["find-local-businesses-by-keyword-and-location"] = {
          "The issue I’m running into is that most tools (Google Maps, etc.) only give me the public front-desk phone number.",
          "r/ClaudeCowork, 8 points", "https://www.reddit.com/r/ClaudeCowork/comments/1uxezdz/what_are_you_using_to_scrape_local_business/",
          "The loudest theme in the whole research, so it deserves a straight answer rather than a "
-         "deflection. If Google Maps is the source you want, this page is not it: olywork has no "
+         "deflection. If Google Maps is the source you want, this page is not it: olywork.com has no "
          "Places keyword search on the menu today, and the Google rows it does have for local are "
          "for a Business Profile you already own. On the second half, no listings source anywhere "
          "carries the owner's address, because the listing does not have one. Getting past the "
@@ -2054,7 +2097,7 @@ USE_CASE_PAGES["find-local-businesses-by-keyword-and-location"] = {
     ],
     "faq": [
         ("How much does one local business search cost?",
-         "The provider's own rate with $0.000 added by olywork, from a prepaid balance rather than a "
+         "The provider's own rate with $0.000 added by olywork.com, from a prepaid balance rather than a "
          "plan. The two sources are priced differently and are billed in different units, so the "
          "comparison above gives each one separately rather than a single headline number."),
         ("Is this the Yelp Fusion API?",
@@ -2063,7 +2106,7 @@ USE_CASE_PAGES["find-local-businesses-by-keyword-and-location"] = {
          "what the results page shows rather than the Fusion field set, and that Yelp's terms still "
          "govern what you may do with the listings."),
         ("Can I search Google Maps or Google Business Profile this way?",
-         "Not from this page. olywork has no Google Places keyword search in the catalog today, and "
+         "Not from this page. olywork.com has no Google Places keyword search in the catalog today, and "
          "the Google rows it does carry for local businesses read a Business Profile you already "
          "own, on your own connected account. If Maps is the source you need, this job cannot serve "
          "it and saying so is more useful than a near miss."),
@@ -2081,10 +2124,10 @@ USE_CASE_PAGES["find-local-businesses-by-keyword-and-location"] = {
 USE_CASE_PAGES["keywords-a-domain-ranks-for"] = {
     "label": "Keywords a domain ranks for",
     "sentence": "Rank tracking API: the keywords a domain ranks for",
-    "title": "Rank tracking API: {n} providers from {cheapest} | olywork",
+    "title": "Rank tracking API: {n} providers from {cheapest} | olywork.com",
     "lede": (
         "Ask for a domain and get the keywords it already ranks for in Google, with the position it "
-        "holds and the volume behind each one. {n} providers do this through one olywork key, from "
+        "holds and the volume behind each one. {n} providers do this through one olywork.com key, from "
         "{cheapest} a call, billed per call from a prepaid balance rather than an annual seat. It "
         "works on any domain, which is exactly the question your own Search Console cannot answer."),
     "prompt": "Using olywork, get the top 200 keywords stripe.com ranks for in Google in the United "
@@ -2094,7 +2137,7 @@ USE_CASE_PAGES["keywords-a-domain-ranks-for"] = {
         ("Name the domain and the market", "A domain ranks differently in each country's index. Say which one, or you get the provider's default."),
         ("Say how many keywords you want", "Row count is the cost dial on most of these rows. A limit you chose beats a default you did not."),
         ("Ask for position and volume together", "Both arrive in the same row. Asking for them separately is two calls for one answer."),
-        ("Ask for the price first", "olywork returns the cost before the call, so the agent can say what it will spend."),
+        ("Ask for the price first", "olywork.com returns the cost before the call, so the agent can say what it will spend."),
     ],
     "result_noun": "keyword",
     "result_image": None,
@@ -2182,12 +2225,12 @@ USE_CASE_PAGES["keywords-a-domain-ranks-for"] = {
          "Not in the sense of a tracker you configure and leave running. These return the keywords a "
          "domain ranks for right now, from each vendor's index, in one call. Nothing here schedules "
          "itself, keeps a history for you or alerts you to a drop; if you want positions over time "
-         "you run the call on your own schedule and store the results. olywork has no scheduled rank "
+         "you run the call on your own schedule and store the results. olywork.com has no scheduled rank "
          "tracker on the menu, and saying so is more useful than a near miss."),
         ("How much does one domain pull cost?",
          "A cent or two per request on the rows that bill the request, and a fraction of a cent per "
          "keyword on the rows that bill the row, at the provider's own rate with $0.000 added by "
-         "olywork. The comparison above prints both, and which is cheaper depends entirely on how "
+         "olywork.com. The comparison above prints both, and which is cheaper depends entirely on how "
          "many keywords you ask for."),
         ("Why do the providers disagree about the same domain?",
          "Because each one is answering from its own index, built by its own crawl on its own "
@@ -2207,15 +2250,15 @@ USE_CASE_PAGES["keywords-a-domain-ranks-for"] = {
 USE_CASE_PAGES["how-ai-answers-mention-your-brand"] = {
     "label": "How AI answers mention your brand",
     "sentence": "AI visibility tracking: how ChatGPT and Perplexity answers mention your brand, run by your agent",
-    "title": "AI visibility tracking API, from {cheapest} a check | olywork",
+    "title": "AI visibility tracking API, from {cheapest} a check | olywork.com",
     "lede": (
         "Every AI visibility tool sells the same loop: run a set of prompts through ChatGPT and "
         "Perplexity, note who gets named, repeat next week. Your agent can run that loop itself. "
-        "One provider serves it through olywork, as live answers to a prompt and as aggregated "
+        "One provider serves it through olywork.com, as live answers to a prompt and as aggregated "
         "mention metrics for a keyword or domain, priced per call from {cheapest}, with no "
         "subscription and no dashboard to pay for."),
     "prompt": "Using olywork, run these 12 buyer prompts through ChatGPT and Perplexity, US, web search "
-              "on, and tell me for each one whether olywork or any of Composio, Pipedream or Zapier "
+              "on, and tell me for each one whether olywork.com or any of Composio, Pipedream or Zapier "
               "is named, and in what position. Show me the total price before you start.",
     "prompt_why": [
         ("Fix the prompt set first", "The check is only comparable week to week if the prompts do not move."),
@@ -2266,7 +2309,7 @@ USE_CASE_PAGES["how-ai-answers-mention-your-brand"] = {
          "and the catalog's verified examples use ChatGPT and Google. Gemini and Claude are not "
          "on this shelf today."),
         ("Do I need a DataForSEO account?",
-         "No. olywork serves this on its own key at the provider's rate with $0.000 markup, "
+         "No. olywork.com serves this on its own key at the provider's rate with $0.000 markup, "
          "metered from your team's balance. If you already have an account, register the key "
          "and those calls are never metered."),
     ],
@@ -2310,12 +2353,12 @@ USE_CASE_PAGES["how-ai-answers-mention-your-brand"] = {
 USE_CASE_PAGES["your-google-business-profile-reviews-and-reply-to-them"] = {
     "label": "Your Google Business Profile reviews, and reply to them",
     "sentence": "Google Business Profile API: your Google reviews, read and replied to by your agent",
-    "title": "Google Business Profile API: read and reply to reviews | olywork",
+    "title": "Business Profile API: read and reply to reviews | olywork.com",
     "lede": (
         "Connect the Google Business Profile you already manage and your agent can read every "
         "review on every location, and reply as the business. This is the Google My Business API "
-        "as it is now called, on your own account, so olywork never meters it; and the API access "
-        "request that stops most people at zero quota is one olywork has already made."),
+        "as it is now called, on your own account, so olywork.com never meters it; and the API access "
+        "request that stops most people at zero quota is one olywork.com has already made."),
     "prompt": "Using olywork, list every review on our Austin location from the last 30 days with three "
               "stars or fewer, draft a reply to each in our voice, and post them only after I approve.",
     "prompt_why": [
@@ -2337,7 +2380,7 @@ USE_CASE_PAGES["your-google-business-profile-reviews-and-reply-to-them"] = {
         "The gate on this API is not the OAuth scope, it is the access request. Google starts every "
         "Cloud project at zero requests a day on the Business Profile API until it approves the "
         "project, and that is the wall in most of the forum posts. The request belongs to the "
-        "project making the call, and that project is olywork's: you consent, you do not apply.",
+        "project making the call, and that project is olywork.com's: you consent, you do not apply.",
         "Reviews still live on the older v4 surface while the rest of the profile moved to the v1 "
         "services, so the review calls take an account id and a location id rather than a resource "
         "name. Your agent lists accounts first, then locations, then reviews; a batch endpoint "
@@ -2349,10 +2392,10 @@ USE_CASE_PAGES["your-google-business-profile-reviews-and-reply-to-them"] = {
     ],
     "faq": [
         ("Does this cost anything?",
-         "No. The Business Profile API runs on your own Google account, so olywork relays the call "
-         "and meters nothing. Only calls on olywork's own provider keys are billed."),
+         "No. The Business Profile API runs on your own Google account, so olywork.com relays the call "
+         "and meters nothing. Only calls on olywork.com's own provider keys are billed."),
         ("Do I need to apply for Google Business Profile API access?",
-         "No. Google grants that access to the Cloud project making the calls, and olywork holds "
+         "No. Google grants that access to the Cloud project making the calls, and olywork.com holds "
          "the approved app. You need to be an owner or manager of the listing, and to consent once."),
         ("Can my agent read a competitor's reviews this way?",
          "No. The API returns only the listings your connected account manages. Reading any "
@@ -2370,7 +2413,7 @@ USE_CASE_PAGES["your-google-business-profile-reviews-and-reply-to-them"] = {
          "GBP API access rejected even though I followed their \"client account\" rule?",
          "r/GoogleMyBusiness", "https://www.reddit.com/r/GoogleMyBusiness/comments/1sx6686/gbp_api_access_rejected_even_though_i_followed/",
          "The request is judged per Cloud project, and it is opaque: several posters waited weeks "
-         "with no reply at all. That is the part olywork takes off the table. You are consenting "
+         "with no reply at all. That is the part olywork.com takes off the table. You are consenting "
          "to an app that already has access, not applying for your own."),
         ("Approved, and the quota is still zero",
          "I'm currently stuck with the Google Business Profile API where the quota is set to 0 and the API is basically unusable.",
@@ -2398,10 +2441,10 @@ USE_CASE_PAGES["your-google-business-profile-reviews-and-reply-to-them"] = {
 USE_CASE_PAGES["business-reviews"] = {
     "label": "A business's reviews",
     "sentence": "Review scraper API: a business's reviews from Tripadvisor, Trustpilot and Yelp, as data",
-    "title": "Tripadvisor, Trustpilot and Yelp reviews API | olywork",
+    "title": "Tripadvisor, Trustpilot and Yelp reviews API | olywork.com",
     "lede": (
         "Give your agent a business's page and get its reviews back as rows: rating, text, date "
-        "and reviewer, ready to sort, count or read. Three review sites answer through one olywork "
+        "and reviewer, ready to sort, count or read. Three review sites answer through one olywork.com "
         "key, from {cheapest}, without a Tripadvisor API key, a Yelp Fusion application or a "
         "browser of your own. They are not alternatives to each other; the site is the choice."),
     "prompt": "Using olywork, pull the last 200 Tripadvisor reviews for this hotel URL, show me the "
@@ -2440,7 +2483,7 @@ USE_CASE_PAGES["business-reviews"] = {
     "faq": [
         ("Do I need a Yelp Fusion or Tripadvisor API key?",
          "No. Neither provider here uses the sites' official APIs. They read the public listing "
-         "page and return the reviews as records, billed to your olywork balance at the provider's "
+         "page and return the reviews as records, billed to your olywork.com balance at the provider's "
          "rate with $0.000 markup."),
         ("Which site should I use?",
          "The one the business is reviewed on. Tripadvisor for hotels, restaurants and attractions, "
@@ -2491,12 +2534,12 @@ USE_CASE_PAGES["business-reviews"] = {
 USE_CASE_PAGES["google-analytics-traffic-and-behaviour-reports"] = {
     "label": "Google Analytics: traffic and behaviour reports",
     "sentence": "Google Analytics MCP or API: GA4 traffic and behaviour reports, read by your agent",
-    "title": "Google Analytics API for {agent}: any GA4 report | olywork",
+    "title": "Google Analytics API for {agent}: any GA4 report | olywork.com",
     "lede": (
         "Connect the GA4 property you already own and your agent can run any report the Data API "
         "can: sessions, users, conversions and events by channel, page, country, device or date, "
         "with filters and ordering, in plain words. It is the Google Analytics API without the "
-        "Cloud project, and it runs on your own Google account, so olywork never meters it."),
+        "Cloud project, and it runs on your own Google account, so olywork.com never meters it."),
     "prompt": "Using olywork, show me sessions and key events by default channel group for the last "
               "28 days ending 3 days ago, next to the 28 days before, and flag any channel that is "
               "down by more than a fifth.",
@@ -2518,7 +2561,7 @@ USE_CASE_PAGES["google-analytics-traffic-and-behaviour-reports"] = {
     "notes": [
         "The official path to an agent on GA4 is Google's own Analytics MCP server, and its setup "
         "is a Cloud project, a service account with the API enabled, and admin-level access on "
-        "the property. Here the app is olywork's, the consent is one screen, and read access on "
+        "the property. Here the app is olywork.com's, the consent is one screen, and read access on "
         "the property is enough, which is what makes it usable by a consultant who does not own "
         "the account.",
         "Totals move with the dimensions you ask for, and that is GA4, not the relay. A metric "
@@ -2535,11 +2578,11 @@ USE_CASE_PAGES["google-analytics-traffic-and-behaviour-reports"] = {
     ],
     "faq": [
         ("Does this cost anything?",
-         "No. Google Analytics runs on your own Google account, so olywork relays the call and "
-         "meters nothing. Only calls on olywork's own provider keys are billed."),
+         "No. Google Analytics runs on your own Google account, so olywork.com relays the call and "
+         "meters nothing. Only calls on olywork.com's own provider keys are billed."),
         ("Do I need a Cloud project or a service account?",
-         "No. olywork holds the Google app; you consent once with the account that can see the "
-         "property, and olywork keeps the token server side. Your agent never sees it."),
+         "No. olywork.com holds the Google app; you consent once with the account that can see the "
+         "property, and olywork.com keeps the token server side. Your agent never sees it."),
         ("Which reports can it run?",
          "Anything runReport accepts: any combination of dimensions and metrics, date ranges, "
          "filters, ordering and paging. Realtime visitors are a separate call, on the "
@@ -2558,7 +2601,7 @@ USE_CASE_PAGES["google-analytics-traffic-and-behaviour-reports"] = {
          "What AI agent tools can I use to connect to the Google Analytics API and retrieve data through a chat-based conversational interface",
          "r/GoogleAnalytics, 17 points", "https://www.reddit.com/r/GoogleAnalytics/comments/1vpw1m9/what_ai_agent_tools_can_i_use_to_connect_to_the/",
          "Any of them, once the agent can reach a connected property. That is what the setup line "
-         "on this page does: the agent gets the report call and the token stays with olywork."),
+         "on this page does: the agent gets the report call and the token stays with olywork.com."),
         ("Writing the API call by hand fails, even with help",
          "I asked 6 LLMs for code samples and I got 6 different answers that all failed to do the API call.",
          "r/dataengineering", "https://www.reddit.com/r/dataengineering/comments/1im3fpx/does_anyone_know_how_to_export_the_audience/",
@@ -2585,11 +2628,11 @@ USE_CASE_PAGES["google-analytics-traffic-and-behaviour-reports"] = {
 USE_CASE_PAGES["current-quote-for-a-ticker"] = {
     "label": "Current quote for a ticker",
     "sentence": "Stock price API: the current quote for a ticker from four providers, free to start",
-    "title": "Stock price API: {n} providers, free to try | olywork",
+    "title": "Stock price API: {n} providers, free to try | olywork.com",
     "lede": (
         "Ask for a ticker and get the quote back as data: price, day change, open, high, low and "
-        "previous close. {n} providers answer through one olywork key. Three of them are served "
-        "on olywork's own free-tier keys, {cheapest}, then on your own key; the fourth is your own "
+        "previous close. {n} providers answer through one olywork.com key. Three of them are served "
+        "on olywork.com's own free-tier keys, {cheapest}, then on your own key; the fourth is your own "
         "plan only. Each one says whether its quote is real time or delayed, and the page says it "
         "too, because that word is where stock APIs go wrong."),
     "prompt": "Using olywork, get the current price, day change and previous close for AAPL, MSFT and "
@@ -2599,7 +2642,7 @@ USE_CASE_PAGES["current-quote-for-a-ticker"] = {
         ("Ask whether it is delayed", "One of these is 15 to 20 minutes behind by design. The agent should say which before it quotes."),
         ("One ticker is one call", "The free allowance is counted in calls per team per day, so a watchlist of fifty is a day's allowance."),
         ("Try on the allowance, build on your key", "The daily pool is for finding out which feed you want. A bot needs a key of its own."),
-        ("Compare, then pick", "olywork shows the four side by side and does not choose for you. Say which one you want, or say why."),
+        ("Compare, then pick", "olywork.com shows the four side by side and does not choose for you. Say which one you want, or say why."),
     ],
     "result_noun": "quote",
     "result_image": None,
@@ -2614,7 +2657,7 @@ USE_CASE_PAGES["current-quote-for-a-ticker"] = {
         "are not an API at all, and break without notice."),
     "notes": [
         "The free allowance is real and it is small on purpose. Finnhub is served at fifty calls "
-        "per team per day on olywork's key, Tiingo and Twelve Data at twenty each; past that the "
+        "per team per day on olywork.com's key, Tiingo and Twelve Data at twenty each; past that the "
         "call is refused with a hint to connect your own key, and with your own key the calls "
         "are never metered. It is enough to try each feed on the tickers you care about. It is "
         "not a data plan for a trading bot, and this page will not pretend it is.",
@@ -2624,14 +2667,14 @@ USE_CASE_PAGES["current-quote-for-a-ticker"] = {
         "the 52-week range, and has a one-number price call for the cheapest possible check. "
         "EODHD's live quote is 15 to 20 minutes delayed, and since EODHD publishes no per-call "
         "rate it is served on your own EODHD plan only.",
-        "Providers disagree, occasionally by a lot, and olywork does not referee. A quote is one "
+        "Providers disagree, occasionally by a lot, and olywork.com does not referee. A quote is one "
         "provider's number at one moment; a second provider on the same ticker is the cheap "
         "sanity check, and the agent can run both. Symbol formats differ too: EODHD wants an "
         "exchange suffix, AAPL.US, where the others take the bare US ticker.",
     ],
     "faq": [
         ("Is it really free?",
-         "Three of the four are, up to a daily allowance per team, on olywork's own free-tier "
+         "Three of the four are, up to a daily allowance per team, on olywork.com's own free-tier "
          "keys: fifty calls on Finnhub, twenty each on Tiingo and Twelve Data. After that, "
          "connect your own key and the calls are never metered."),
         ("Is the quote real time?",
@@ -2640,9 +2683,9 @@ USE_CASE_PAGES["current-quote-for-a-ticker"] = {
          "provider before it quotes."),
         ("Can I run a trading bot on this?",
          "Not on the allowance. A bot polling every minute exhausts fifty calls before the open. "
-         "Register your own key with the provider you settle on and olywork stops counting."),
+         "Register your own key with the provider you settle on and olywork.com stops counting."),
         ("What about tickers outside the US?",
-         "Coverage is each provider's, not olywork's. Finnhub's quote is documented for US "
+         "Coverage is each provider's, not olywork.com's. Finnhub's quote is documented for US "
          "tickers; EODHD and Twelve Data take exchange-suffixed symbols. Check the ticker you "
          "need on the allowance before you build on it."),
     ],
@@ -2684,15 +2727,15 @@ USE_CASE_PAGES["current-quote-for-a-ticker"] = {
 AGENTS["grok-bot"] = {
     "name": "Grok Bot",
     "h1_noun": "MCP server",
-    "title": "Grok MCP server: {n} tools without keys | olywork",
+    "title": "Grok MCP server: {n} tools without keys | olywork.com",
     "description": (
-        "olywork is an MCP server that gives Grok Bot {n} tools across {p} platforms: find work "
+        "olywork.com is an MCP server that gives Grok Bot {n} tools across {p} platforms: find work "
         "emails, LinkedIn profiles, creators, keyword volumes, backlinks, competitor ads. Priced "
         "per call at the provider's own rate, with no markup and no provider signup."),
     "definition": (
-        "olywork is an MCP server for Grok Bot that gives it {n} ready-to-call tools across {p} "
+        "olywork.com is an MCP server for Grok Bot that gives it {n} ready-to-call tools across {p} "
         "platforms: SEO data, LinkedIn and people enrichment, Reddit, YouTube, ads and e-commerce. "
-        "Calls run on olywork's own keys and are metered from a prepaid balance at the provider's "
+        "Calls run on olywork.com's own keys and are metered from a prepaid balance at the provider's "
         "rate with $0.000 markup. Every new team starts with $1.00 free, and there are no provider "
         "accounts to open."),
     # {n} is interpolated from the catalog count at render time.
@@ -2706,7 +2749,7 @@ AGENTS["grok-bot"] = {
     "faq": [
         ("Can Grok Bot do lead generation with this?",
          "Yes, and it is the sequence most people ask for first. A research bot or a sales bot in "
-         "Grok Bot can browse, but browsing is not data. With olywork it can build a company "
+         "Grok Bot can browse, but browsing is not data. With olywork.com it can build a company "
          "list by industry, size or funding, find the decision maker at each one, find and verify a "
          "work email, and pull a recent news event for the opener. The whole sequence is on the "
          "workflows page above with the receipt from a real run. Each step is priced before the bot "
@@ -2723,41 +2766,38 @@ AGENTS["grok-bot"] = {
          "index rather than LinkedIn's own feed, and a post's reactions come back a page at a time. "
          "There is no raw page-to-markdown scraper; website reading is a named-field extraction by "
          "domain. The catalog says what each tool covers on the page rather than pretending."),
-        ("Is olywork free to use in Grok Bot?",
+        ("Is olywork.com free to use in Grok Bot?",
          "Adding it is free and every new team starts with $1.00 of calls. After that, each call is "
          "metered from the team's prepaid balance at the provider's own rate, with no markup and no "
          "subscription. Calls on your team's own keys are free."),
         ("Do I need API keys from the providers?",
-         "No. olywork makes the upstream request on its own key and relays the answer, so Grok never "
+         "No. olywork.com makes the upstream request on its own key and relays the answer, so Grok never "
          "holds a provider credential. If your team already pays for a provider, register that key "
          "and those calls are never metered."),
         ("Is this an MCP server?",
-         "Yes. olywork is an MCP server that Grok Bot connects to as a remote MCP connector. It is "
+         "Yes. olywork.com is an MCP server that Grok Bot connects to as a remote MCP connector. It is "
          "the same MCP server that Claude, ChatGPT, Cursor and the rest connect to, answering the "
          "same token and the same catalog."),
-        ("Does olywork pick the provider for me?",
+        ("Does olywork.com pick the provider for me?",
          "No. Where several providers do the same job they are shown side by side with prices and "
-         "measured reliability, and Grok (or you) chooses. olywork does not route or fail over "
+         "measured reliability, and Grok (or you) chooses. olywork.com does not route or fail over "
          "between them automatically."),
     ],
 }
 
 USE_CASE_PAGES["tiktok-shop-products-and-reviews"] = {
     "label": "TikTok Shop products and reviews",
-    "sentence": "TikTok Shop API: search products by keyword and read a product's reviews, without a seller account",
-    "title": "TikTok Shop API: {n} providers compared, from {cheapest} | olywork",
+    "sentence": "Search TikTok Shop products and reviews",
+    "title": "TikTok Shop Search: from {cheapest} | olywork.com",
     "lede": (
-        "Give your agent a keyword and a region and get TikTok Shop's product results back as "
-        "rows: title, price, seller and product id, then the reviews on any of them by id or URL. "
-        "{n} providers read the public storefront through one olywork key, from {cheapest} a call, "
-        "at the provider's own rate with no markup. None of them is the seller-side Partner API, "
-        "so there is no shop, no sandbox and no app review to get through first."),
+        "Search products by keyword, pull reviews by product. {n} providers through one olywork.com "
+        "key, from {cheapest} per call. No TikTok seller account needed."),
     "prompt": "Using olywork, search TikTok Shop US for \"matcha whisk\", show me the price per call "
               "first, then give me the top 20 products by sales with seller, price and rating, and "
               "pull the last 50 reviews on the best seller.",
     "prompt_why": [
         ("Name the region", "Every provider takes a region code and US is the one they all list as reliable. Say which market you mean."),
-        ("Ask for the price first", "olywork returns the cost before the call, so the agent can say what a 20-page pull will spend."),
+        ("Ask for the price first", "olywork.com returns the cost before the call, so the agent can say what a 20-page pull will spend."),
         ("Go id to id", "Search returns product ids; the reviews call takes one. Two calls, no browser, no login."),
         ("Bring the analysis", "The rows carry sales counts, prices and review text. Ranking and reading them is the agent's job."),
     ],
@@ -2784,9 +2824,9 @@ USE_CASE_PAGES["tiktok-shop-products-and-reviews"] = {
         "other regions may come back thin or inconsistent, and TikHub takes a region code on "
         "every call. Ask for the market you sell in and read the count that comes back.",
         "This is the public storefront, so it moves. TikTok changes the page and fights scrapers, "
-        "and the providers here have had public outages when it did. olywork shows each provider's "
+        "and the providers here have had public outages when it did. olywork.com shows each provider's "
         "measured success rate on live traffic where there is enough of it, and the agent picks; "
-        "olywork does not fail over between them on its own.",
+        "olywork.com does not fail over between them on its own.",
     ],
     "faq": [
         ("Do I need a TikTok Shop seller account or Partner API access?",
@@ -2795,14 +2835,14 @@ USE_CASE_PAGES["tiktok-shop-products-and-reviews"] = {
          "this way is anything seller-side: orders, inventory, your own shop's analytics."),
         ("How much does a TikTok Shop search cost?",
          "A fraction of a cent per call at the cheapest provider, and the live rate is at the top "
-         "of this page. olywork bills the provider's own rate with $0.000 markup from your team's "
+         "of this page. olywork.com bills the provider's own rate with $0.000 markup from your team's "
          "prepaid balance, and JustOneAPI bills only when the call succeeds."),
         ("Can I get a product's reviews?",
          "Yes, by product id or product URL, paged. Two of the three providers do reviews, and "
          "one lets you filter by star rating. Reviews TikTok has removed from the page are gone "
          "from here too."),
         ("Which provider should my agent use?",
-         "Ask for the price first and let it pick, or name one. olywork shows the providers side "
+         "Ask for the price first and let it pick, or name one. olywork.com shows the providers side "
          "by side with the rate and the measured success rate; it compares, it does not route or "
          "fail over for you."),
     ],
@@ -2844,11 +2884,11 @@ USE_CASE_PAGES["tiktok-shop-products-and-reviews"] = {
 USE_CASE_PAGES["ads-a-competitor-is-running-now"] = {
     "label": "Ads a competitor is running now",
     "sentence": "Meta Ad Library API, Google Ads Transparency Center and LinkedIn ads: what a competitor is running right now",
-    "title": "Meta Ad Library API and Google Ads Transparency data | olywork",
+    "title": "Meta Ad Library and Google Ads Transparency | olywork.com",
     "lede": (
         "Give your agent a competitor's Page, advertiser or company and get their live ads back "
         "as rows: creative text, link titles, start dates, platforms and the snapshot URL. Meta, "
-        "Google and LinkedIn answer through one olywork key, from {cheapest} at the "
+        "Google and LinkedIn answer through one olywork.com key, from {cheapest} at the "
         "provider's own rate with no markup, or free on the Meta Ad Library token you set up "
         "yourself. The three libraries are not alternatives to each other; the network is the "
         "choice."),
@@ -2859,7 +2899,7 @@ USE_CASE_PAGES["ads-a-competitor-is-running-now"] = {
         ("Give the Page id, not the name", "Many Pages share a brand name. A Page id or URL returns one advertiser; a name returns false positives."),
         ("Say the country", "The Meta library asks which country the ad reached, and US-only can miss half of a global brand's actives. Say ALL when you mean all."),
         ("Read longevity, not spend", "Meta publishes spend only for political ads. How long a creative has run is the signal everyone uses instead."),
-        ("Ask for the price first", "olywork returns the cost before the call, so the agent can say what a full library pull will spend."),
+        ("Ask for the price first", "olywork.com returns the cost before the call, so the agent can say what a full library pull will spend."),
     ],
     "result_noun": "ad",
     "result_image": None,
@@ -2878,7 +2918,7 @@ USE_CASE_PAGES["ads-a-competitor-is-running-now"] = {
     "notes": [
         "The official Meta route is free and it is yours to set up: a one-time government-ID "
         "verification at Facebook, then a Meta app and an access token, which you register with "
-        "olywork as your own key. The forum wait for verification runs from days to never. The "
+        "olywork.com as your own key. The forum wait for verification runs from days to never. The "
         "two scraper providers on the Meta row need none of that and bill per call or per ad, "
         "which is why most people start there and register a token later, if ever.",
         "Spend is not on the page for ordinary ads. Meta publishes spend and impression ranges "
@@ -2906,7 +2946,7 @@ USE_CASE_PAGES["ads-a-competitor-is-running-now"] = {
          "a keyword is not something the Center offers."),
         ("Which provider should my agent use?",
          "The network decides the shelf; on Meta, the cheapest verified row or your own token. "
-         "olywork shows the rows side by side with the rate and measured success; it compares, "
+         "olywork.com shows the rows side by side with the rate and measured success; it compares, "
          "it does not route or fail over for you."),
     ],
     "voices_intro": (
@@ -2946,11 +2986,11 @@ USE_CASE_PAGES["ads-a-competitor-is-running-now"] = {
 USE_CASE_PAGES["read-and-post-in-your-slack-channels"] = {
     "label": "Read and post in your Slack channels",
     "sentence": "Slack bot API: your agent reads your channels and posts in them, on your own workspace",
-    "title": "Slack MCP and bot API for {agent}: read and post | olywork",
+    "title": "Slack MCP and bot API for {agent}: read and post | olywork.com",
     "lede": (
         "Install one bot in the Slack workspace you already run and your agent can read a "
         "channel's recent messages and post replies into it, as the bot, with no token in the "
-        "agent's hands. It is your own workspace, so olywork never meters it; and the scopes, the "
+        "agent's hands. It is your own workspace, so olywork.com never meters it; and the scopes, the "
         "manifest and the bot-versus-user-token question are settled before you start, which is "
         "where most of the forum threads stall."),
     "prompt": "Using olywork, read the last two days of #support, summarise the open questions with "
@@ -2973,8 +3013,8 @@ USE_CASE_PAGES["read-and-post-in-your-slack-channels"] = {
     "notes": [
         "Reading history on a new, unlisted app is rationed. Apps created after May 2025 that "
         "are not listed in the Slack Marketplace get one history request a minute and fifteen "
-        "messages a call, and the bot you install from olywork's manifest is one of those apps. "
-        "Nothing here lifts that; olywork relays the call and the 429 as they are. A daily "
+        "messages a call, and the bot you install from olywork.com's manifest is one of those apps. "
+        "Nothing here lifts that; olywork.com relays the call and the 429 as they are. A daily "
         "digest of a busy channel is fine; a backfill of a year is not this tool.",
         "Membership is the read permission. The bot reads only channels it has been invited to, "
         "and direct messages need their own scopes, which the manifest does not request. Posting "
@@ -2988,8 +3028,8 @@ USE_CASE_PAGES["read-and-post-in-your-slack-channels"] = {
     ],
     "faq": [
         ("Does this cost anything?",
-         "No. Slack runs on your own workspace, so olywork relays the call and meters nothing. "
-         "Only calls on olywork's own provider keys are billed."),
+         "No. Slack runs on your own workspace, so olywork.com relays the call and meters nothing. "
+         "Only calls on olywork.com's own provider keys are billed."),
         ("Does my agent post as me or as a bot?",
          "As the bot, always. The connection holds a bot token, which is what makes it "
          "auditable: every message it writes carries the bot's name, and it cannot read your "
@@ -2997,9 +3037,9 @@ USE_CASE_PAGES["read-and-post-in-your-slack-channels"] = {
         ("Why is reading history slow?",
          "Slack rate-tiers history reads on unlisted apps: one request a minute, fifteen messages "
          "each. That is Slack's rule for every app created outside the Marketplace since 2025, "
-         "and olywork does not get around it. Ask for windows and let the agent page."),
+         "and olywork.com does not get around it. Ask for windows and let the agent page."),
         ("What if my workspace restricts app installs?",
-         "Then an admin has to approve the install, the same as any app. olywork gives you the "
+         "Then an admin has to approve the install, the same as any app. olywork.com gives you the "
          "manifest to submit; it cannot approve it for you."),
     ],
     "voices_intro": (
@@ -3028,7 +3068,7 @@ USE_CASE_PAGES["read-and-post-in-your-slack-channels"] = {
         ("Pasting bot tokens into code is where the audit trail goes",
          "pasting bot tokens into your code... less great when you need to know exactly what your agent can touch",
          "@Mai_Builds on X", "https://x.com/i/status/2091946621504311753",
-         "The token sits with olywork, the agent holds one team token that works for every tool, "
+         "The token sits with olywork.com, the agent holds one team token that works for every tool, "
          "and what it can touch is the manifest's scope list, which is fixed and readable. Revoke "
          "the bot and the agent's access is gone with it."),
     ],
@@ -3040,18 +3080,18 @@ USE_CASE_PAGES["read-and-post-in-your-slack-channels"] = {
 USE_CASE_PAGES["is-this-page-indexed-and-why-not"] = {
     "label": "Is this page indexed, and why not",
     "sentence": "Google index checker: is this page indexed, and why not, from the URL Inspection API",
-    "title": "Google index checker: URL Inspection API for {agent} | olywork",
+    "title": "Google index check: URL Inspection API for {agent} | olywork.com",
     "lede": (
         "Connect the Search Console property you already own and your agent can ask Google, per "
         "URL, the question the UI answers one click at a time: is it indexed, when was it last "
         "crawled, which canonical did Google choose, and if it is not indexed, which bucket it "
-        "sits in. It runs on your own Google account, so olywork never meters it, and it is the "
+        "sits in. It runs on your own Google account, so olywork.com never meters it, and it is the "
         "same URL Inspection data the Search Console panel shows, without the clicking."),
     "prompt": "Using olywork, take every URL in our sitemap, inspect each one in Search Console, and "
               "give me a table of the ones that are not indexed with the coverage state, last "
               "crawl date and the canonical Google picked.",
     "prompt_why": [
-        ("Connect once", "One OAuth click for the property you own. olywork holds the token, not you."),
+        ("Connect once", "One OAuth click for the property you own. olywork.com holds the token, not you."),
         ("Give it the property string", "The URL must sit under the property you name, sc-domain or URL-prefix. A mismatch is a permission error, not a result."),
         ("Mind the quota", "Google allows 2,000 inspections per property per day, and nothing lifts it. A 5,000-page site is three days."),
         ("It costs nothing", "Your own account, so the call is never metered."),
@@ -3067,7 +3107,7 @@ USE_CASE_PAGES["is-this-page-indexed-and-why-not"] = {
         "Google to index anything, and it is not the Indexing API, which is a different endpoint "
         "restricted to job postings and live-broadcast pages."),
     "notes": [
-        "The quota is Google's and it is hard: 2,000 inspections per property per day. olywork "
+        "The quota is Google's and it is hard: 2,000 inspections per property per day. olywork.com "
         "does not pool, rotate or route around it, and the forum's tales of getting past it "
         "involve multiple properties or policy violations. Inspect the pages that matter, keep "
         "the verdicts, and diff them week to week; that is where the tool earns its place.",
@@ -3082,8 +3122,8 @@ USE_CASE_PAGES["is-this-page-indexed-and-why-not"] = {
     ],
     "faq": [
         ("Does this cost anything?",
-         "No. Search Console runs on your own Google account, so olywork relays the call and meters "
-         "nothing. Only calls on olywork's own provider keys are billed."),
+         "No. Search Console runs on your own Google account, so olywork.com relays the call and meters "
+         "nothing. Only calls on olywork.com's own provider keys are billed."),
         ("Can it make Google index my page?",
          "No. The URL Inspection API reads Google's verdict; it does not submit anything. It "
          "tells you which bucket a page is in and why, which is the part you can act on."),
@@ -3121,7 +3161,7 @@ USE_CASE_PAGES["is-this-page-indexed-and-why-not"] = {
         ("The 2,000 a day quota is the whole constraint",
          "The big limitation of the insufferable URL inspection API is the 2,000 daily quota.",
          "@iannuttall on X", "https://x.com/i/status/1734591329953276340",
-         "It is, and it is per property, set by Google. olywork relays the call as it is, so the "
+         "It is, and it is per property, set by Google. olywork.com relays the call as it is, so the "
          "quota is yours to spend well: inspect the pages that changed, not the whole site every "
          "morning."),
     ],
@@ -3132,7 +3172,7 @@ USE_CASE_PAGES["is-this-page-indexed-and-why-not"] = {
 USE_CASE_PAGES["news-for-a-ticker"] = {
     "label": "News for a ticker",
     "sentence": "Stock news API: the headlines on a ticker over a date range, as rows your agent can read",
-    "title": "Stock news API for {agent}: headlines by ticker | olywork",
+    "title": "Stock news API for {agent}: headlines by ticker | olywork.com",
     "lede": (
         "Give your agent a ticker and a date range and get the news on that company back as "
         "rows: headline, source, summary, time and the link. Finnhub answers it, {cheapest}, so "
@@ -3158,7 +3198,7 @@ USE_CASE_PAGES["news-for-a-ticker"] = {
         "the news is good; providers that sell sentiment scores layer that on top, and this "
         "endpoint does not."),
     "notes": [
-        "The free allowance is a trial, not a plan. olywork serves Finnhub's company news on its "
+        "The free allowance is a trial, not a plan. olywork.com serves Finnhub's company news on its "
         "own free-tier key at 50 calls a day per team; past that the call is refused with a hint "
         "to connect your own key, and on your own key nothing is metered. Finnhub's free tier "
         "carries its own rate limit and, per Finnhub's own docs, this endpoint covers North "
@@ -3175,9 +3215,9 @@ USE_CASE_PAGES["news-for-a-ticker"] = {
     ],
     "faq": [
         ("Is the stock news API free?",
-         "50 calls a day per team on olywork's own Finnhub key, free, which is enough to try it "
+         "50 calls a day per team on olywork.com's own Finnhub key, free, which is enough to try it "
          "and to run a daily brief on a handful of tickers. Beyond that, register your own "
-         "Finnhub key and the calls are never metered by olywork."),
+         "Finnhub key and the calls are never metered by olywork.com."),
         ("Does it include sentiment?",
          "No. The rows are headline, source, summary, time and URL. Sentiment is the agent's "
          "reading, or a separate provider's product; this endpoint returns the news, not a "
@@ -3230,12 +3270,12 @@ USE_CASE_PAGES["news-for-a-ticker"] = {
 USE_CASE_PAGES["live-crypto-prices-and-history"] = {
     "label": "Live crypto prices and history",
     "sentence": "CoinGecko API and Tiingo through one key: a crypto price API for live prices and history, per call",
-    "title": "CoinGecko API for {agent}: crypto prices and history | olywork",
+    "title": "CoinGecko API: crypto prices and history | olywork.com",
     "lede": (
         "Give your agent a coin and get its price back as data: the current price in any quote "
         "currency for a whole watchlist in one call, or the price, market cap and volume series "
         "over a day, a month or the coin's whole life. CoinGecko and Tiingo answer through one "
-        "olywork key, from {cheapest} at the provider's own rate with no markup, and there is no "
+        "olywork.com key, from {cheapest} at the provider's own rate with no markup, and there is no "
         "CoinGecko key to paste into a spreadsheet, a dashboard or a device. What comes back is "
         "an aggregate price, not an order book, and it is polled, not streamed."),
     "prompt": "Using olywork, get the current price and 24h change for bitcoin, ethereum and solana in "
@@ -3245,7 +3285,7 @@ USE_CASE_PAGES["live-crypto-prices-and-history"] = {
         ("Use CoinGecko coin ids", "The call takes ids like bitcoin and ethereum, not tickers. BTC is not a coin id, and several tokens share a symbol."),
         ("Ask for the whole watchlist at once", "Current price takes a comma-separated list of coins and currencies. One call for fifty coins costs the same as one call for one."),
         ("Say the window", "History takes 1, 7, 30, 365 or max days, and the granularity follows the window: five-minute points under a day, hourly under 90 days, daily beyond."),
-        ("Ask for the price first", "olywork returns the rate before the call, so the agent can say what a daily refresh of a hundred coins will spend."),
+        ("Ask for the price first", "olywork.com returns the rate before the call, so the agent can say what a daily refresh of a hundred coins will spend."),
     ],
     "result_noun": "price",
     "result_image": None,
@@ -3266,7 +3306,7 @@ USE_CASE_PAGES["live-crypto-prices-and-history"] = {
         "The rate is per request, not per coin. CoinGecko bills one credit for a successful "
         "call whatever the endpoint, and the current-price call takes a list of coin ids and a "
         "list of quote currencies, so the forum's \"it only returns 28 of my 131 coins\" is a "
-        "pagination problem on a different endpoint, not a ceiling here. On olywork's own key "
+        "pagination problem on a different endpoint, not a ceiling here. On olywork.com's own key "
         "that credit is metered from your team's balance at the provider's rate; on your own "
         "CoinGecko key nothing is metered and the plan's limits are between you and CoinGecko.",
         "History depth is CoinGecko's, and the page will not stretch it. The series call "
@@ -3274,17 +3314,17 @@ USE_CASE_PAGES["live-crypto-prices-and-history"] = {
         "window, and the snapshot call returns one coin's price, market cap and volume on a "
         "date. Neither is a total-market-cap history and neither is a top-N-by-day table; an "
         "agent builds that by looping coins, one metered call each. Tiingo's bars are the "
-        "exchange-style alternative, served free on olywork's key at 20 calls a day per team, "
+        "exchange-style alternative, served free on olywork.com's key at 20 calls a day per team, "
         "then on your own Tiingo key.",
         "The price is an aggregate and it passes through unchanged. CoinGecko's market cap and "
         "supply figures are its own, and the research has real examples of both being wrong "
-        "for small tokens; olywork relays the answer verbatim and adds no consensus, no spread "
+        "for small tokens; olywork.com relays the answer verbatim and adds no consensus, no spread "
         "and no second opinion. If a number matters, pull the Tiingo bar for the same pair and "
-        "let the agent compare, which is a comparison you make, not one olywork makes for you. "
+        "let the agent compare, which is a comparison you make, not one olywork.com makes for you. "
         "Nothing here is a websocket, an order book or an exchange connection.",
     ],
     "faq": [
-        ("Is the CoinGecko API free through olywork?",
+        ("Is the CoinGecko API free through olywork.com?",
          "Not free, cheap: one CoinGecko credit per successful call, metered from your team's "
          "prepaid balance at CoinGecko's own rate with $0.000 added. Each new team gets $1.00 to "
          "start, which is a lot of price calls. Register your own CoinGecko key and the calls "
@@ -3300,7 +3340,7 @@ USE_CASE_PAGES["live-crypto-prices-and-history"] = {
          "minutes is the fit; a bot that needs a tick feed is not."),
         ("Which provider should my agent use?",
          "CoinGecko for coin ids, quote currencies and the aggregate market view; Tiingo for "
-         "OHLCV bars on a pair. olywork shows both with the rate and the measured success side "
+         "OHLCV bars on a pair. olywork.com shows both with the rate and the measured success side "
          "by side; it compares, it does not route or fail over for you."),
     ],
     "voices_intro": (
@@ -3313,13 +3353,13 @@ USE_CASE_PAGES["live-crypto-prices-and-history"] = {
          "There I ran into a problem with Rate limit from the Coingecko api itself.",
          "r/coingecko", "https://www.reddit.com/r/coingecko/comments/1cibixi/google_sheet_not_working_rate_limits/",
          "That poster was calling from Google Sheets, where every request leaves a shared "
-         "Google IP. Through olywork the call is one metered request on a paid key, a whole "
+         "Google IP. Through olywork.com the call is one metered request on a paid key, a whole "
          "watchlist per call, and the sheet, the dashboard or the device holds no key at all."),
         ("Twelve months is where the free history stops",
          "CoinGecko only goes back 12 months, but I was hoping to go back further",
          "r/CryptoCurrency", "https://www.reddit.com/r/CryptoCurrency/comments/1kq99z1/historic_market_cap_data/",
          "Per coin, the series call with days set to max returns the daily history CoinGecko "
-         "holds, on the paid key olywork serves it from. That poster wanted total market cap "
+         "holds, on the paid key olywork.com serves it from. That poster wanted total market cap "
          "history, which is not this endpoint, and the page will not pretend it is."),
         ("Free is for testing; what happens at scale is the question",
          "Free APIs are fine for testing but I want something that scales.",
@@ -3331,7 +3371,7 @@ USE_CASE_PAGES["live-crypto-prices-and-history"] = {
          "CoinGecko API shows wrongs market capital data for 700M !",
          "r/SmoothLovePotion", "https://www.reddit.com/r/SmoothLovePotion/comments/sq6odb/coingecko_api_shows_wrongs_market_capital_data/",
          "No comparison table can answer that. The price is the provider's aggregate and "
-         "olywork relays it as is. The cheap check is to pull the same pair as a Tiingo bar "
+         "olywork.com relays it as is. The cheap check is to pull the same pair as a Tiingo bar "
          "and let the agent flag the gap, which it can do in the same prompt."),
         ("The agent wrote the rate limiter",
          "until I had ChatGPT incorporate rate-limiting given the 500 rate limit/min",
@@ -3348,7 +3388,7 @@ USE_CASE_PAGES["live-crypto-prices-and-history"] = {
 USE_CASE_PAGES["employee-reviews-of-a-company"] = {
     "label": "Employee reviews of a company",
     "sentence": "Glassdoor API and Glassdoor scraper, through one key: a company's employee reviews as rows your agent can read",
-    "title": "Glassdoor API for {agent}: employee reviews as data | olywork",
+    "title": "Glassdoor API for {agent}: employee reviews as data | olywork.com",
     "lede": (
         "Give your agent a company and get its employee reviews back as rows: rating, title, "
         "pros, cons, date and whether the reviewer still works there. Glassdoor closed its "
@@ -3364,7 +3404,7 @@ USE_CASE_PAGES["employee-reviews-of-a-company"] = {
         ("Give the website, or the Glassdoor URL", "Akta keys on the company's website; Bright Data on the Glassdoor page URL. Say which one you have and the agent picks the row that takes it."),
         ("Ask for a count you can afford", "Akta bills per 50 reviews returned and defaults to 10. A hundred reviews is a few cents; every review a big employer has is not."),
         ("Split current from former", "Each row carries the reviewer's status. The two groups tell different stories, and a mean over both hides both."),
-        ("Ask for the price first", "olywork returns the rate before the call, so the agent can say what a list of fifty companies will spend."),
+        ("Ask for the price first", "olywork.com returns the rate before the call, so the agent can say what a list of fifty companies will spend."),
     ],
     "result_noun": "review",
     "result_image": None,
@@ -3387,7 +3427,7 @@ USE_CASE_PAGES["employee-reviews-of-a-company"] = {
         "Data wants the Glassdoor page URL itself, and finding that URL from a company name is "
         "the step the forum's scrapers kept failing at. If you have websites, start at Akta; "
         "if you have Glassdoor URLs, either row works.",
-        "Neither endpoint has been called live through olywork yet, and the page says so "
+        "Neither endpoint has been called live through olywork.com yet, and the page says so "
         "rather than hiding it. Akta's rate is documented as 1.5 credits per 50 reviews, Bright "
         "Data's as $1.50 per 1,000 records on a pay-per-success basis, and both are the "
         "provider's own rate with $0.000 added. Bright Data's scraper answers within a minute "
@@ -3406,7 +3446,7 @@ USE_CASE_PAGES["employee-reviews-of-a-company"] = {
          "who asked for access on the forums were turned away. The providers here read the "
          "public review pages for you and return rows; you never fetch glassdoor.com yourself."),
         ("Do I need a Glassdoor account?",
-         "No. Both calls run on olywork's own key and return review text without a login, so "
+         "No. Both calls run on olywork.com's own key and return review text without a login, so "
          "the sign-up wall that asks you to review your own employer first does not apply to "
          "the agent. Register your own Akta or Bright Data key and the calls are never metered."),
         ("Can it tell me which reviews are fake?",
@@ -3415,7 +3455,7 @@ USE_CASE_PAGES["employee-reviews-of-a-company"] = {
          "five-star reviews in one week as a question, not an answer."),
         ("Which provider should my agent use?",
          "The one whose input you hold: website for Akta, Glassdoor URL for Bright Data. "
-         "olywork shows both with the rate side by side; it compares, it does not route or "
+         "olywork.com shows both with the rate side by side; it compares, it does not route or "
          "fail over for you."),
     ],
     "voices_intro": (
@@ -3440,7 +3480,7 @@ USE_CASE_PAGES["employee-reviews-of-a-company"] = {
          "is it possible to scrape Glassdoor reviews (completely free). I don’t want to waste my time if I can’t.",
          "r/webscraping", "https://www.reddit.com/r/webscraping/comments/13ef7yh/glassdoor_reviews/",
          "The honest answer from the same thread is that plain requests get a bot page. "
-         "Through olywork it is not free, it is a fraction of a cent per review at the "
+         "Through olywork.com it is not free, it is a fraction of a cent per review at the "
          "provider's rate, and the first dollar is on the house for a new team."),
         ("Nobody knows how many of the reviews are real",
          "there is not much transparency about how many reviews on the website are made by nefarious actors (e.g. bots).",
@@ -3463,11 +3503,11 @@ USE_CASE_PAGES["employee-reviews-of-a-company"] = {
 USE_CASE_PAGES["keywords-a-domain-bids-on"] = {
     "label": "Keywords a domain bids on",
     "sentence": "Competitor PPC keywords: the Google Ads keywords a domain bids on, with CPC, from SpyFu or Semrush",
-    "title": "Competitor PPC keywords API: what a domain bids on | olywork",
+    "title": "Competitor PPC keywords API: what a domain bids on | olywork.com",
     "lede": (
         "Give your agent a competitor's domain and get the Google Ads keywords it bids on "
         "back as rows: keyword, search volume, cost per click, estimated monthly spend and who "
-        "else bids on it. SpyFu and Semrush answer through one olywork key, from {cheapest} "
+        "else bids on it. SpyFu and Semrush answer through one olywork.com key, from {cheapest} "
         "at the provider's own rate with no markup, priced per row rather than per seat. Both "
         "are estimates built from a crawl of the ads they saw, not Google's own numbers, and "
         "the page says so before the comparison does."),
@@ -3478,7 +3518,7 @@ USE_CASE_PAGES["keywords-a-domain-bids-on"] = {
         ("Give a domain, and a country", "The call takes the advertiser's domain and a country code. A brand that advertises in five markets has five different keyword lists."),
         ("Cap the rows", "SpyFu's page size defaults to 5 and goes to 10,000, and every row is billed. Two hundred rows is a strategy; ten thousand is a bill."),
         ("Strip their brand", "Every advertiser bids on its own name. Ask the agent to drop those rows before it ranks the rest, or the top of the list is noise."),
-        ("Ask for the price first", "olywork returns the rate before the call, so the agent can say what a full pull across ten competitors will spend."),
+        ("Ask for the price first", "olywork.com returns the rate before the call, so the agent can say what a full pull across ten competitors will spend."),
     ],
     "result_noun": "keyword",
     "result_image": None,
@@ -3499,12 +3539,12 @@ USE_CASE_PAGES["keywords-a-domain-bids-on"] = {
         "domain is a fraction of a cent and a ten-thousand-row dump is $20, so the page size "
         "is the cost dial. Rows carry the keyword, search volume, ranking difficulty, monthly "
         "clicks, broad and exact CPC, estimated monthly cost and the count of competing "
-        "advertisers, and the endpoint has answered every call olywork has measured so far.",
+        "advertisers, and the endpoint has answered every call olywork.com has measured so far.",
         "Semrush prices in API units bought up front, 20 per line on the current view and "
         "100 per line for a past date, and publishes no dollar rate for a unit, so the page "
         "prints no price for it. Its rows add the position and the live ad copy, which SpyFu "
         "does not carry. Send a display limit: the default is 10,000 lines, and an agent that "
-        "loops without one spends real units. It has not been called live through olywork "
+        "loops without one spends real units. It has not been called live through olywork.com "
         "yet.",
         "Both are crawl estimates, and the research is full of the consequences: a local "
         "advertiser missing entirely, a tool showing one bidder on a keyword that had "
@@ -3518,16 +3558,16 @@ USE_CASE_PAGES["keywords-a-domain-bids-on"] = {
          "Semrush estimate it from the ads their crawls observed, which is why the monthly cost "
          "column is an estimate and a competitor's max bid is not on the page at all."),
         ("Do I need a SpyFu or Semrush subscription?",
-         "Not for SpyFu: olywork serves it on its own key, metered per row from your team's "
+         "Not for SpyFu: olywork.com serves it on its own key, metered per row from your team's "
          "balance at SpyFu's rate with $0.000 added. Semrush's API units come with a Semrush "
-         "plan, so that row runs on your own Semrush key, never metered by olywork."),
+         "plan, so that row runs on your own Semrush key, never metered by olywork.com."),
         ("Can I see a competitor's budget or impression share?",
          "No. The rows carry an estimated monthly spend per keyword, built from volume, CPC and "
          "observed position. Impression share, bids and search terms Google does not disclose "
          "are not in any third-party tool, and this page will not imply they are."),
         ("Which provider should my agent use?",
          "SpyFu for a priced, verified per-row pull; Semrush when you hold a plan and want the "
-         "ad copy. olywork shows both side by side with the rate and the measured success; it "
+         "ad copy. olywork.com shows both side by side with the rate and the measured success; it "
          "compares, it does not route or fail over for you."),
     ],
     "voices_intro": (
@@ -3551,7 +3591,7 @@ USE_CASE_PAGES["keywords-a-domain-bids-on"] = {
         ("Do you have to buy both tools?",
          "Given Spyfu is only $9/month, do you think there is a case to be made to just purchase both?",
          "r/PPC, 35 points", "https://www.reddit.com/r/PPC/comments/wmvyd4/spyfu_vs_semrush_for_ppc/",
-         "Through olywork nobody buys either seat. SpyFu is metered per row on olywork's key; "
+         "Through olywork.com nobody buys either seat. SpyFu is metered per row on olywork.com's key; "
          "Semrush runs on a plan you already hold. Calling both for one domain costs rows, "
          "not subscriptions."),
         ("The two tools do not agree with each other",
@@ -3575,12 +3615,12 @@ USE_CASE_PAGES["keywords-a-domain-bids-on"] = {
 USE_CASE_PAGES["backlink-profile-of-a-domain"] = {
     "label": "Backlink profile of a domain",
     "sentence": "Backlink API: the backlink profile of a domain from Moz, DataForSEO, Serpstat, SE Ranking, Majestic or Semrush, per call",
-    "title": "Backlink API: backlink profile of a domain, {n} providers | olywork",
+    "title": "Backlink API: profile of a domain, {n} providers | olywork.com",
     "lede": (
         "Give your agent a domain and get its backlink profile back as one row: total "
         "backlinks, referring domains, follow and nofollow split, the vendor's authority score "
         "and, from some providers, the spam and anchor breakdowns. {n} providers answer through "
-        "one olywork key, from {cheapest}, each at its own rate with no markup and none of them "
+        "one olywork.com key, from {cheapest}, each at its own rate with no markup and none of them "
         "behind a monthly plan or a credit reset. Ahrefs is not among them. Every index is that "
         "vendor's own crawl, so the counts differ by design, and the page shows them side by "
         "side rather than picking one."),
@@ -3592,7 +3632,7 @@ USE_CASE_PAGES["backlink-profile-of-a-domain"] = {
         ("Give bare domains", "Most rows want the domain without scheme or www, and a page URL where you mean a page. Say which, or the agent guesses."),
         ("One call per domain", "Each provider prices the summary per target, and the dearest per-call row is ten times the cheapest. Four domains is four calls."),
         ("Name the score you mean", "Moz DA, Majestic Trust Flow, Semrush Authority Score: each belongs to its vendor and compares only to itself. Ask for one and stick to it."),
-        ("Ask for the price first", "olywork returns the rate before the call, so the agent can say what a thousand expired domains will spend before it starts."),
+        ("Ask for the price first", "olywork.com returns the rate before the call, so the agent can say what a thousand expired domains will spend before it starts."),
     ],
     "result_noun": "domain",
     "result_image": None,
@@ -3621,7 +3661,7 @@ USE_CASE_PAGES["backlink-profile-of-a-domain"] = {
         "the same command as its URL metrics call, so ask for one and read both sets of "
         "columns rather than paying twice. Semrush charges 40 API units flat for the overview "
         "and publishes no dollar rate for a unit, so the page prints no price and it runs on "
-        "your own Semrush plan. Neither has been called live through olywork yet; the other "
+        "your own Semrush plan. Neither has been called live through olywork.com yet; the other "
         "four have, and the measured success rates on this page come from that traffic.",
         "The columns are not the same shape. Moz's call is its URL metrics with distributions "
         "on, which adds histograms by domain authority, spam score and root domains; SE "
@@ -3646,7 +3686,7 @@ USE_CASE_PAGES["backlink-profile-of-a-domain"] = {
          "score is comparable only to itself, and no provider's number should be read as "
          "another's."),
         ("Which provider should my agent use?",
-         "The one whose columns match the question and whose rate fits the volume. olywork "
+         "The one whose columns match the question and whose rate fits the volume. olywork.com "
          "shows all six side by side with the rate and the measured success; it compares, it "
          "does not route or fail over for you."),
     ],
@@ -3695,11 +3735,11 @@ USE_CASE_PAGES["backlink-profile-of-a-domain"] = {
 USE_CASE_PAGES["search-posts-by-keyword"] = {
     "label": "Search posts by keyword",
     "sentence": "Reddit search API and X search API: posts by keyword on Reddit, X, LinkedIn and TikTok, per call",
-    "title": "Reddit and X search API: posts by keyword, per call | olywork",
+    "title": "Reddit and X search API: posts by keyword, per call | olywork.com",
     "lede": (
         "Give your agent a keyword and get the posts back as rows: title, text, author, "
         "score, date and the link, from Reddit, X, LinkedIn or TikTok, each through the same "
-        "olywork key, from {cheapest} at the provider's own rate with no markup. No Reddit "
+        "olywork.com key, from {cheapest} at the provider's own rate with no markup. No Reddit "
         "developer app to apply for, no X Basic tier to subscribe to, and no account of yours "
         "on the line. The networks are not alternatives to each other; the platform is the "
         "choice, and the rows are relayed as the provider returns them."),
@@ -3709,7 +3749,7 @@ USE_CASE_PAGES["search-posts-by-keyword"] = {
     "prompt_why": [
         ("Name the platforms", "Each network is its own shelf with its own providers. Reddit and X is two calls; all four is four."),
         ("Put a window on it", "X's official recent search covers the last seven days and the archive call the rest. Say which week you mean."),
-        ("Ask for the price per platform", "The rates differ by an order of magnitude between rows. olywork prints each before the call, so the agent can say what a daily watch will spend."),
+        ("Ask for the price per platform", "The rates differ by an order of magnitude between rows. olywork.com prints each before the call, so the agent can say what a daily watch will spend."),
         ("Keep the link", "The rows carry the permalink. A complaint is only useful if a human can open it."),
     ],
     "result_noun": "post",
@@ -3731,14 +3771,14 @@ USE_CASE_PAGES["search-posts-by-keyword"] = {
     "notes": [
         "Reddit is three third-party providers, none of them Reddit. ScrapeCreators bills one "
         "credit a call, TikHub a tenth of a cent per successful call, JustOneAPI per "
-        "success in yuan; all run on olywork's own key with no developer app. What they "
+        "success in yuan; all run on olywork.com's own key with no developer app. What they "
         "search is Reddit's own search, so relevance is Reddit's, and the rows are posts: "
         "comment trees, votes and anything that writes to Reddit still need an approved app "
         "of your own.",
         "X is the one platform with an official row. X's recent search runs on your own X "
-        "developer account at X's own per-post rate, never metered by olywork; the archive "
+        "developer account at X's own per-post rate, never metered by olywork.com; the archive "
         "call covers history at the same rate. The two scraper rows are cheaper and, on the "
-        "traffic olywork has measured, answer more often, and they use no account of yours. "
+        "traffic olywork.com has measured, answer more often, and they use no account of yours. "
         "They are also scraping, and the provider carries that risk, not the page; the "
         "reliability section shows what the live traffic looks like rather than promising.",
         "LinkedIn and TikTok are narrower shelves. LinkedIn post search is one provider "
@@ -3749,22 +3789,22 @@ USE_CASE_PAGES["search-posts-by-keyword"] = {
     ],
     "faq": [
         ("Do I need a Reddit API key?",
-         "No. The three Reddit rows are third-party providers on olywork's own key, billed per "
+         "No. The three Reddit rows are third-party providers on olywork.com's own key, billed per "
          "call from your team's balance at the provider's rate with $0.000 added. If you hold "
          "an approved Reddit app, that is for posting and comment trees; searching posts "
          "does not need it here."),
         ("How much does the X search cost?",
          "Two ways. The official recent search bills at X's own per-post rate on your own X "
-         "developer account, and olywork meters none of it. The scraper rows bill per "
-         "successful call on olywork's key, at a rate the page prints beside each. Neither "
+         "developer account, and olywork.com meters none of it. The scraper rows bill per "
+         "successful call on olywork.com's key, at a rate the page prints beside each. Neither "
          "needs an X Basic subscription."),
         ("Can I monitor a keyword continuously?",
-         "The agent can, by calling on a schedule you give it. olywork has no alerting, no "
+         "The agent can, by calling on a schedule you give it. olywork.com has no alerting, no "
          "scheduler and no sentiment layer; it returns the posts and the price. A daily watch "
          "on two platforms is two calls a day."),
         ("Which provider should my agent use?",
-         "The platform decides the shelf. Within it, olywork shows each row's rate and "
-         "measured success side by side, and the agent picks, or you tell it; olywork does "
+         "The platform decides the shelf. Within it, olywork.com shows each row's rate and "
+         "measured success side by side, and the agent picks, or you tell it; olywork.com does "
          "not route or fail over between them."),
     ],
     "voices_intro": (
@@ -3812,11 +3852,11 @@ USE_CASE_PAGES["search-posts-by-keyword"] = {
 USE_CASE_PAGES["app-store-search"] = {
     "label": "App store search",
     "sentence": "App store API: search the Apple App Store and Google Play by keyword, per call",
-    "title": "App store API: search the App Store and Google Play | olywork",
+    "title": "App store API: search the App Store and Google Play | olywork.com",
     "lede": (
         "Give your agent a keyword and get the store listing rows back: app name, developer, "
         "rating, review count, price and the store link, from the Apple App Store and from "
-        "Google Play, both through one olywork key from {cheapest} a search at the provider's "
+        "Google Play, both through one olywork.com key from {cheapest} a search at the provider's "
         "own rate with $0.000 added. No Apple developer account, no Play console, no proxy "
         "pool and no scraper of your own to keep alive when a store changes its markup. The "
         "two stores are separate shelves here, not two views of one dataset, so ask for both "
@@ -3829,7 +3869,7 @@ USE_CASE_PAGES["app-store-search"] = {
         ("Name both stores", "Apple and Google Play are separate calls with separate app ids and separate rankings. One store is one search; both is two."),
         ("Say which country", "Store results are per storefront. The US list and the UK list are different lists, and the agent will pick for you if you do not."),
         ("Ask for the columns", "The rows carry the developer, the rating, the review count, the price and the link. Name the ones you want or the whole listing comes back."),
-        ("Ask for the price first", "olywork prints the rate before the call, so a hundred keywords across two stores has a number on it before anything runs."),
+        ("Ask for the price first", "olywork.com prints the rate before the call, so a hundred keywords across two stores has a number on it before anything runs."),
     ],
     "result_noun": "app",
     "result_image": None,
@@ -3855,7 +3895,7 @@ USE_CASE_PAGES["app-store-search"] = {
         "The two engines take different parameters, and the Play row does two jobs. Apple's "
         "engine wants a search term; Google Play's wants a query, and the same row answers "
         "the store charts as well as a keyword search depending on what you send. Read the "
-        "docs linked on each row before an agent loops, because olywork relays the store's "
+        "docs linked on each row before an agent loops, because olywork.com relays the store's "
         "own response verbatim and models neither store's API.",
         "What is not here is the part most people are really after. This is search, not rank "
         "tracking: nothing stores yesterday's position, and there is no keyword popularity "
@@ -3867,7 +3907,7 @@ USE_CASE_PAGES["app-store-search"] = {
     ],
     "faq": [
         ("Do I need an Apple or Google developer account?",
-         "No. Both rows run on olywork's own key and bill per successful search from your "
+         "No. Both rows run on olywork.com's own key and bill per successful search from your "
          "team's balance at SerpApi's rate with no markup. A developer account is for "
          "publishing apps and reading your own; this reads the public store."),
         ("Is this App Store Connect or the Play Developer API?",
@@ -3876,7 +3916,7 @@ USE_CASE_PAGES["app-store-search"] = {
          "sees any app but none of the private numbers behind it."),
         ("Can I track where my app ranks for a keyword over time?",
          "Your agent can, by running the search on a schedule you set and keeping the "
-         "results. olywork has no scheduler, no history and no ASO rank tracker. The honest "
+         "results. olywork.com has no scheduler, no history and no ASO rank tracker. The honest "
          "limit is depth: the stores expose only so many results, and a rank below that is a "
          "guess wherever you read it."),
         ("Can I get reviews, downloads or keyword volume?",
@@ -3897,7 +3937,7 @@ USE_CASE_PAGES["app-store-search"] = {
          "r/androiddev, 11 points", "https://www.reddit.com/r/androiddev/comments/1va99d9/psa_google_play_only_exposes_30_search_results/",
          "That is the honest ceiling and this page will not pretend past it. The rows return "
          "the store's own results in the store's own order, as deep as the store exposes "
-         "them, and olywork publishes no rank number of its own."),
+         "them, and olywork.com publishes no rank number of its own."),
         ("Apple's free endpoint stops answering without notice",
          "As of this morning (April 16), all my requests to the /search endpoint are returning HTTP 404 Not Found.",
          "r/iOSProgramming, 11 points", "https://www.reddit.com/r/iOSProgramming/comments/1sn3k1m/itunes_search_api_returning_404_for_search/",
@@ -3932,10 +3972,10 @@ USE_CASE_PAGES["app-store-search"] = {
 USE_CASE_PAGES["transcripts-of-x-and-facebook-video-posts"] = {
     "label": "Transcripts of X and Facebook video posts",
     "sentence": "Facebook video transcript and X video transcript: the words in a video post, from its URL",
-    "title": "Facebook and X video transcript by URL, per call | olywork",
+    "title": "Facebook and X video transcript by URL, per call | olywork.com",
     "lede": (
         "Paste your agent the URL of a Facebook video post or an X video post and get the "
-        "spoken words back as text, through one olywork key from {cheapest} a call at the "
+        "spoken words back as text, through one olywork.com key from {cheapest} a call at the "
         "provider's own rate with $0.000 added. No download step, no ffmpeg, no Whisper run "
         "of your own and no developer account on either network. The price is per call, not "
         "per minute of video, so a fifty minute livestream and a twenty second clip cost the "
@@ -3969,7 +4009,7 @@ USE_CASE_PAGES["transcripts-of-x-and-facebook-video-posts"] = {
         "balance at ScrapeCreators' own rate with $0.000 added. Per call means per call: an "
         "empty answer is billed the same as a full transcript, so budget the rate times the "
         "number of posts, not the number of transcripts you keep.",
-        "Neither row has been called live through olywork yet, and the catalog says so. Both "
+        "Neither row has been called live through olywork.com yet, and the catalog says so. Both "
         "carry a documented price and a documented shape from the provider's docs, neither "
         "has a verified date, and the Facebook row's stored test request does not even name a "
         "URL. Treat them as documented rather than proven, run one post before an agent runs "
@@ -3984,7 +4024,7 @@ USE_CASE_PAGES["transcripts-of-x-and-facebook-video-posts"] = {
     ],
     "faq": [
         ("Do I need an X or Facebook developer account?",
-         "No. Both rows run on olywork's own key and bill per call from your team's balance at "
+         "No. Both rows run on olywork.com's own key and bill per call from your team's balance at "
          "the provider's rate with no markup. Nothing uses an account of yours, so nothing "
          "puts one at risk."),
         ("Does it work on any post?",
@@ -4047,11 +4087,11 @@ USE_CASE_PAGES["transcripts-of-x-and-facebook-video-posts"] = {
 USE_CASE_PAGES["get-a-linkedin-profile"] = {
     "label": "Get a LinkedIn profile",
     "sentence": "LinkedIn API and LinkedIn scraper: a person's profile by URL, headline, experience and education",
-    "title": "LinkedIn API: fetch a profile by URL, {n} providers | olywork",
+    "title": "LinkedIn API: fetch a profile by URL, {n} providers | olywork.com",
     "lede": (
         "Give your agent a LinkedIn profile URL and get the profile back as data: name, "
         "headline, location, current role, past roles and education. {n} providers answer "
-        "through one olywork key, the cheapest of them a tenth of a cent a profile, each "
+        "through one olywork.com key, the cheapest of them a tenth of a cent a profile, each "
         "at its own rate with no markup and none behind a monthly seat. No session cookie of yours, no browser "
         "extension, no Sales Navigator subscription and no account of yours making the "
         "request. LinkedIn's own row is here too and it is honest about what it is: it "
@@ -4063,7 +4103,7 @@ USE_CASE_PAGES["get-a-linkedin-profile"] = {
     "prompt_why": [
         ("Give the profile URL", "Most rows take the public profile URL or its slug. A name and a company is a different job, and a different page."),
         ("Say which fields you need", "A full profile is a large object. Naming the columns keeps the table readable and keeps the agent from spending its context on someone's volunteering history."),
-        ("Ask for the price first", "The rates here differ by more than an order of magnitude per profile. olywork prints the rate before the call, so 40 profiles has a number on it before anything runs."),
+        ("Ask for the price first", "The rates here differ by more than an order of magnitude per profile. olywork.com prints the rate before the call, so 40 profiles has a number on it before anything runs."),
         ("Ask for the misses by name", "Every provider misses some profiles. A list of the URLs that came back empty is worth more than a table that quietly has 34 rows instead of 40."),
     ],
     "result_noun": "profile",
@@ -4095,13 +4135,13 @@ USE_CASE_PAGES["get-a-linkedin-profile"] = {
         "made inside one unit and never across them. ScrapeCreators, Bright Data, TikHub and "
         "JustOneAPI have been called live and carry a verified date in the catalog; the Fiber "
         "row and the LinkedIn OAuth row are documented from the provider's own docs and have "
-        "not been verified through olywork.",
+        "not been verified through olywork.com.",
         "What nobody can promise is coverage, and this page will not. Each provider reads "
         "LinkedIn its own way, so a profile one returns in full is one another returns "
         "thin, and the fields most often missing are exactly the ones people want: the dated "
         "experience list. The cheap experiment is the honest answer: run the same twenty URLs "
         "through three rows for a few cents and count who filled the columns you need. "
-        "olywork shows the rows side by side and the agent picks; it does not route between "
+        "olywork.com shows the rows side by side and the agent picks; it does not route between "
         "them and it does not fail over.",
     ],
     "faq": [
@@ -4123,9 +4163,9 @@ USE_CASE_PAGES["get-a-linkedin-profile"] = {
          "are each provider's own. Company pages, job changes and people search are separate "
          "jobs on separate rows."),
         ("Which provider should my agent use?",
-         "The one whose fields survive your list at a rate that fits the volume. olywork puts "
+         "The one whose fields survive your list at a rate that fits the volume. olywork.com puts "
          "the rate, the billing unit and the measured success rate beside each other and the "
-         "agent chooses, or you tell it which to use. olywork compares; it does not pick for "
+         "agent chooses, or you tell it which to use. olywork.com compares; it does not pick for "
          "you."),
     ],
     "voices_intro": (
@@ -4176,11 +4216,11 @@ USE_CASE_PAGES["get-a-linkedin-profile"] = {
 USE_CASE_PAGES["find-phone-numbers"] = {
     "label": "Find phone numbers",
     "sentence": "Phone number lookup API: a prospect's mobile from a LinkedIn URL or work email",
-    "title": "Phone number lookup API: a mobile from a LinkedIn URL | olywork",
+    "title": "Phone lookup API: a mobile from a LinkedIn URL | olywork.com",
     "lede": (
         "Give your agent a LinkedIn profile URL, a work email or a name and company, and get "
         "a direct mobile number back where one exists. {n} providers answer through one "
-        "olywork key, from {cheapest}, each at its own rate with no markup and none of them "
+        "olywork.com key, from {cheapest}, each at its own rate with no markup and none of them "
         "behind a seat or an annual contract. This runs one way only: person to number. It is "
         "not a reverse lookup, it will not tell you who owns a number you already have, and "
         "no provider here finds a number for everyone you ask about."),
@@ -4191,7 +4231,7 @@ USE_CASE_PAGES["find-phone-numbers"] = {
     "prompt_why": [
         ("Give the identifier, not the name alone", "Most rows resolve from a LinkedIn URL or a work email. A bare name and company is the weakest input and the one that misses most."),
         ("Ask for the misses explicitly", "A list of 25 that returns 11 numbers is the normal outcome. The 14 that missed are the information; a table that silently has 11 rows is not."),
-        ("Ask for the price per found number", "The rates here span more than five times per number. olywork prints each before the call, so 25 people has a worst case before anything runs."),
+        ("Ask for the price per found number", "The rates here span more than five times per number. olywork.com prints each before the call, so 25 people has a worst case before anything runs."),
         ("Never let the agent infer a number", "A model asked for a phone number will happily produce a plausible one. Say out loud that an empty answer stays empty."),
     ],
     "result_noun": "number",
@@ -4216,7 +4256,7 @@ USE_CASE_PAGES["find-phone-numbers"] = {
         "none. All of it is the provider's own rate with $0.000 added, from a prepaid balance "
         "with no minimum.",
         "Read the miss rule carefully, because it is where the money goes. The rate cards say "
-        "a miss is free, and one row on this page proves it through olywork: LeadMagic "
+        "a miss is free, and one row on this page proves it through olywork.com: LeadMagic "
         "reports its own charge back on every call, so a miss settles at zero. The others do "
         "not report a charge, so the call settles at the catalog rate whether or not a number "
         "came back. Until that changes, budget the printed rate times every attempt, not "
@@ -4226,8 +4266,8 @@ USE_CASE_PAGES["find-phone-numbers"] = {
         "provider strong on US technology can be thin on European professional services, and "
         "that a number being current is not the same as somebody answering it. The cheap "
         "experiment is the only real answer: run the same twenty rows through three providers "
-        "for a couple of dollars and count. olywork shows the rates side by side; the agent "
-        "picks, and olywork never routes or fails over between them.",
+        "for a couple of dollars and count. olywork.com shows the rates side by side; the agent "
+        "picks, and olywork.com never routes or fails over between them.",
     ],
     "faq": [
         ("Can I find out who owns a phone number I already have?",
@@ -4240,7 +4280,7 @@ USE_CASE_PAGES["find-phone-numbers"] = {
          "resolve, expect it to be worse outside the US, and measure it on your own rows: "
          "twenty people through three providers costs a couple of dollars."),
         ("Do I pay for a miss?",
-         "By the providers' rate cards, no. Through olywork today, only LeadMagic settles a "
+         "By the providers' rate cards, no. Through olywork.com today, only LeadMagic settles a "
          "miss at zero, because it is the one row that reports its own charge back on the "
          "call. On the others the call settles at the catalog rate, so budget per attempt."),
         ("Is a found number safe to call?",
@@ -4289,18 +4329,22 @@ USE_CASE_PAGES["find-phone-numbers"] = {
          "your own rows before you commit to any of them."),
     ],
     "related": ("Find professional emails", "Check a phone number is real",
-                "Enrich a person from an email or LinkedIn URL", "Get a LinkedIn profile"),
+                "Enrich a person from an email or LinkedIn URL", "Find people by role, company or location"),
+    "extra_links": (
+        ("Run with your agent", "/people-search", "The people search launch page"),
+        ("Multi-step verified lead list", "/workflows/find-and-verify-a-lead-list", "Build a list with the receipt from a real run"),
+    ),
 }
 
 
 USE_CASE_PAGES["keyword-volume-cpc-and-competition"] = {
     "label": "Keyword volume, CPC and competition",
     "sentence": "Keyword research API: Google search volume, CPC and competition for a list of keywords",
-    "title": "Keyword research API: Google search volume and CPC | olywork",
+    "title": "Keyword research API: Google search volume and CPC | olywork.com",
     "lede": (
         "Hand your agent a list of keywords and get a figure back for each one: average "
         "monthly searches, the competition level and the top of page bid range. {n} providers "
-        "answer through one olywork key: a twentieth of a cent per keyword on the cheapest "
+        "answer through one olywork.com key: a twentieth of a cent per keyword on the cheapest "
         "row, a flat rate per request on another, each at the provider's own rate with no markup. Google's own row is free on your connected "
         "Google Ads account and never metered, and it answers with a number per keyword rather "
         "than the bucket the Keyword Planner screen shows you. It is the row the research "
@@ -4312,7 +4356,7 @@ USE_CASE_PAGES["keyword-volume-cpc-and-competition"] = {
     "prompt_why": [
         ("Batch, do not loop", "One row charges a flat rate per request for up to a thousand keywords. Sending them one at a time on that row multiplies the bill by a thousand for the same answer."),
         ("Name the country and language", "Volume is per market. A keyword measured across everywhere is a number that describes nowhere, and every row here wants the market stated."),
-        ("Ask for the price per provider first", "The rows meter in three different ways: per request, per keyword returned, and free on your own account. olywork prints each before the call."),
+        ("Ask for the price per provider first", "The rows meter in three different ways: per request, per keyword returned, and free on your own account. olywork.com prints each before the call."),
         ("Keep the empty rows visible", "Google returns nothing for some ordinary words, and a provider that drops them quietly leaves you reading a shorter list than you sent."),
     ],
     "result_noun": "keyword",
@@ -4332,7 +4376,7 @@ USE_CASE_PAGES["keyword-volume-cpc-and-competition"] = {
         "a response an agent can put in a table."),
     "notes": [
         "The Google Ads row is free, and it is the real thing. It runs on your team's "
-        "connected Google Ads account, is never metered by olywork, counts only against the "
+        "connected Google Ads account, is never metered by olywork.com, counts only against the "
         "developer token's own daily operation limit, and it returns a figure per keyword "
         "rather than the range the Keyword Planner screen shows. The figure is Google's own "
         "rounded number and not a raw count. The cost of this row is not money, it is access: "
@@ -4352,8 +4396,8 @@ USE_CASE_PAGES["keyword-volume-cpc-and-competition"] = {
         "list at all. The bid range is an estimate of an auction rather than the auction: "
         "practitioners regularly report paying many times the figure, or a fraction of it. "
         "Use these fields to rank keywords against each other and take your real cost from "
-        "your own campaign data. olywork puts the rows side by side; the agent picks, and "
-        "olywork never routes or fails over between them.",
+        "your own campaign data. olywork.com puts the rows side by side; the agent picks, and "
+        "olywork.com never routes or fails over between them.",
     ],
     "faq": [
         ("Is this the same data as Google Keyword Planner?",
@@ -4363,7 +4407,7 @@ USE_CASE_PAGES["keyword-volume-cpc-and-competition"] = {
          "differ from Google's and from each other."),
         ("Do I need a Google Ads account?",
          "Only for the free row, which runs on your own connection and is never metered. The "
-         "paid rows need nothing of yours: they run on olywork's key and bill from your "
+         "paid rows need nothing of yours: they run on olywork.com's key and bill from your "
          "team's prepaid balance at the provider's rate with $0.000 added, so a list of "
          "keywords does not require a developer token or an ad campaign."),
         ("Why do the volume numbers differ between providers?",
@@ -4375,7 +4419,7 @@ USE_CASE_PAGES["keyword-volume-cpc-and-competition"] = {
          "It depends entirely on which row and how you batch. A flat per request row covering "
          "up to a thousand keywords is ten calls; a per keyword row is ten thousand "
          "chargeable results however you send them; the Google Ads row is free and bounded by "
-         "a daily operation limit instead. olywork prints each rate before the call so the "
+         "a daily operation limit instead. olywork.com prints each rate before the call so the "
          "agent can say the number first."),
     ],
     "voices_intro": (
@@ -4430,24 +4474,27 @@ USE_CASE_PAGES["keyword-volume-cpc-and-competition"] = {
 WORKFLOWS: dict[str, dict] = {}
 
 WORKFLOWS["find-and-verify-a-lead-list"] = {
-    "sentence": "AI lead generation: build a verified lead list from one prompt",
-    "title": "AI lead generation: a verified lead list in {n} calls | olywork",
+    "sentence": "AI lead generation: a Jev-qualified, verified lead list from one prompt",
+    "title": "AI lead generation: verified lead list in {n} calls | olywork.com",
     "lede": (
         "Give your agent one prompt and get back a lead list with a named person, a verified work "
-        "email and a reason to write, for every company that matched. {steps} steps, each a "
-        "metered call through one olywork key, with the price printed before the agent spends it. "
-        "The numbers on this page come from running it, not from a rate card."),
+        "email and a scored reason to write, for every company that fits. {steps} steps through one "
+        "olywork.com key: jev judges each company on the free list fields before the paid steps run, "
+        "and scores the opener at the end. The price is printed before the agent spends it, and "
+        "the numbers on this page come from running it, not from a rate card."),
     "prompt": (
         "Using olywork, build me a lead list: 50 US software companies with 51 to 200 staff that raised "
-        "a Series A. For each one find the VP or Head of Marketing, find their work email with the "
-        "cheapest provider that only bills on a hit, verify it, and pull the latest news so I have "
-        "an opener. Show me the total price before each step, and give me a CSV at the end with "
-        "the deliverable ones first."),
+        "a Series A. Before you find anyone, have jev judge each company against my ICP (B2B "
+        "software that sells to sales or marketing teams) from the list fields alone, and drop "
+        "anything under 50%. For the rest find the VP or Head of Marketing, find their work email "
+        "with the cheapest provider that only bills on a hit, verify it, and pull the latest news. "
+        "Have jev pick the event to lead with and score how usable it is as a first line. Show me "
+        "the total price before each step, and give me a CSV at the end, strongest opener first."),
     "prompt_why": [
         ("One list in, one CSV out", "The agent carries the domain from step to step. You never paste anything twice."),
-        ("Ask for the price before each step", "Every step is metered per call, so the agent can show the bill before it spends."),
+        ("Judge before you spend", "A jev verdict costs a fraction of the person step. Name the threshold and the agent only pays for rows that pass."),
         ("Only bill on a hit", "Most email finders' rate cards charge nothing for a miss. Say so and the agent picks one."),
-        ("Deliverable first", "Verification sorts the list into send, do not send, and unknown. Ask for that order."),
+        ("Ask for the price before each step", "Every step is metered per call, so the agent can show the bill before it spends."),
     ],
     # Steps whose endpoint is called ONCE per run rather than once per row. The list step is one
     # page for all 50 companies (Apollo bills per page); everything after it runs per row. The
@@ -4460,14 +4507,19 @@ WORKFLOWS["find-and-verify-a-lead-list"] = {
          "50 US software companies, 51 to 200 staff, latest round Series A",
          "apollo.companies.search",
          "Apollo bills per page, not per company, so one page of 50 is one charge."),
+        ("Judge the fit with jev", "decision",
+         "does this company fit the ICP closely enough to pay for a person and an email; keep it at 50% or more",
+         "typesafe.jev",
+         "Apollo's list page carries the domain, NAICS and SIC codes, printed revenue and headcount growth for nothing extra. "
+         "jev reads those and returns a probability, so a company that fails never reaches the paid steps."),
         ("Find the person", "people.search",
          "the VP or Head of Marketing, or Head of Growth, at each company",
          "findymail.search.employees",
-         "Findymail's rate card bills per contact returned. LeadMagic's role finder is the fallback, and it settled at $0.00 on every miss in the run."),
+         "Findymail's rate card bills per contact returned. LeadMagic's role finder is the fallback, and it found a person at every company Findymail missed."),
         ("Find the work email", "people.email.find",
          "their work email, cheapest provider that only bills on a hit",
          "tomba.people.email.find",
-         "Tomba is the cheapest per-success finder in the catalog. Hunter runs on Tomba's misses and settled at $0.00 on its own."),
+         "Tomba is the cheapest per-success finder in the catalog and was out of capacity on olywork.com's key for this run, so Hunter served, and Kitt ran on Hunter's misses. A miss is free at all three."),
         ("Verify it", "people.email.verify",
          "drop anything not deliverable, keep the unknowns separate",
          "leadmagic.people.email.verify",
@@ -4475,81 +4527,592 @@ WORKFLOWS["find-and-verify-a-lead-list"] = {
         ("Find an opener", "companies.news",
          "the three most recent news events about each company",
          "predictleads.companies.news_events",
-         "PredictLeads bills $0.04 a call for classified events. Akta is a third of that per call but was out of credit on the day, so the run used PredictLeads."),
+         "PredictLeads bills per call for classified events. Akta is cheaper per call but was out of credit on the first run, so both runs used PredictLeads."),
+        ("Score the opener with jev", "decision",
+         "which of the events to lead with, and how usable it is as the first line of a cold email, on a four-level scale",
+         "typesafe.jev",
+         "The agent drafts nothing here. jev ranks the events PredictLeads returned and scores the best one, so the CSV sorts by opener strength and a weak one is flagged before anyone writes."),
     ],
     "run": {
-        "date": "2026-08-26",
+        "date": "2026-09-23",
         "rows_in": 50,
         "receipt": [
-            ("Companies matched", "746 on Apollo; the first page of 50 taken, one charge of $0.026"),
-            ("Rows with a usable domain", "47 of 50"),
-            ("A named marketing lead found", "40 of 47 (27 by Findymail, 13 by LeadMagic's role finder)"),
-            ("Work email found", "31 of 40 (22 by Tomba, 9 by Hunter on Tomba's misses)"),
-            ("Verified deliverable", "27 of 31; 4 invalid; 0 unknown or catch-all"),
-            ("A news event in the last year", "29 of 31 (PredictLeads; Akta refused every call, see below)"),
-            ("Wall clock, one call at a time", "about 21 minutes; Findymail and Tomba take 10 seconds a row"),
-            ("Total metered", "$3.62 for 50 companies, or $0.13 per deliverable lead"),
+            ("Companies matched", "958 on Apollo; the first page of 50 taken, one charge of $0.026"),
+            ("Rows with a usable domain", "48 of 50"),
+            ("Passed the jev gate", "27 of 48 at 50% or more; 21 dropped before any paid step; 14 would have passed at 60%"),
+            ("A named marketing lead found", "27 of 27 (20 by Findymail, 7 by LeadMagic's role finder)"),
+            ("Work email found", "21 of 27 (18 by Hunter, 3 by Kitt on Hunter's misses; Tomba out of capacity, see below)"),
+            ("Verified deliverable", "20 of 21; 1 unknown; 0 invalid"),
+            ("A news event in the last year", "19 of 21 (PredictLeads)"),
+            ("Opener scored by jev", "19 of 19; 4 scored decent or better on a 0 to 3 scale, mean 1.79"),
+            ("jev, both steps", "67 verdicts on 55,009 input tokens, $0.0023 at list price; the team's own key, so not metered"),
+            ("Wall clock, four calls in parallel", "about 5 minutes; the gate took 90 seconds for 48 companies"),
+            ("Total metered", "$2.33 for 50 companies, or $0.12 per deliverable lead; the 21 dropped rows would have cost about $1.79 more at this run's rate"),
         ],
-        "cost_usd": 3.62,
+        "cost_usd": 2.33,
         "csv": "/workflows/find-and-verify-a-lead-list.csv",
         "narrative": [
-            "Every number above is what olywork's ledger settled on 2026-08-26 for this run, not a "
-            "rate-card estimate. The 50 rows cost $0.026 to list, $1.58 to name a person ($0.93 at "
-            "Findymail, $0.65 at LeadMagic), $0.58 to find emails, $0.19 to verify them and $1.24 for "
-            "news. The news step was the dearest per row because Akta, the cheapest provider for it, "
-            "answered every call with an insufficient-credits error on olywork's own key and the run "
-            "fell back to PredictLeads at $0.04 a call. A miss on a per-success endpoint is free at "
-            "Hunter and LeadMagic, and both showed it: 9 of Hunter's 18 calls and 14 of the role "
-            "finder's 27 settled at $0.00. Findymail and Tomba list a free miss too, but olywork "
-            "settled all 47 Findymail calls and all 40 Tomba calls at the list rate, misses included, "
-            "because neither provider reports the charge in its response. That is $0.56 of the $3.62, "
-            "and it is being fixed on olywork's side.",
-            "Where the rows fell out: 3 Apollo rows had no domain (two were acquired companies). "
-            "Neither people provider had a marketing lead for 7 of the 47 companies; the ones "
-            "LeadMagic's role finder returned drift in seniority, so a request for Head of Marketing "
-            "came back as a Marketing Manager at four companies. Of the 40 named people, 9 had no "
-            "findable work email at either finder, and 4 of the 31 addresses found failed "
-            "verification. Nothing landed in the unknown bucket, which is unusual for a B2B list "
-            "and says more about this list of small software companies with plain mail setups than "
-            "about the verifier. Apollo's United States filter also let a handful of Indian and "
-            "Singaporean companies through; check the location column before you send.",
+            "Every number above is what olywork.com's ledger settled on 2026-09-23 for this run, not a "
+            "rate-card estimate. The gate is the change from the first run of this workflow on "
+            "2026-08-26, which spent $3.62 on the same filter with no gate and delivered 27 leads, "
+            "$0.13 each. This run spent $2.33 and delivered 20, $0.12 each, with 21 of the 48 "
+            "companies never reaching a paid step. Whether those 21 held good leads is the one "
+            "thing the run cannot say, because nothing was spent on them; at this run's $0.085 per "
+            "passed row they would have added about $1.79 to the bill.",
+            "What jev had to read was thin. Apollo's list page carries the domain, NAICS and SIC "
+            "codes, printed revenue, founding year and headcount growth, and nothing about what a "
+            "company sells or to whom. On that, jev's probabilities ran from 15% to 67% and never "
+            "higher, so the 50% threshold is doing real work and 60% would have kept 14. The drops "
+            "read sensibly: a consumer social network, an education publisher, a consumer lender, "
+            "a robotics maker and a mobile-games studio all went. A third question, which title "
+            "buys lead data at this company, answered Head of Marketing for all 48, which is the "
+            "prior and not a judgement: a question the state cannot answer returns the prior, and "
+            "the page no longer asks it. Enriching each company first would sharpen the gate; it "
+            "would also cost more per row than the verdict it feeds, which is the trade this "
+            "workflow exists to show.",
+            "Where the money went after the gate: $0.53 to Findymail for 27 calls, of which 7 were "
+            "misses settled at the list rate because Findymail does not report the charge in its "
+            "response, and $0.35 to LeadMagic's role finder for the 7 it then found. Tomba, the "
+            "cheapest per-hit email finder, answered all 27 calls with a capacity error on olywork.com's "
+            "own key at no charge, so Hunter served at $0.44 for 18 hits and 9 free misses, and Kitt "
+            "found 3 of those 9 for $0.015. Verification was $0.13, with the one unknown free. News "
+            "was the dearest step again at $0.84, PredictLeads at $0.04 a call. jev's own bill for "
+            "67 verdicts was $0.0023 at its list price on the team's own key.",
+            "The opener scores are the honest part of the tail. Of the 19 companies with a news "
+            "event, jev rated 4 as a decent or strong first line, most of them a funding round or "
+            "an acquisition; the rest were product launches and partnership notices it scored as "
+            "generic congratulation. The CSV is sorted by that score, so the four worth writing to "
+            "first are at the top and nobody has to read 19 events to find them. The catch-all "
+            "field came back empty on every verified row, so the CSV carries no catch-all verdict "
+            "for this run.",
         ],
     },
     "failure_modes": [
+        ("The gate has too little to read",
+         "jev judges what it is given. Apollo's list fields say nothing about what a company sells, so no probability in this run rose above 67% and a question about the buyer's title returned the same answer for all 48 companies. Ask only what the state can answer, set the threshold where the probabilities actually spread, and read the drops by name before you trust the gate on a new filter."),
         ("The filter returns almost nothing",
-         "Icypeas' company search sized the same filter at 12 companies, Apollo at 746. Size the filter with a free count call before paying for a page, and expect the count to swing an order of magnitude between providers."),
+         "Icypeas' company search sized the same filter at 12 companies, Apollo at 958. Size the filter with a free count call before paying for a page, and expect the count to swing an order of magnitude between providers."),
         ("A row with no domain",
-         "Three of the 50 Apollo rows carried no primary domain (two were acquired companies). Every later step keys on the domain, so those rows stop at step one. Keep them in the CSV with the reason rather than dropping them silently."),
-        ("The people search times out, or nobody has the person",
-         "LeadMagic's people search answered \"query too broad\" for a single domain with six titles, at no charge. Findymail by title returned a person for 27 of 47 companies and LeadMagic's role finder for 13 of the remaining 20. Nobody's database has a marketing lead for every 100-person company; the miss rate is the workflow, not a bug."),
-        ("The cheapest provider is out of credit",
-         "Akta answered all 31 news calls with an insufficient-credits error on olywork's own key, at no charge, and the run fell back to PredictLeads at four times the price. A provider outage shows up as a price change, so ask the agent for the price before each step, not once at the start."),
+         "Two of the 50 Apollo rows carried no primary domain. Every later step keys on the domain, so those rows stop at step one. Keep them in the CSV with the reason rather than dropping them silently."),
+        ("The cheapest provider is out",
+         "Tomba answered all 27 email calls with a capacity error on olywork.com's own key, at no charge, and the run went to Hunter at almost three times the price per hit. On the first run it was Akta, for news. A provider outage shows up as a price change, so ask the agent for the price before each step, not once at the start."),
+        ("A miss that is billed anyway",
+         "Findymail lists a free miss but does not report the charge in its response, so olywork.com settled all 27 calls at the list rate, 7 misses included. Hunter, Kitt and LeadMagic report it, and their misses settled at $0.00. Prefer the finders that report the charge when the miss rate will be high."),
         ("Catch-all domains",
-         "A verifier cannot resolve an address on a domain that accepts everything. Expect a fifth of a B2B list to land in that bucket, and decide once, per campaign, whether to send to it."),
+         "A verifier cannot resolve an address on a domain that accepts everything. Expect a fifth of a B2B list to land in that bucket. SMTP checks confirm that the domain accepts mail, not that a specific inbox exists, so decide once, per campaign, whether to send to it, and send in small batches. This run's verifier returned no catch-all flag at all, so the column is empty."),
+        ("Verification is a separate step, not a side effect of finding",
+         "Most email finders return addresses without verifying them. An address that passes SMTP can still be recycled, role-based, or stale. Verify as a distinct call at send time to catch addresses that would pass find but fail send."),
     ],
     "faq": [
         ("How much does the whole workflow cost?",
-         "The receipt on this page prints the real total for a 50-company run. Per-call rates are the provider's own with $0.000 added by olywork. A miss on a per-success step is free at the provider's rate card; the receipt shows where that held and where it did not."),
-        ("Can I change the filter or the title?",
-         "Yes. The prompt is plain text. Change the industry, headcount band, funding stage or the job title and the agent changes the calls. The prices per step do not change."),
-        ("Does olywork pick the providers?",
-         "No. olywork shows the agent every provider for each step with its price and measured success rate; the agent picks, or you tell it which one. There is no automatic failover."),
+         "The receipt on this page prints the real total for a 50-company run, next to the first run of the same filter without the gate. Per-call rates are the provider's own with $0.000 added by olywork.com. A miss on a per-success step is free at the provider's rate card; the receipt shows where that held and where it did not."),
+        ("What does jev decide, and what does it cost?",
+         "Two things. Before the paid steps it reads each company's list fields and returns the probability that it fits your ICP; the agent keeps the rows at or above the threshold you name. After the news step it picks which event to lead with and scores how usable it is as a first line. jev is priced on input tokens only, and the two steps together cost a fraction of a cent for the whole run. You need a jev key of your own, or the agent can make the same judgements itself behind the same interface, slower and dearer, until you have one."),
+        ("Does olywork.com pick the providers?",
+         "No. olywork.com shows the agent every provider for each step with its price and measured success rate; the agent picks, or you tell it which one. There is no automatic failover. jev is the same kind of choice: it is the agent's judge, not olywork.com's router."),
         ("What comes back at the end?",
-         "A CSV with company, domain, person, title, email, which provider found it, the verifier's verdict, whether the domain is catch-all, and the latest news event. The one from the run on this page is linked above with the person, title and email columns removed, because these are real people and a title at a named company is enough to identify one; the row-level outcomes are what the numbers on this page come from. Your own run returns every column."),
+         "A CSV with company, domain, person, title, email, which provider found it, the verifier's verdict, the catch-all flag, the event to lead with, jev's opener score and jev's fit probability, strongest opener first. The one from the run on this page is linked above with the person, title and email columns removed, because these are real people and a title at a named company is enough to identify one; the row-level outcomes are what the numbers on this page come from. Your own run returns every column."),
     ],
     "related": ("Find professional emails", "Verify an email before you send",
-                "Find people by role, company or location", "Build a company list by industry, size or tech"),
+                "Find people by role, company or location", "Enrich a person from an email or LinkedIn URL"),
+    "extra_links": (
+        ("Jev for GTM automation", "/jev", "Three recipes where olywork.com builds the state and jev decides"),
+        ("Run with your agent", "/people-search", "The people search launch page"),
+        ("Waterfall enrichment", "/use-cases/lead-enrichment-for-ai-agents", "Find, enrich and verify in one agent run"),
+        ("Company enrichment", "/use-cases/enrich-a-company", "Turn a domain into firmographics"),
+        ("Pricing", "/pricing", "How olywork.com pricing works"),
+    ),
+}
+
+
+WORKFLOWS["screen-instagram-creators-before-outreach"] = {
+    "sentence": "Instagram profile scraper: screen a creator list before outreach",
+    "title": "Instagram Profile Scraper: Screen Creators | olywork.com",
+    "lede": (
+        "Give your agent a list of Instagram handles and get back a CSV with today's followers, "
+        "category, private flag, a 12-post engagement sample, and a keep or skip verdict, with any "
+        "public business email verified before you write to it. {steps} steps, each a metered call "
+        "through one olywork.com key, with the price printed before the agent spends it."),
+    "prompt": (
+        "Using olywork, screen these 20 Instagram creators for partnership fit: [list of handles]. For "
+        "each one pull the profile (followers, category, is_private, business_email) and the last "
+        "12 posts. Show me the price before each step. If a business email is public, verify it. "
+        "Give me a CSV with handle, followers, private, posts_sampled, avg_engagement_pct and a "
+        "keep or skip column: keep if over 10k followers, public, posting, and engagement above 1%."),
+    "prompt_why": [
+        ("List the handles upfront", "The agent runs one profile call and one posts call per handle. One batch beats twenty prompts."),
+        ("Ask for the price before each step", "Both TikHub routes bill per success at the rate in the table; the verify step is the one that costs, and only fires when an email exists."),
+        ("Define your keep criteria", "Follower floor, public account, recent posts, engagement floor. The agent filters; you set the rules."),
+        ("Request a CSV", "Structured output you can sort before spending time on outreach."),
+    ],
+    "steps": [
+        ("Pull the profile", "instagram.user.profile",
+         "followers, category, private flag and public business email, by handle",
+         "tikhub.instagram.user.profile",
+         "The cheapest profile route in the catalog. Returns the numeric user id the posts step needs."),
+        ("Sample recent posts", "instagram.user.posts",
+         "the last 12 posts with likes and comments, by numeric user id",
+         "tikhub.instagram.user.posts",
+         "Engagement is likes plus comments over followers, averaged across the sample. Private accounts skip this step."),
+        ("Verify the business email", "people.email.verify",
+         "is the public business email deliverable, before outreach",
+         "hunter.people.email.verify",
+         "Fires only for handles whose profile exposes an email, so the worst case in the total above rarely happens."),
+    ],
+    "run": {
+        "date": "2026-09-14",
+        "rows_in": 20,
+        "rows_noun": "creators",
+        "receipt": [
+            ("Creators screened", "20 handles from the creator-discovery run on this site"),
+            ("Profiles retrieved", "18 of 20 resolved; one call did not answer, one handle returned no user"),
+            ("Posts sampled", "17 post calls answered, 14 accounts had posts to count; median engagement 5.3%"),
+            ("Emails verified", "0: no profile exposed a public business email, so the verify step did not fire"),
+            ("Total metered", "$0.036: 19 profile calls and 17 post calls at $0.001 each"),
+        ],
+        "cost_usd": 0.036,
+        "csv": "/workflows/screen-instagram-creators-before-outreach.csv",
+        "narrative": [
+            "Thirty-six successful calls at the two TikHub rates, billed per success. Fourteen of the twenty made the keep list. None of these creators exposes a "
+            "business email in the profile, which is common: the email step is there for the lists "
+            "where they do, and it is the only step with a real price. One profile call did not answer "
+            "and was not billed; the retry policy is one line in the prompt. Handles are removed from the "
+            "published CSV because they identify real people; your own run returns them.",
+        ],
+    },
+    "failure_modes": [
+        ("Private account",
+         "The profile call returns followers, bio and the private flag; the posts call returns nothing. Decide keep or skip on the profile alone."),
+        ("No business email",
+         "Most creators do not expose one. The profile returns what is public; the verify step is skipped, not billed."),
+        ("Handle changed or deleted",
+         "A renamed handle returns no user. The miss is free on this route; fix the handle and rerun that row."),
+        ("Rate limits on bulk pulls",
+         "Spread a few hundred handles over minutes, or the profile route starts answering slowly."),
+        ("Ban risk if you scrape from your own login",
+         "Do not point a logged-in personal or brand Instagram session at bulk pulls. Use a public-data route that does not need your cookies. If a provider asks for a session, use a throwaway account you can lose."),
+        ("Follower count is not proof of reach",
+         "Bought followers and engagement pods still show up as healthy looking profiles. Sample recent posts and compute engagement before you put someone on an outreach list."),
+        ("Manual sheet workflows do not scale",
+         "Opening profiles one by one is the common starting point and it breaks past a few dozen handles. Batch the profile and posts calls, then decide keep or skip in the CSV."),
+    ],
+    "faq": [
+        ("What does a 20-creator screen cost?",
+         "The receipt above is one real run. Profiles and posts are the cheap steps; only the email verify step, when it fires, costs more."),
+        ("What if the account is private?",
+         "The profile call still returns followers, category and the private flag. Posts and engagement are unavailable."),
+        ("Can I screen TikTok creators the same way?",
+         "Yes. TikHub has TikTok profile and post routes at the same price; change the handles and the platform in the prompt."),
+        ("How is engagement calculated?",
+         "Likes plus comments on the sampled posts, divided by followers, averaged over the sample. Above 3% is generally good; this list's median was 5.3%."),
+        ("Will this get my Instagram account banned?",
+         "This workflow screens public profile and post fields through a metered catalog route. It is not a follow, unfollow, or DM bot. Do not paste your own Instagram session into a scraper."),
+        ("What if engagement looks high but the audience is fake?",
+         "Treat engagement as a filter, not a guarantee. Look at comment quality and sudden follower spikes before you pay for a placement."),
+    ],
+    "related": (
+        "Find creators by keyword",
+        "Search posts by keyword",
+        "Verify an email before you send",
+        "Find people by role, company or location",
+    ),
+}
+
+
+WORKFLOWS["discover-creators-in-a-niche"] = {
+    "sentence": "Influencer finder: discover creators by niche, followers and engagement",
+    "title": "Influencer Finder: Find Creators by Niche | olywork.com",
+    "lede": (
+        "Give your agent a niche, a country and a follower range, and get back a list of "
+        "Instagram, TikTok or YouTube creators with engagement rates, then a fresh profile and a "
+        "post sample on each one. {steps} steps through one olywork.com key, with the price printed "
+        "before each."),
+    "prompt": (
+        "Using olywork, find 25 Instagram fitness creators in the US with 50k to 500k followers and "
+        "engagement above 3%. Show me the price first. Then pull each profile and its last 12 posts, "
+        "and give me a CSV with username, followers, engagement_percent, category, whether the "
+        "account is private, and likes and comments on the sample."),
+    "prompt_why": [
+        ("Specify the platform", "influencers.club searches Instagram, TikTok, YouTube, X and Twitch separately, and the filter set changes with the platform."),
+        ("Put the hard limits in filters", "Follower range, engagement floor and country are enforced server-side. A plain-language brief drops constraints it cannot map."),
+        ("Ask for the price first", "Discovery bills per creator returned, so the limit you set is the bill. The table below shows the live rate."),
+        ("Pull the profile after discovery", "The discovery row is a snapshot. A profile call returns today's follower count and the bio."),
+    ],
+    "steps": [
+        ("Search creators by niche", "creators.search",
+         "filtered search by bio keyword, follower range, engagement floor and country",
+         "influencersclub.creators.search",
+         "Structured discovery: exact follower, engagement and country filters. Billed per creator returned; a zero-match page costs nothing."),
+        ("Pull each profile", "instagram.user.profile",
+         "today's follower count, bio, category and private flag for one handle",
+         "tikhub.instagram.user.profile",
+         "The cheapest profile route in the catalog. Runs once per creator from the discovery list."),
+        ("Sample recent posts", "instagram.user.posts",
+         "the last 12 posts with likes and comments, by the numeric user id from the profile",
+         "tikhub.instagram.user.posts",
+         "Runs once per creator. Likes and comments over followers is the engagement check the discovery row cannot give you."),
+    ],
+    "once": ("influencersclub.creators.search",),
+    "run": {
+        "date": "2026-09-14",
+        "rows_in": 25,
+        "rows_noun": "creators",
+        "receipt": [
+            ("Creators matched", "153 US fitness creators, 50k to 500k followers, engagement above 3%"),
+            ("Creators returned", "25, one discovery call at limit=25 (0.25 credits)"),
+            ("Profiles pulled", "25 of 25 resolved, none private"),
+            ("Posts sampled", "24 of 25 post calls answered; 19 accounts had posts to count"),
+            ("Follower range on the day", "50,142 to 412,256; median engagement 4.96%"),
+            ("Total metered", "$0.20: $0.15 discovery, $0.025 profiles, $0.024 posts"),
+        ],
+        "cost_usd": 0.198,
+        "csv": "/workflows/discover-creators-in-a-niche.csv",
+        "narrative": [
+            "One discovery call matched 153 creators and returned the 25 requested, billed per creator "
+            "returned. Twenty-five profile pulls followed, one per handle, and every one resolved; the "
+            "post sample then answered for 24 of them, and 19 had posts to count. The CSV has the "
+            "discovery snapshot and the same-day profile count side by side, which is how you spot a "
+            "stale row. Usernames are removed from the published CSV because they identify real "
+            "people; your own run returns them.",
+        ],
+    },
+    "failure_modes": [
+        ("Filter too narrow",
+         "A combination that matches nobody returns zero rows and costs nothing. Widen one filter at a time."),
+        ("Brief drops a constraint",
+         "The plain-language brief maps what it can and silently drops the rest. Put every hard limit in filters and use the brief for the fuzzy part."),
+        ("Handle changed since discovery",
+         "The discovery index lags. A profile pull on a renamed handle misses; the miss is free on this route."),
+        ("Country is inferred",
+         "Creator location comes from language and hashtags. Verify before a geo-targeted campaign."),
+        ("Seat price hides the email cap",
+         "Many discovery products bill a monthly seat and then throttle how many contact emails you can open. Price the workflow on creators returned and emails verified, not on a seat."),
+        ("Database rows go stale or regional",
+         "A free trial can look empty or wrong for EU markets even when US coverage looks fine. Always re-pull the live profile before outreach."),
+        ("Authenticity is not in the discovery index",
+         "Follower count and tagged niche do not prove a real audience. Run an engagement sample before you negotiate."),
+    ],
+    "faq": [
+        ("What does discovery cost?",
+         "Per creator returned, at the live rate in the table above. The limit you pass is the bill; the total match count is free."),
+        ("Can I combine filters with a plain-language brief?",
+         "Yes. Exact filters go in the filters object and the niche description in nlp_search. The response says which parts of the brief were applied."),
+        ("What about TikTok or YouTube creators?",
+         "Set the platform in the same discovery call. Swap the profile step for the matching platform's profile route."),
+        ("Why pull the profile at all?",
+         "Discovery rows are a snapshot. The profile call returns today's follower count, the bio and whether the account went private."),
+        ("Why not just buy Modash or HypeAuditor?",
+         "Those products solve discovery plus a lot of campaign CRM. If you only need a niche list with live stats, a per-result discovery call is usually the cheaper shape."),
+        ("How do I avoid fake creators in the results?",
+         "Keep follower and engagement filters tight, then sample recent posts. Skip sudden spikes and empty comment threads."),
+    ],
+    "related": (
+        "Find creators by keyword",
+        "Search posts by keyword",
+        "Mine the comments",
+        "Find people by role, company or location",
+    ),
+}
+
+
+WORKFLOWS["keyword-demand-to-ad-budget"] = {
+    "sentence": "Keyword volume checker: expand a seed, price the demand, read the seasonality",
+    "title": "Keyword Volume Checker: Demand to Ad Budget | olywork.com",
+    "lede": (
+        "Give your agent a seed keyword and get back the related terms, their monthly volume, CPC, "
+        "competition and a 12-month trend, plus a spend split by volume share. {steps} steps "
+        "through one olywork.com key, with the price printed before each."),
+    "prompt": (
+        "Using olywork, expand 'protein powder' into 50 related keywords, then get Google search "
+        "volume, CPC and competition for all of them in one batch, and the 12-month trend for the "
+        "top 5. Show me the price before each call. Give me a CSV with keyword, monthly_volume, "
+        "cpc_usd, competition, q4_vs_rest_pct and suggested_spend_pct by volume share."),
+    "prompt_why": [
+        ("Expand first, then price", "One ideas call turns a seed into a list; one volume call prices the whole list. Two calls, not fifty."),
+        ("Batch the volume lookup", "The volume route bills per request, not per keyword, so 50 keywords cost the same as one."),
+        ("Ask for the trend on the head terms only", "The trend route takes five keywords per call. Spend it on the terms that carry the volume."),
+        ("Own-asset note", "If you connect a Google Ads account, the same volume and ideas calls run on your own quota at no metered cost."),
+    ],
+    "steps": [
+        ("Expand the seed", "google.keywords.ideas",
+         "related keywords with volume, CPC and difficulty",
+         "dataforseo.google.keywords.ideas",
+         "Billed per request plus a small amount per keyword returned. Set the limit; the default is 100."),
+        ("Price the list in one batch", "google.keywords.volume",
+         "monthly volume, CPC, competition and 12 monthly figures per keyword",
+         "dataforseo.google.keywords.volume",
+         "One flat request covers up to 1,000 keywords. Never loop this route."),
+        ("Read the trend", "google.keywords.trends",
+         "interest over time for up to five keywords",
+         "dataforseo.x.keywords-data-dataforseo-trends-explore-live",
+         "The run asked olywork's routed trends endpoint, which picks the cheapest provider with your own keys first; this is the child that served."),
+    ],
+    "once": ("dataforseo.google.keywords.ideas", "dataforseo.google.keywords.volume", "dataforseo.x.keywords-data-dataforseo-trends-explore-live"),
+    "run": {
+        "date": "2026-09-14",
+        "rows_in": 50,
+        "rows_noun": "keywords",
+        "receipt": [
+            ("Seed expanded", "'protein powder' to 50 related keywords, one call, depth 2"),
+            ("Volume priced", "50 of 50 keywords returned volume in one batch call"),
+            ("Demand found", "742,970 monthly searches across the list; the head term is 368,000"),
+            ("Trend read", "top 5 keywords, served by DataForSEO Trends"),
+            ("Total metered", "$0.11: $0.018 ideas, $0.09 volume, $0.0012 trend"),
+        ],
+        "cost_usd": 0.1092,
+        "csv": "/workflows/keyword-demand-to-ad-budget.csv",
+        "narrative": [
+            "Three calls, three receipts. The ideas call billed its request fee plus a fraction of a "
+            "cent per keyword returned; the volume call billed one flat fee for the whole batch, which "
+            "is why the table's per-row price is misleading for it; the trend call was routed and "
+            "settled at the child's rate. The head term's Q4 volume runs 29% below the rest of the "
+            "year, so the seasonality column matters for this niche.",
+        ],
+    },
+    "failure_modes": [
+        ("Keyword returns no volume",
+         "Google reports nothing for very low-volume terms. The batch is still billed as one request."),
+        ("CPC is missing for some keywords",
+         "2 of the 50 keywords in this run returned no CPC. The volume call still bills its flat fee."),
+        ("Bucketed volumes without ad spend",
+         "A connected Google Ads account with little spend sees bucketed ranges instead of exact numbers. That is Google's limit, not the API's."),
+        ("Trend call capped at five",
+         "The trend route takes at most five keywords per call. Send the head terms, not the list."),
+        ("CPC is a national average",
+         "Local or tightly targeted campaigns see different auction prices. The 48 keywords here that returned a CPC averaged $1.18; a tight geo will differ."),
+        ("Per-keyword billing traps",
+         "Some volume APIs bill per keyword, not per request. DataForSEO's batch route bills one flat fee for up to 1,000 keywords; calling a per-keyword endpoint 50 times costs 50 times as much."),
+        ("Suite pricing for a volume job",
+         "Paying a full Semrush or Ahrefs seat just to split a keyword list into ad budget buckets is a common mismatch. Prefer a flat per-request volume call for the list you already have."),
+        ("Providers disagree on the same keyword",
+         "Pull the same shortlist from two rows when the decision is expensive. Treat disagreement as the error bar, not as a bug in one provider."),
+        ("Minimum package surprise",
+         "Some keyword APIs effectively bill a large batch floor. Check whether your list length matches the billing unit before you send twenty keywords."),
+    ],
+    "faq": [
+        ("What does a 50-keyword run cost?",
+         "This run: $0.11 total. $0.018 for ideas, $0.09 for the volume batch, $0.0012 for the trend. The volume call is a flat fee per request, so the list length barely moves the bill."),
+        ("Can I use my own Google Ads account?",
+         "Yes. Connect it and the ideas and volume calls route through the Keyword Planner API on your own quota, which olywork.com never meters."),
+        ("Why is per-request billing cheaper?",
+         "Agents that call a per-keyword endpoint 50 times pay 50 fees. The batch route here covers up to 1,000 keywords in one request for one fee. That is why olywork.com shows the billing unit before each call."),
+        ("How current is the trend data?",
+         "The trend series is weekly for the past twelve months and reflects past demand, not a forecast."),
+        ("Do I need a Google Ads account for this workflow?",
+         "Only if you route through your own Keyword Planner connection. The paid volume rows run on olywork.com's keys and do not need your developer token."),
+        ("Why does Semrush or Ahrefs show a different number?",
+         "Every vendor models demand differently. Rank keywords against each other inside one source, then validate winners in Search Console and in your own campaigns."),
+    ],
+    "related": (
+        "Keyword volume, CPC and competition",
+        "Keywords a domain ranks for",
+        "Keywords a domain bids on",
+        "Your own campaign performance",
+    ),
+}
+
+
+WORKFLOWS["mine-competitor-meta-ads-as-creative-pack"] = {
+    "sentence": "Facebook Ads Library API: pull a competitor's live ads and what they bid on in Google",
+    "title": "Facebook Ads Library API: Competitor Creative | olywork.com",
+    "lede": (
+        "Give your agent a competitor's Facebook page and get back their live Meta ads with the "
+        "format, call to action and opening line of each, plus the same advertiser's ads in the "
+        "Google Ads Transparency Center. {steps} steps through one olywork.com key, with the price "
+        "printed before each."),
+    "prompt": (
+        "Using olywork, count the active Meta ads for Notion (facebook.com/notionhq), then pull the 20 "
+        "most recent. Show me the price first. Group them by format and call to action, and give me a CSV with "
+        "ad_archive_id, started, format, cta, title and hook. Then list what the same company is "
+        "running in the Google Ads Transparency Center."),
+    "prompt_why": [
+        ("Give a Page URL, not a keyword", "A Page URL returns that advertiser's ads. A keyword returns everyone bidding on the phrase."),
+        ("Count before you pull", "The Meta route bills per ad returned. The count probe is one result; it tells you what an uncapped pull would cost."),
+        ("Ask for format and CTA", "The agent groups on two fields Meta renders for every ad. Grouped output is faster to review than raw creative."),
+        ("Add the Google side", "One cheap call returns the advertiser's Google ads by domain. Two libraries, one prompt."),
+    ],
+    "steps": [
+        ("Count the ads first", "meta-ads.library.search",
+         "how many active ads the Page runs, as one cheap result row",
+         "apify.meta-ads.library.search",
+         "onlyTotal:true returns the count as a single billed result. Read it before you decide how many ads to pull."),
+        ("Pull the Meta ads", "meta-ads.library.search",
+         "active ads for a Page from the Meta Ad Library, with creative text and format",
+         "apify.meta-ads.library.search",
+         "Reads the Ad Library web UI. Billed per ad returned, so cap it with resultsLimit and maxItems."),
+        ("Pull the Google ads", "google.ads.transparency",
+         "the same advertiser's ads in the Google Ads Transparency Center, by domain",
+         "serpapi.google.ads.transparency",
+         "One flat call per domain, with format and first-shown dates per creative. Failed and empty searches are free."),
+    ],
+    # the Meta pull is one call billed per ad returned, which the once/per-row model cannot say; leaving
+    # it out of `once` makes the worst-case total count one result per row, which is what the bill is
+    "once": ("serpapi.google.ads.transparency",),
+    "run": {
+        "date": "2026-09-14",
+        "rows_in": 20,
+        "rows_noun": "ads",
+        "receipt": [
+            ("Ads counted", "113 active ads on the Page, one result row"),
+            ("Meta ads pulled", "20 active ads for Notion: 10 image, 6 dynamic creative, 4 video"),
+            ("Calls to action", "Sign up (13), Get offer (5), Apply now (2)"),
+            ("Google ads pulled", "17 creatives on notion.so: 9 text, 7 image, 1 video"),
+            ("Metered on olywork's shared key", "$0.015 for the Google call"),
+            ("Not metered", "the two Meta calls ran on this team's own Apify key, which olywork never meters; on the shared key they bill at the rate in the table, $0.105 for the probe and 20 ads"),
+        ],
+        "cost_usd": 0.015,
+        "csv": "/workflows/mine-competitor-meta-ads-as-creative-pack.csv",
+        "narrative": [
+            "The count probe came back as one result row, then twenty ads came back in one Meta call "
+            "and 17 in one Google call. The worst-case total above counts the count probe once per row "
+            "because it shares the pull's endpoint; in practice it is one result. Every Meta ad opened with "
+            "the same line and pointed at a sign-up; the variety is in format, not copy. The Google side "
+            "is mostly text ads. The Meta calls went out on the team's own Apify key, and a team's own key "
+            "is never metered, so the receipt shows the shared-key rate for them separately. A run on "
+            "olywork's shared key bills them at the rate in the table.",
+        ],
+    },
+    "failure_modes": [
+        ("Advertiser not found",
+         "A wrong Page URL or an advertiser with no active ads returns zero results and costs nothing."),
+        ("Keyword vs Page confusion",
+         "A keyword query returns everyone bidding on the phrase. A Page URL returns that advertiser's ads. This run used a Page URL (facebook.com/notionhq) and got 20 Notion ads, not 20 ads from assorted bidders."),
+        ("Slow Meta pulls",
+         "The Meta route blocks until the scrape finishes and is cut at five minutes. Keep the limit small or use the asynchronous pair."),
+        ("Google domain mismatch",
+         "The Google side keys on the advertiser's verified domain. A marketing subdomain returns nothing; use the root domain."),
+        ("Count-before-pull billing",
+         "The count probe bills as one result; the full pull bills per ad. Notion's 113 active ads would cost $0.565 uncapped. The run capped at 20 ads ($0.105 on olywork.com's shared key)."),
+        ("Creative fields shift",
+         "Both routes read the public library pages. Field availability tracks whatever Meta and Google currently render. 5 of this run's 6 DCO ads returned template placeholders, not final copy."),
+        ("Creative media URLs expire",
+         "Meta's public media links go stale within days. If you need a lasting creative pack, download the creative assets into your own storage on the same run, not later."),
+        ("Official Library API is the wrong product for ecommerce spy",
+         "ads_archive is built around transparency rules and identity checks. It will not mirror the full commercial Ad Library UI. Use a public-library scrape route when you want active brand creatives."),
+        ("Spy SaaS seat for a one-off pack",
+         "Paying a monthly ad-spy subscription only to export a competitor's current ads is a common overbuy. Cap the ad count and bill per ad returned."),
+    ],
+    "faq": [
+        ("What does a competitor pull cost?",
+         "It depends on how many ads they run. Notion had 113 active ads; pulling all of them would cost $0.565 on olywork.com's shared key. This run capped at 20 ($0.105)."),
+        ("Is this Meta's official API?",
+         "No. It reads the public Ad Library. Meta's own ads_archive route is free but needs identity verification and returns less."),
+        ("Why did 5 ads return template placeholders?",
+         "Those are DCO (dynamic creative) ads. The library shows the template, not the rendered variants. This run's CSV has 10 IMAGE, 4 VIDEO, and 6 DCO; 5 of the DCO rows show placeholders and the sixth carried real copy."),
+        ("What about the landing pages?",
+         "18 of the 20 ads point at fb.me (a redirect); 2 point at notion.com. Ask the agent to scrape the final destinations as a follow-up step."),
+        ("Why did the image or video link die overnight?",
+         "Meta rotates public CDN URLs. Save the file during the pull if you want a durable swipe file."),
+    ],
+    "related": (
+        "Ads a competitor is running now",
+        "Keywords a domain bids on",
+        "Keyword volume, CPC and competition",
+        "Your own campaign performance",
+    ),
+}
+
+
+WORKFLOWS["category-content-intel-tiktok-xiaohongshu"] = {
+    "sentence": "Category content intel: what TikTok and Xiaohongshu are saying about a product category",
+    "title": "Category content intel: TikTok and Xiaohongshu | olywork.com",
+    "lede": (
+        "Give your agent a category keyword and get back the top posts on TikTok and Xiaohongshu "
+        "(RedNote) with engagement, plus the follower counts of the creators behind the TikTok "
+        "hits. {steps} steps through one olywork.com key. Low frequency, high decision value."),
+    "prompt": (
+        "Using olywork, search TikTok for 'protein powder' sorted by likes and Xiaohongshu for "
+        "'蛋白粉' sorted by popularity. Show me the price first. Return a CSV with platform, likes, "
+        "comments, plays, caption and posted date, sorted by likes. Then pull the profiles of the "
+        "top 10 TikTok creators and add their follower counts."),
+    "prompt_why": [
+        ("Search both platforms", "TikTok shows Western demand, Xiaohongshu shows Chinese consumer behaviour. One prompt, two markets."),
+        ("Use the native language on Xiaohongshu", "Search the Chinese term. An English keyword returns a thin, unrepresentative page."),
+        ("Sort by engagement", "Both routes accept a sort. Likes-first surfaces what resonated, not what was posted last."),
+        ("Profile the creators behind the hits", "Follower count tells you whether a hit came from reach or from resonance."),
+    ],
+    "steps": [
+        ("Search TikTok", "tiktok.search.videos",
+         "keyword search with sort and publish-time filters, 20 videos per page",
+         "tikhub.tiktok.search.videos",
+         "One page per call. Region defaults to US."),
+        ("Search Xiaohongshu", "xiaohongshu.search.notes",
+         "keyword search with popularity sort and a publish-time window",
+         "justoneapi.x.xiaohongshu-search-note-v2",
+         "Billed only on success; errors are free. Returns 20 notes per page."),
+        ("Profile the top creators", "tiktok.user.profile",
+         "follower count and video count for one TikTok handle",
+         "tikhub.tiktok.user.profile",
+         "Runs once per creator you keep. Charged on 2xx only."),
+    ],
+    "once": ("tikhub.tiktok.search.videos", "justoneapi.x.xiaohongshu-search-note-v2"),
+    "run": {
+        "date": "2026-09-14",
+        "rows_in": 10,
+        "rows_noun": "creators",
+        "receipt": [
+            ("TikTok", "20 videos for 'protein powder', top post 719,160 likes"),
+            ("Xiaohongshu", "20 notes for '蛋白粉' in the last six months, top note 48,588 likes"),
+            ("Creators profiled", "10 of 10 TikTok creators, 11,500 to 11,000,000 followers"),
+            ("Total metered", "$0.032: $0.001 TikTok search, $0.022 Xiaohongshu search, $0.01 profiles"),
+        ],
+        "cost_usd": 0.03214,
+        "csv": "/workflows/category-content-intel-tiktok-xiaohongshu.csv",
+        "narrative": [
+            "Twelve calls. The two searches returned 40 posts; the ten profile pulls added follower "
+            "counts to the TikTok hits. The spread is the finding: the same category's top TikTok post "
+            "has fifteen times the likes of the top Xiaohongshu note, and the creators behind the TikTok "
+            "hits range from an 11k-follower account to an 11M one, so reach alone does not explain the "
+            "ranking. The Xiaohongshu search is the expensive call; everything else is TikHub's per-success rate.",
+        ],
+    },
+    "failure_modes": [
+        ("No results for a niche keyword",
+         "One platform may return nothing. Try a broader term or the category's native-language phrasing."),
+        ("Xiaohongshu is in Chinese",
+         "Captions come back in Chinese. The agent translates; check nuance with a native speaker before acting on it."),
+        ("Time window is approximate",
+         "Xiaohongshu's publish-time filter is documented as approximate and can include older notes."),
+        ("Region shapes the TikTok page",
+         "TikTok search is regional. Pass the region you sell in."),
+        ("Homegrown scrapers rot",
+         "TikTok and Xiaohongshu change signed endpoints often. A script that worked last month can return empty pages this week. Prefer a maintained catalog route over owning the signer."),
+        ("Xiaohongshu is not TikTok with Chinese text",
+         "There is no public developer API. Signed headers and captchas are normal. Expect thinner coverage and higher maintenance than TikTok on the same vendor."),
+        ("Hours of scrolling is the silent cost",
+         "Manual category research feels free until you count the hours. Batch keyword search on both platforms and keep the CSVs so you can diff week to week."),
+    ],
+    "faq": [
+        ("What does the dual-platform search cost?",
+         "The receipt above is one real run. The Xiaohongshu call is the expensive one; the TikHub calls are the cheap ones."),
+        ("Can I get transcripts?",
+         "Yes. The catalog has TikTok transcript routes; add them as a step for the posts you shortlist."),
+        ("What about Instagram or YouTube?",
+         "Add those searches to the prompt. The catalog has keyword search on both."),
+        ("How do I track this over time?",
+         "Run the same prompt weekly and keep the CSVs. The agent can diff the top posts between runs."),
+        ("Why did my DIY TikTok scraper die?",
+         "Endpoints and anti-bot checks move. That is expected. This workflow uses maintained providers so the maintenance sits with them."),
+        ("Can one scraper cover both TikTok and Xiaohongshu?",
+         "Often not well. Many social scrapers are TikTok-first and lag on RedNote. Treat them as separate steps with separate failure modes."),
+    ],
+    "related": (
+        "Search posts by keyword",
+        "Search videos and channels by keyword",
+        "Find creators by keyword",
+        "A channel's profile and lifetime stats",
+    ),
 }
 
 
 USE_CASE_PAGES["company-email-format"] = {
     "label": "A company's email format",
     "sentence": "Company email format finder: the pattern a domain uses, so a name becomes an address",
-    "title": "Company email format finder API, by domain | olywork",
+    "title": "Company email format finder API, by domain | olywork.com",
     "lede": (
         "Give your agent a company domain and get back the address pattern the company uses, "
         "such as first.last or f.last, with how confident the provider is in it. Two providers "
-        "answer through one olywork key at their own rate with $0.000 added: The Companies API "
+        "answer through one olywork.com key at their own rate with $0.000 added: The Companies API "
         "bills only when a pattern comes back, Tomba bills the call and makes a repeat of the "
         "same domain free for the rest of the month. A pattern is a rule, not a mailbox: it "
         "tells you how to write an address, and the verify page tells you whether that "
@@ -4592,8 +5155,8 @@ USE_CASE_PAGES["company-email-format"] = {
         "yields a confident looking pattern that may be wrong for the fourth person. Read the "
         "confidence or count the provider returns, and treat anything built on a handful of "
         "samples as a hypothesis to verify, not a fact to send to.",
-        "Tomba's row has been called live through olywork and carries a verified date; The "
-        "Companies API row is documented but not yet verified through olywork, so run one "
+        "Tomba's row has been called live through olywork.com and carries a verified date; The "
+        "Companies API row is documented but not yet verified through olywork.com, so run one "
         "domain before an agent runs a thousand. The 1,300 a month who search for an email "
         "format checker are mostly asking whether an address is valid, which is a different "
         "call: that is the verify page, and the two calls are meant to run one after the other.",
@@ -4660,11 +5223,11 @@ USE_CASE_PAGES["company-email-format"] = {
 USE_CASE_PAGES["mine-the-comments"] = {
     "label": "Mine the comments",
     "sentence": "Social listening API: export the comments on Instagram, YouTube, Reddit and LinkedIn posts as data",
-    "title": "Instagram comment export and social listening API | olywork",
+    "title": "Instagram comment export and social listening API | olywork.com",
     "lede": (
         "Give your agent a post URL on Instagram, a video on YouTube, a thread on Reddit or a "
         "post on LinkedIn and get the comments back as rows: author, text, likes, time, "
-        "replies. {n} providers across the four platforms answer through one olywork key, "
+        "replies. {n} providers across the four platforms answer through one olywork.com key, "
         "each at its own rate with $0.000 added, from a fraction of a cent per call, and on "
         "YouTube the official API is free on the Google account you already have. This is the "
         "raw material of social listening, not the dashboard: the rows come back and your "
@@ -4708,7 +5271,7 @@ USE_CASE_PAGES["mine-the-comments"] = {
         "per call, which on a post with a thousand comments means paginating and paying per "
         "page; Bright Data is per record delivered, so a thousand comments is a thousand "
         "records; TikHub and JustOneAPI are per successful call. The row labelled olywork is the "
-        "routed endpoint: the explicit opt in where you ask olywork to choose among the "
+        "routed endpoint: the explicit opt in where you ask olywork.com to choose among the "
         "providers for that platform, your own keys first, and it names the provider that "
         "served and bills that provider's rate. Every other row is a direct call and the "
         "choice is yours.",
@@ -4716,7 +5279,7 @@ USE_CASE_PAGES["mine-the-comments"] = {
         "the OSINT forums keep asking; comments on a private account; and any promise about "
         "your own LinkedIn or Instagram login, because none of these rows use one. A "
         "scraped LinkedIn post is public data fetched by the provider, and LinkedIn's terms "
-        "are LinkedIn's. Several rows on the page have not been called live through olywork "
+        "are LinkedIn's. Several rows on the page have not been called live through olywork.com "
         "yet and say unverified in the table: Bright Data on all three platforms, "
         "ScrapeCreators on Reddit, TikHub on LinkedIn. Run one post before an agent runs a "
         "thousand.",
@@ -4737,7 +5300,7 @@ USE_CASE_PAGES["mine-the-comments"] = {
         ("Will my account get banned?",
          "Nothing here uses your account except the two official rows, which use it the way "
          "the platform intends. The paid rows run on the provider's own infrastructure and "
-         "return public data; olywork holds the provider keys and you never log in anywhere."),
+         "return public data; olywork.com holds the provider keys and you never log in anywhere."),
     ],
     "voices_intro": (
         "Of the ~210 Reddit and X posts read in August 2026 about seventy were on the job, and "
@@ -4785,11 +5348,11 @@ USE_CASE_PAGES["mine-the-comments"] = {
 USE_CASE_PAGES["build-a-company-list-by-industry-size-or-tech"] = {
     "label": "Build a company list by industry, size or tech",
     "sentence": "Companies by industry: build a company list by industry, size, location or tech stack through one key",
-    "title": "Company list by industry, size or tech: {n} APIs | olywork",
+    "title": "Company list by industry, size or tech: {n} APIs | olywork.com",
     "lede": (
         "Describe the companies you want, by industry, headcount, country, revenue, funding or "
         "the technology they run, and get a list back as rows with a domain on each. {n} "
-        "providers answer through one olywork key, from Apollo and Crunchbase to the smaller "
+        "providers answer through one olywork.com key, from Apollo and Crunchbase to the smaller "
         "databases nobody has heard of, each at its own rate with $0.000 added and most of "
         "them priced per company returned, so the size of the page is the price. Three rows "
         "are free, and a free row that returns ids is not the same as a free row that returns "
@@ -4837,15 +5400,15 @@ USE_CASE_PAGES["build-a-company-list-by-industry-size-or-tech"] = {
         "search. The Companies API has a `simplified=true` switch that makes the whole call "
         "free at the price of fewer fields, which is the cheapest honest way to count a "
         "market before paying for rows. The row labelled olywork is the routed endpoint: the "
-        "explicit opt in where you ask olywork to choose among these providers, your own "
+        "explicit opt in where you ask olywork.com to choose among these providers, your own "
         "keys first, and it names the one that served and bills that provider's rate.",
         "Nobody on this page publishes a number for how stale their data is, and the one "
         "practitioner test in the research measured the drift at about a fifth of records "
         "having changed title or employer while the email still resolved. Treat every "
         "headcount and industry field as a claim from the month it was indexed. The rows "
-        "that were called live through olywork carry a verified date in the table; Apollo, "
+        "that were called live through olywork.com carry a verified date in the table; Apollo, "
         "Coresignal, Crunchbase, Fiber AI, Findymail and The Companies API are documented "
-        "but not yet verified through olywork, so run one page before an agent "
+        "but not yet verified through olywork.com, so run one page before an agent "
         "runs a thousand.",
     ],
     "faq": [
@@ -4864,7 +5427,7 @@ USE_CASE_PAGES["build-a-company-list-by-industry-size-or-tech"] = {
          "returns ids for nothing, and several providers have a count call on its own page. "
          "A count first is the cheapest way to check that your filters mean what you think."),
         ("Is this the Apollo API or the Crunchbase API?",
-         "Both are rows on this page, called through one olywork key at their own rates. "
+         "Both are rows on this page, called through one olywork.com key at their own rates. "
          "Crunchbase is covered by its licence rather than priced per call, so the table "
          "prints no dollar figure for it, and Apollo bills per page rather than per company."),
     ],
@@ -4892,7 +5455,7 @@ USE_CASE_PAGES["build-a-company-list-by-industry-size-or-tech"] = {
          "I got tired of vendor pages claiming '95%+ accuracy' with no definition of what accuracy means",
          "r/Coldemailing", "https://www.reddit.com/r/Coldemailing/comments/1vezuay/verified_4_b2b_data_vendors_against_the_same_icp/",
          "So there is no accuracy column here. The table carries the rate, the billing unit, "
-         "the fields each row accepts and whether it has been called live through olywork. "
+         "the fields each row accepts and whether it has been called live through olywork.com. "
          "Accuracy on your market is something you measure, not something a vendor states."),
         ("Which of these is a database and which is a scraper",
          "Tried searching online but getting overwhelmed with options and not sure which ones are legit vs just data scrapers",
@@ -4903,7 +5466,7 @@ USE_CASE_PAGES["build-a-company-list-by-industry-size-or-tech"] = {
         ("Crunchbase without the scraping workaround",
          "Turns out Crunchbase has a bunch of restrictions, so I tried a couple methods to scrape leads efficiently",
          "r/weezly", "https://www.reddit.com/r/weezly/comments/1n38bo0/how_i_scraped_thousands_of_crunchbase_leads_free/",
-         "Crunchbase's own search API is a row on this page, called through olywork on a "
+         "Crunchbase's own search API is a row on this page, called through olywork.com on a "
          "licence rather than per call. It is not the cheapest route to a list, and a "
          "different row will be for most filters, but it is the legitimate one."),
     ],
@@ -4915,11 +5478,11 @@ USE_CASE_PAGES["build-a-company-list-by-industry-size-or-tech"] = {
 USE_CASE_PAGES["job-postings-across-companies"] = {
     "label": "Job postings across companies",
     "sentence": "LinkedIn jobs API and job scraper: job postings across companies as rows your agent can read",
-    "title": "Jobs API: LinkedIn job postings and company openings | olywork",
+    "title": "LinkedIn Jobs API: postings and openings | olywork.com",
     "lede": (
         "Search job postings by title, keyword, company or location and get them back as "
         "rows, for hiring signals, market research or a job board of your own. {n} providers "
-        "answer through one olywork key on two shelves: LinkedIn job search from a tenth of a "
+        "answer through one olywork.com key on two shelves: LinkedIn job search from a tenth of a "
         "cent per posting, and company level openings from the firmographic databases, each "
         "at its own rate with $0.000 added. Two things this page will not pretend: there is "
         "no Indeed row in the catalog, so the 720 people a month searching for an Indeed API "
@@ -4958,7 +5521,7 @@ USE_CASE_PAGES["job-postings-across-companies"] = {
         "two and a half cents, and PredictLeads four cents a call for a company's openings "
         "and a credit per record for a filtered search. All of it is the provider's own rate "
         "with $0.000 added. The row labelled olywork is the routed endpoint: the explicit opt "
-        "in where you ask olywork to choose among the company rows, your own keys first, and "
+        "in where you ask olywork.com to choose among the company rows, your own keys first, and "
         "it names the provider that served and bills that provider's rate.",
         "The cap is the budget. The Apify row is charged per dataset item it produces, so a "
         "search that matches four thousand postings costs four dollars unless maxItems says "
@@ -4969,7 +5532,7 @@ USE_CASE_PAGES["job-postings-across-companies"] = {
         "whether a posting is still live or was ever real, nothing crawls a company's own "
         "careers page, and there is no Indeed, Glassdoor or Naukri row. The date posted is "
         "the platform's date, which the research says is the field people trust least. "
-        "TikHub's LinkedIn job search has not been called live through olywork yet and is "
+        "TikHub's LinkedIn job search has not been called live through olywork.com yet and is "
         "marked unverified in the table; run one search before an agent runs a hundred.",
     ],
     "faq": [
@@ -5035,23 +5598,23 @@ USE_CASE_PAGES["job-postings-across-companies"] = {
 USE_CASE_PAGES["daily-price-history"] = {
     "label": "Daily price history",
     "sentence": "Historical stock data API: daily OHLCV price history by ticker, free to try, then your own Polygon, EODHD or Marketstack key",
-    "title": "Historical stock data API: EOD prices, free to try | olywork",
+    "title": "Historical stock data API: EOD prices, free to try | olywork.com",
     "lede": (
         "Give your agent a ticker and a date range and get the daily open, high, low, close "
         "and volume back as rows, adjusted where the provider adjusts. {n} providers answer "
-        "through one olywork key. Tiingo and Twelve Data are free for twenty calls a day per "
-        "team on olywork's own key, enough to backfill a watchlist; past that, and for "
+        "through one olywork.com key. Tiingo and Twelve Data are free for twenty calls a day per "
+        "team on olywork.com's own key, enough to backfill a watchlist; past that, and for "
         "Polygon, EODHD and Marketstack, you connect your own subscription key and the calls "
         "are never metered. Two things this page will not pretend: there is no Yahoo Finance "
         "row and no Alpha Vantage row, because neither is in the catalog, and nothing here "
         "is unlimited and free."),
     "prompt": "Using olywork, get the daily price history for AAPL, MSFT and NVDA from January "
-              "2020 to today, show me which providers are free on olywork's key and how many "
+              "2020 to today, show me which providers are free on olywork.com's key and how many "
               "calls I have left today, use one of those, then give me a table of ticker, "
               "date, adjusted close and volume as CSV, and say if any day is missing.",
     "prompt_why": [
         ("Give the ticker and the range", "Every row takes a symbol and a start and end date. Thirty years is one call on most of them, so the range is free to widen."),
-        ("Ask which rows are free today", "Two providers are served on olywork's own key with a daily allowance per team. The agent can see the allowance before it spends one."),
+        ("Ask which rows are free today", "Two providers are served on olywork.com's own key with a daily allowance per team. The agent can see the allowance before it spends one."),
         ("Say adjusted or unadjusted", "Splits and dividends change the series. Tiingo returns both; the others differ. Say which you want before the agent picks."),
         ("Ask for the missing days", "A gap in a daily series is silent unless the agent counts. Ask for it and a holiday looks different from a hole."),
     ],
@@ -5071,13 +5634,13 @@ USE_CASE_PAGES["daily-price-history"] = {
         "here are documented APIs with a published allowance or a subscription behind them, "
         "which is the trade: nothing breaks on a Tuesday, and nothing is unlimited."),
     "notes": [
-        "Two rows cost nothing to start, on olywork's own key. Tiingo and Twelve Data are "
-        "served from olywork's free tier keys with an allowance of twenty calls a day per "
+        "Two rows cost nothing to start, on olywork.com's own key. Tiingo and Twelve Data are "
+        "served from olywork.com's free tier keys with an allowance of twenty calls a day per "
         "team; a call is one ticker over any range, so twenty calls is twenty tickers of full "
         "history a day, and past the allowance the call is refused with a hint to connect your "
-        "own key. Polygon and EODHD serve on your own subscription key only, and olywork "
+        "own key. Polygon and EODHD serve on your own subscription key only, and olywork.com "
         "publishes no rate for them, so the table prints none: your plan's limits apply and "
-        "olywork meters nothing. Marketstack's row prints a per call figure derived from its "
+        "olywork.com meters nothing. Marketstack's row prints a per call figure derived from its "
         "plan's monthly request cap, which is the catalog's way of saying one request against "
         "the cap whatever it returns, not a metered price.",
         "Adjusted and unadjusted are different series and the rows treat them differently. "
@@ -5094,11 +5657,11 @@ USE_CASE_PAGES["daily-price-history"] = {
         "this page serves intraday history except Polygon's bars and Twelve Data's series, "
         "and the crypto history page covers coins. The five provider rows were verified on "
         "2026-08-15; the row labelled olywork is the routed endpoint, the explicit opt in where "
-        "you ask olywork to choose among them, your own keys first, and it is unverified.",
+        "you ask olywork.com to choose among them, your own keys first, and it is unverified.",
     ],
     "faq": [
         ("Is there a free historical stock data API here?",
-         "Free to try: Tiingo and Twelve Data at twenty calls a day per team on olywork's own "
+         "Free to try: Tiingo and Twelve Data at twenty calls a day per team on olywork.com's own "
          "key, no card and no account with either provider. Past the allowance you connect "
          "your own key, which on both providers has a free tier of its own. Nothing here is "
          "unlimited and free, and this page will not say otherwise."),
@@ -5113,7 +5676,7 @@ USE_CASE_PAGES["daily-price-history"] = {
          "check one known split date before trusting a backtest."),
         ("Can I use my own Polygon subscription?",
          "Yes, and it is the only way Polygon serves here: connect the key once and every "
-         "call runs on your plan, never metered by olywork. The same is true of EODHD and "
+         "call runs on your plan, never metered by olywork.com. The same is true of EODHD and "
          "Marketstack, and of Tiingo and Twelve Data once the daily allowance is used."),
     ],
     "voices_intro": (
@@ -5125,7 +5688,7 @@ USE_CASE_PAGES["daily-price-history"] = {
         ("The free endpoint everyone used",
          "yfinance is so unreliable; any other free apis?",
          "r/algotrading, 118 points", "https://www.reddit.com/r/algotrading/comments/1kdw27f/yfinance_is_so_unreliable_any_other_free_apis/",
-         "The honest answer is free to try rather than free: twenty calls a day on olywork's "
+         "The honest answer is free to try rather than free: twenty calls a day on olywork.com's "
          "key across two documented providers, then your own key. What that buys is an "
          "endpoint with a published contract, which is the thing yfinance never had."),
         ("Public facts, private prices",

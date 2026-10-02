@@ -5,14 +5,14 @@ import sys
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlsplit
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response
 from pydantic import BaseModel
 from sqlalchemy import case, func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
-from .. import crypto, email as email_sender, health, localrun
+from .. import analytics, crypto, email as email_sender, health, localrun
 from .. import providers as _providers
 from ..application.onboard import demo as demo_seed
 from ..application import signup as signup_use_cases
@@ -42,6 +42,8 @@ from ..domain.identity.access import (
     require_identity,
     require_member,
 )
+from ..domain.identity import api_keys as managed_keys
+from ..domain.identity import session as identity_session
 from ..infra.db import get_session
 from ..models import (
     ROLE_RANK,
@@ -66,7 +68,7 @@ _day_start_utc = usage_policy._day_start_utc
 count_today = usage_policy.count_today
 _deny_match = access_policy._deny_match
 _org_deny_rules = access_policy._org_deny_rules
-from .auth_helpers import _is_https
+from .auth_helpers import _is_https, require_managed_cli
 from .signup_cookies import REFERRAL_COOKIE
 
 
@@ -274,6 +276,11 @@ async def _usage_rollup(db: AsyncSession, org_id: int, since: datetime) -> dict:
     return {"totals": totals, "by_user": by_user, "by_tool": by_tool, "by_day": by_day, "spend": spend}
 
 
+class OrgPatchIn(BaseModel):
+    name: str | None = None
+    slug: str | None = None
+
+
 class OrgSettingsIn(BaseModel):
     daily_cap_micro: int | None = None
     platform_overflow: bool | None = None  # False = opt out of the overflow relay (ops/capacity.md)
@@ -346,6 +353,7 @@ def _deny_view(r: DenyRule) -> dict:
 
 _SIGNUP_HTTP_ERRORS = {
     "machine_identity": (403, "this address cannot be used to sign in"),
+    "blocked_domain": (403, "this address cannot be used to sign in"),
     "unsafe_webhook": (422, "webhook_url must be a public http(s) URL"),
     "email_exists": (409, "email already registered"),
     "sandbox_user": (403, (
@@ -353,6 +361,13 @@ _SIGNUP_HTTP_ERRORS = {
     )),
     "slug_conflict": (409, "could not allocate a unique org slug — retry"),
 }
+
+
+def _owned_team_limit_error() -> HTTPException:
+    return HTTPException(status_code=403, detail=(
+        f"You can own at most {teams.MAX_OWNED_TEAMS} teams. "
+        "Delete a team or transfer ownership before creating or owning another."
+    ))
 
 
 def _signup_http_error(exc: signup_use_cases.SignupError) -> HTTPException:
@@ -366,34 +381,43 @@ signup_router = app
 
 
 @app.post("/users")
-async def register_user(body: UserIn, request: Request) -> dict:
+async def register_user(body: UserIn, request: Request, response: Response) -> dict:
     try:
-        return await signup_use_cases.register_user(
+        result = await signup_use_cases.register_user(
             email=body.email,
             webhook_url=body.webhook_url,
             ad_cookie=request.cookies.get("olywork_ad") or "",
             utm_cookie=request.cookies.get("olywork_utm") or "",
             referral_cookie=request.cookies.get(REFERRAL_COOKIE) or "",
         )
+        response.headers["Cache-Control"] = "no-store"
+        return result
     except signup_use_cases.SignupError as exc:
         raise _signup_http_error(exc) from exc
+    except teams.OwnedTeamLimitReached as exc:
+        raise _owned_team_limit_error() from exc
 
 
 @app.post("/orgs")
 async def create_org(
-    body: OrgIn, request: Request,
+    body: OrgIn, request: Request, response: Response,
     user: User = Depends(require_identity),
 ) -> dict:
+    require_managed_cli(request, team_change=True)
     try:
-        return await signup_use_cases.create_org(
+        result = await signup_use_cases.create_org(
             user=user,
             name=body.name,
             ad_cookie=request.cookies.get("olywork_ad") or "",
             utm_cookie=request.cookies.get("olywork_utm") or "",
             referral_cookie=request.cookies.get(REFERRAL_COOKIE) or "",
         )
+        response.headers["Cache-Control"] = "no-store"
+        return result
     except signup_use_cases.SignupError as exc:
         raise _signup_http_error(exc) from exc
+    except teams.OwnedTeamLimitReached as exc:
+        raise _owned_team_limit_error() from exc
 
 
 app = APIRouter()
@@ -483,13 +507,18 @@ async def create_invite(
 
 
 @app.post("/invites/accept")
-async def accept_invite(body: AcceptIn, db: AsyncSession = Depends(get_session)) -> dict:
+async def accept_invite(
+    body: AcceptIn, request: Request, response: Response, db: AsyncSession = Depends(get_session),
+) -> dict:
+    require_managed_cli(request, team_change=True)
     # Open endpoint, protected by the unguessable one-time code. Registers the user if new,
     # joins them to the org, and mints their own org-scoped token (the admin never sees it).
     invite = (
         await db.execute(select(Invite).where(Invite.code_hash == crypto.hash_token(body.code)))
     ).scalar_one_or_none()
     email = _norm_email(body.email)
+    if signup_use_cases.blocked_email(email, "accept_invite"):
+        raise HTTPException(status_code=403, detail="this address cannot be used to sign in")
     if invite is None or invite.status != "pending":
         raise HTTPException(status_code=404, detail="invalid or already-used invite code")
     if invite.expires_at is not None and _as_naive(invite.expires_at) < _utcnow_naive():
@@ -515,10 +544,19 @@ async def accept_invite(body: AcceptIn, db: AsyncSession = Depends(get_session))
     ).scalar_one_or_none()
     if existing is not None:
         raise HTTPException(status_code=409, detail="already a member of this org")
-    token = crypto.new_token()
-    db.add(Membership(user_id=user.id, org_id=invite.org_id, role=invite.role, token_hash=crypto.hash_token(token),
-                      tool_access=invite.tool_access, project_access=invite.project_access,
-                      local_run_enabled=invite.local_run_enabled))
+    membership = Membership(
+        user_id=user.id, org_id=invite.org_id, role=invite.role,
+        token_hash="", tool_access=invite.tool_access,
+        project_access=invite.project_access, local_run_enabled=invite.local_run_enabled,
+    )
+    db.add(membership)
+    await db.flush()
+    default = await managed_keys.ensure_default_key(db, membership, user)
+    token = identity_session.make_identity(
+        user.id, user.token_version, org=org.slug,
+        key_generation=default.default_generation if default else None,
+        scope=identity_session.TEAM_SCOPE,
+    )
     invite.status = "accepted"
     try:
         await db.commit()  # a concurrent double-accept trips uq_membership_user_org — 409, not 500
@@ -526,6 +564,7 @@ async def accept_invite(body: AcceptIn, db: AsyncSession = Depends(get_session))
         await db.rollback()
         raise HTTPException(status_code=409, detail="already a member of this org")
     org = await db.get(Org, invite.org_id)
+    response.headers["Cache-Control"] = "no-store"
     return {"org": org.slug, "org_id": org.id, "name": org.name, "role": invite.role, "token": token}
 
 
@@ -537,7 +576,7 @@ async def my_invites(
     login method) is enough to see these; the invite code becomes a shortcut, not a requirement."""
     rows = (
         await db.execute(select(Invite).where(Invite.email == user.email, Invite.status == "pending")
-                         .order_by(Invite.created_at.desc()))  # newest first — the invite you just clicked
+                         .order_by(Invite.created_at.desc(), Invite.id.desc()))  # newest first — stable tiebreaker
     ).scalars().all()
     now = _utcnow_naive()
     orgs = {  # batch the org lookup (was one db.get per invite)
@@ -586,10 +625,12 @@ invite_management_router = app
 
 @app.post("/invites/{invite_id}/accept")
 async def accept_my_invite(
-    invite_id: int, user: User = Depends(require_identity), db: AsyncSession = Depends(get_session)
+    invite_id: int, request: Request, response: Response, user: User = Depends(require_identity),
+    db: AsyncSession = Depends(get_session),
 ) -> dict:
     """Accept an invite addressed to my already-proven email — no code needed (the identity token
     proves the email). The code path (`POST /invites/accept`) stays for out-of-band joins."""
+    require_managed_cli(request, team_change=True)
     invite = await db.get(Invite, invite_id)
     if invite is None or invite.status != "pending":
         raise HTTPException(status_code=404, detail="invalid or already-used invite")
@@ -607,12 +648,19 @@ async def accept_my_invite(
     ).scalar_one_or_none()
     if existing is not None:
         raise HTTPException(status_code=409, detail="already a member of this org")
-    token = crypto.new_token()  # return the org-scoped token (was minted-then-discarded → an unusable membership)
-    db.add(Membership(
-        user_id=user.id, org_id=invite.org_id, role=invite.role, token_hash=crypto.hash_token(token),
+    membership = Membership(
+        user_id=user.id, org_id=invite.org_id, role=invite.role, token_hash="",
         tool_access=invite.tool_access, project_access=invite.project_access,
         local_run_enabled=invite.local_run_enabled,
-    ))
+    )
+    db.add(membership)
+    await db.flush()
+    default = await managed_keys.ensure_default_key(db, membership, user)
+    token = identity_session.make_identity(
+        user.id, user.token_version, org=org.slug,
+        key_generation=default.default_generation if default else None,
+        scope=identity_session.TEAM_SCOPE,
+    )
     invite.status = "accepted"
     try:
         await db.commit()  # a concurrent double-accept trips uq_membership_user_org — 409, not 500
@@ -620,6 +668,7 @@ async def accept_my_invite(
         await db.rollback()
         raise HTTPException(status_code=409, detail="already a member of this org")
     org = await db.get(Org, invite.org_id)
+    response.headers["Cache-Control"] = "no-store"
     return {"org": org.slug, "org_id": org.id, "name": org.name, "role": invite.role, "token": token}
 
 
@@ -797,6 +846,11 @@ async def set_member_role(
         target = await db.get(User, user_id)
         if target is not None and _is_machine_email(target.email):
             raise HTTPException(status_code=422, detail="a machine identity cannot be an owner")
+    if membership.role != "owner" and body.role == "owner":
+        try:
+            await teams.require_owned_team_slot(db, user_id)
+        except teams.OwnedTeamLimitReached as exc:
+            raise _owned_team_limit_error() from exc
     if membership.role == "owner" and body.role != "owner" and await _count_owners(org_id, db) <= 1:
         raise HTTPException(status_code=409, detail="cannot demote the last owner — promote another owner first")
     membership.role = body.role
@@ -864,8 +918,13 @@ def _agent_email(org: Org, name: str) -> str:
 def _agent_name(org: Org, email: str) -> str:
     """The friendly name back out of the address (the name isn't stored — the address IS the id)."""
     local = email.split("@", 1)[0]
-    prefix = f"agent-{org.slug}-"
-    return local[len(prefix):] if local.startswith(prefix) else local
+    for slug in (org.slug, org.previous_slug):
+        if not slug:
+            continue
+        prefix = f"agent-{slug}-"
+        if local.startswith(prefix):
+            return local[len(prefix):]
+    return local
 
 
 app = APIRouter()
@@ -874,7 +933,7 @@ machine_identity_router = app
 
 @app.post("/orgs/{org_id}/public-token")
 async def create_public_token(
-    org_id: int, caller: Caller = Depends(require_member), db: AsyncSession = Depends(get_session)
+    org_id: int, response: Response, caller: Caller = Depends(require_member), db: AsyncSession = Depends(get_session)
 ) -> dict:
     """Mint (or ROTATE) the org's publishable token: flips the org to `public_demo` and returns a
     viewer-role token bound to a dedicated can't-log-in identity. Safe to print on a web page:
@@ -893,11 +952,21 @@ async def create_public_token(
     membership = (await db.execute(select(Membership).where(
         Membership.user_id == user.id, Membership.org_id == org_id))).scalar_one_or_none()
     if membership is None:
-        db.add(Membership(user_id=user.id, org_id=org_id, role="viewer", token_hash=crypto.hash_token(token)))
+        membership = Membership(
+            user_id=user.id, org_id=org_id, role="viewer", token_hash=crypto.hash_token(token),
+        )
+        db.add(membership)
+        await db.flush()
+        await managed_keys.register_membership_token(
+            db, membership, user, token, created_by=caller.email, name="Public demo key",
+        )
     else:
-        membership.token_hash = crypto.hash_token(token)  # rotate: the previous published token dies here
+        await managed_keys.replace_membership_token(
+            db, membership, user, token, actor_email=caller.email, name="Public demo key",
+        )
     org.public_demo = True
     await db.commit()
+    response.headers["Cache-Control"] = "no-store"
     return {"token": token, "org": org.slug, "role": "viewer", "email": email,
             "rate_limit": f"{PUBLIC_DEMO_RATE_MAX} calls per {PUBLIC_DEMO_RATE_WINDOW_S}s per IP",
             "note": "this token can only call this org's tools and read — safe to publish; POST again to rotate"}
@@ -915,7 +984,7 @@ async def delete_public_token(
         membership = (await db.execute(select(Membership).where(
             Membership.user_id == user.id, Membership.org_id == org_id))).scalar_one_or_none()
         if membership is not None:
-            await teams.delete_membership(db, membership)
+            await teams.delete_membership(db, membership, actor_email=caller.email)
     org.public_demo = False
     await db.commit()
     return {"public_token_revoked": True, "org": org.slug}
@@ -945,7 +1014,7 @@ class AgentIn(BaseModel):
 
 @app.post("/orgs/{org_id}/agents")
 async def create_agent(
-    org_id: int, body: AgentIn,
+    org_id: int, body: AgentIn, response: Response,
     caller: Caller = Depends(require_member), db: AsyncSession = Depends(get_session),
 ) -> dict:
     """Mint (or ROTATE) an agent token: a member identity for a machine caller, with its own cap, tool
@@ -976,7 +1045,6 @@ async def create_agent(
         user = User(email=email)  # NOT demo=True: unlike the public token, agent traffic counts in usage
         db.add(user)
         await db.flush()
-    token = crypto.new_token()
     membership = (await db.execute(select(Membership).where(
         Membership.user_id == user.id, Membership.org_id == org_id))).scalar_one_or_none()
     # A brand-new agent takes the defaults; a rotate keeps whatever it already had unless told otherwise.
@@ -988,10 +1056,10 @@ async def create_agent(
 
     if is_new:
         membership = Membership(user_id=user.id, org_id=org_id, role=body.role,
-                                token_hash=crypto.hash_token(token), created_by=caller.email)
+                                token_hash="", created_by=caller.email)
         db.add(membership)
+        await db.flush()
     else:
-        membership.token_hash = crypto.hash_token(token)  # rotate: the previous token dies here
         membership.role = _keep("role", membership.role)
     membership.daily_call_cap = _keep("daily_call_cap", membership.daily_call_cap)
     if is_new or "tool_access" in sent:  # only re-validate what the caller actually sent
@@ -1014,7 +1082,15 @@ async def create_agent(
         # rows without ever passing the parser.
         pins = dict(_validate_tag_pair(k, v) for k, v in pins.items())
     membership.pinned_tags = pins or None
-    await db.commit()
+    try:
+        token, _ = await managed_keys.rotate_agent_key(
+            db, membership, user, actor_email=caller.email,
+        )
+        await db.commit()
+    except (managed_keys.RotationConflict, IntegrityError):
+        await db.rollback()
+        raise HTTPException(status_code=409, detail="another rotation already replaced this agent key")
+    response.headers["Cache-Control"] = "no-store"
     return {"token": token, "name": name, "email": email, "org": caller.org.slug, "user_id": user.id,
             "role": membership.role, "daily_call_cap": membership.daily_call_cap,
             "tool_access": membership.tool_access, "project_access": membership.project_access,
@@ -1068,7 +1144,10 @@ async def agent_checkin(
     for a human it is just a no-op ping."""
     rec = CallRecord(org_id=caller.org_id, user_email=caller.email, tool_name="—",
                      method="CHECKIN", path="agent connected", status_code=200, kind="checkin",
-                     client=_client_of(request))
+                     client=_client_of(request),
+                     api_key_id=caller.api_key.id if caller.api_key else None,
+                     api_key_name=caller.api_key.name if caller.api_key else None,
+                     api_key_prefix=caller.api_key.safe_prefix if caller.api_key else None)
     db.add(rec)
     await db.commit()
     return {"connected": True, "you": caller.email, "org": caller.org.slug}
@@ -1135,7 +1214,7 @@ async def revoke_agent(
     if membership is None:
         raise HTTPException(status_code=404, detail="unknown agent")
     email = user.email  # read before the delete — the row is expired after commit
-    await teams.delete_membership(db, membership)
+    await teams.delete_membership(db, membership, actor_email=caller.email)
     await db.flush()
     # The identity is org-scoped, so once its last membership is gone the User row has no purpose.
     if (await db.execute(select(Membership).where(
@@ -1228,6 +1307,34 @@ async def usage_by_tag(
     }
 
 
+@app.patch("/orgs/{org_id}")
+async def rename_org(
+    org_id: int, body: OrgPatchIn,
+    caller: Caller = Depends(require_member), db: AsyncSession = Depends(get_session),
+) -> dict:
+    """Change the team's display name and/or slug. Admin+.
+
+    The old slug is kept as an alias (`Org.previous_slug`): copied keys, `~/.olywork` and MCP pins
+    that name it keep working. Stripe metadata and the analytics group key are not rewritten.
+    """
+    _require_admin_of(org_id, caller)
+    if body.name is None and body.slug is None:
+        raise HTTPException(status_code=422, detail="send name and/or slug")
+    org = caller.org
+    old_slug = org.slug
+    try:
+        await teams.rename_org(db, org, name=body.name, slug=body.slug)
+        await db.commit()
+    except ValueError as e:
+        raise HTTPException(status_code=409 if "taken" in str(e) else 400, detail=str(e))
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail="slug is taken")
+    analytics.capture(caller.email, "org_renamed", {
+        "org_id": org.id, "slug_changed": org.slug != old_slug})
+    return {"org_id": org.id, "org": org.slug, "previous_slug": org.previous_slug, "name": org.name}
+
+
 @app.get("/orgs/{org_id}/settings")
 async def get_org_settings(
     org_id: int, caller: Caller = Depends(require_member), db: AsyncSession = Depends(get_session),
@@ -1239,6 +1346,7 @@ async def get_org_settings(
     org = caller.org
     return {"daily_cap_micro": _effective_daily_cap(org),
             "daily_cap_set_by_team": int(org.daily_cap_micro or 0) or None,
+            "platform_default_micro": get_settings().platform_daily_cap_micro,
             "platform_ceiling_micro": get_settings().platform_daily_cap_micro,
             "platform_overflow": not org.platform_overflow_disabled,
             "budget_dims": _budget_dims_of(org), "primary_dim": _primary_dim_of(caller)}
@@ -1259,16 +1367,8 @@ async def set_org_settings(
     org = caller.org
     sent = body.model_fields_set
     if "daily_cap_micro" in sent and body.daily_cap_micro is not None:
-        ceiling = get_settings().platform_daily_cap_micro
         if body.daily_cap_micro < 0:
             raise HTTPException(status_code=422, detail="daily_cap_micro must be 0 or more")
-        if body.daily_cap_micro > ceiling:
-            raise HTTPException(status_code=403, detail={
-                "error": "above_platform_ceiling", "requested_micro": body.daily_cap_micro,
-                "ceiling_micro": ceiling,
-                "message": (f"${ledger.usd(ceiling):g}/day is the ceiling we allow for a team. Ask us "
-                            f"to raise it — reselling volume is a conversation, not a setting."),
-            })
         org.daily_cap_micro = body.daily_cap_micro
     if "platform_overflow" in sent and body.platform_overflow is not None:
         org.platform_overflow_disabled = not body.platform_overflow

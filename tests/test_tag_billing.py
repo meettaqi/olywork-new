@@ -505,21 +505,27 @@ async def test_rotating_a_pinned_token_keeps_its_pin(clients: AsyncClient):
     assert r.json()["pinned_tags"] == {"customer": "cust_A"}
 
 
-async def test_a_team_can_lower_its_daily_cap_but_not_raise_it(clients: AsyncClient):
-    """Two masters: the team protects itself from a runaway agent, we protect ourselves from a
-    catalog mispricing. Lowering is theirs; raising past our ceiling is a conversation."""
+async def test_a_team_sets_its_daily_cap_in_either_direction(clients: AsyncClient):
+    """The limit is the team's own rail against a runaway agent: any figure, and 0 = no limit
+    (the deployment default). Nothing is clamped, nothing needs a word with us."""
     org_id = await _org_id(clients)
     settings = (await clients.get(f"/orgs/{org_id}/settings")).json()
-    ceiling = settings["platform_ceiling_micro"]
-    assert settings["daily_cap_micro"] == ceiling
+    assert settings["platform_default_micro"] == 0 and settings["daily_cap_micro"] == 0
+    assert settings["daily_cap_set_by_team"] is None
 
     lowered = await clients.patch(f"/orgs/{org_id}/settings", json={"daily_cap_micro": 1_000})
     assert lowered.status_code == 200 and lowered.json()["daily_cap_micro"] == 1_000
 
-    too_big = await clients.patch(f"/orgs/{org_id}/settings",
-                                  json={"daily_cap_micro": ceiling + 1})
-    assert too_big.status_code == 403
-    assert too_big.json()["detail"]["error"] == "above_platform_ceiling"
+    huge = await clients.patch(f"/orgs/{org_id}/settings",
+                               json={"daily_cap_micro": 5_000 * 1_000_000})
+    assert huge.status_code == 200 and huge.json()["daily_cap_micro"] == 5_000 * 1_000_000
+
+    off = await clients.patch(f"/orgs/{org_id}/settings", json={"daily_cap_micro": 0})
+    assert off.status_code == 200 and off.json()["daily_cap_micro"] == 0
+    assert off.json()["daily_cap_set_by_team"] is None
+
+    neg = await clients.patch(f"/orgs/{org_id}/settings", json={"daily_cap_micro": -1})
+    assert neg.status_code == 422
 
 
 async def test_the_team_cap_actually_refuses_spend(clients: AsyncClient, platform_on):
@@ -677,10 +683,11 @@ async def test_a_pin_cannot_smuggle_what_the_header_cannot(clients: AsyncClient)
 
 # ---- the invariants an invoice actually rests on -------------------------------------------------
 async def test_usage_survives_a_dead_audit_pipeline(clients: AsyncClient, platform_on, monkeypatch):
-    """THE test that proves an invoice never depends on a lossy table. `audit._schedule` sheds rows
-    past its queue bound and swallows every exception — precisely under the load a successful builder
-    generates. With the audit pipeline entirely dead, the money must still be complete."""
-    monkeypatch.setattr(audit, "_schedule", lambda coro: coro.close())
+    """THE test that proves an invoice never depends on a lossy table. `audit._enqueue` sheds rows
+    past its queue bound and the writer swallows every exception — precisely under the load a
+    successful builder generates. With the audit pipeline entirely dead, the money must still be
+    complete."""
+    monkeypatch.setattr(audit, "_enqueue", lambda model, fields: None)
     org_id = await _org_id(clients)
     for who in ("cust_A", "cust_B"):
         r = await clients.get(f"/call/{EP}?aweme_id=7", headers={"X-Olywork-Meta": f"customer={who}"})
@@ -772,15 +779,17 @@ async def test_a_provider_credential_refusal_is_never_billed(clients: AsyncClien
         assert await ledger.tag_invoice_since(db, org_id, "customer", "cust_A", _EPOCH) == 0
 
 
-async def test_a_caller_input_4xx_is_still_billed_on_a_per_call_endpoint(clients: AsyncClient,
-                                                                        platform_on, monkeypatch):
-    """The other half of the rule stays: the provider DOES charge for accepting a malformed request,
-    so a caller's own bad input is on the caller."""
+async def test_a_caller_input_4xx_may_bill_only_on_a_per_call_endpoint(clients: AsyncClient,
+                                                                       platform_on, monkeypatch):
+    """The other half of the rule: a caller's own bad input MAY be on the caller, but only under
+    `per_call` and only at the charge the provider reports for it (an unreported 400 releases —
+    `test_a_4xx_bills_only_what_the_provider_reports` in test_marketplace_call.py). The status
+    gate itself is asserted here because tikhub comments is per_success and always releases."""
     org_id = await _org_id(clients)
     monkeypatch.setattr(call_service, "relay", _fake_relay(400, b'{"error":"bad param"}'))
     r = await clients.get(f"/call/{EP}?aweme_id=7", headers={"X-Olywork-Meta": "customer=cust_A"})
     assert r.status_code == 400
-    # tikhub comments is per_success, so 400 releases; assert the RULE directly for per_call.
+    assert r.headers.get("X-Olywork-Cost-Micro") == "0"
     assert call_settle._platform_billable(400, "per_call") is True
     assert call_settle._platform_billable(404, "per_call") is True
     assert call_settle._platform_billable(402, "per_call") is False

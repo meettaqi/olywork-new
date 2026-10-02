@@ -96,7 +96,7 @@ class _SecurityHeadersMiddleware:
         return await self.app(scope, receive, send_with_security_headers)
 
 
-_BODY_ENC_HEADERS = (b"x-olywork-body-encoding", b"x-olywork-body-encoding")
+_BODY_ENC_HEADERS = (b"x-olywork-body-encoding", b"x-treg-body-encoding")
 
 
 def _decode_request_body(raw: bytes, enc: str) -> bytes:

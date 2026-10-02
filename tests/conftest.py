@@ -32,6 +32,7 @@ os.environ["OLYWORK_PROXY_SSRF_CHECK"] = "false"
 # The production default is OFF. The established connector tests and committed route snapshots test
 # the enabled product surface; dedicated tests below also prove the disabled deployment shape.
 os.environ["OLYWORK_CLAUDE_CONNECTOR_ENABLED"] = "true"
+os.environ["OLYWORK_PUBLIC_URL"] = "https://olywork.com"
 # Blank every registry credential so the suite NEVER inherits a developer's real .env. Settings
 # reads .env, and a real env var beats it — so without this, a machine with Google/X/LinkedIn
 # credentials configured runs a different suite than CI, and provider tests pass or fail depending
@@ -279,8 +280,51 @@ def make_upstream(hook_hits: list | None = None) -> FastAPI:
     return up
 
 
-@pytest.fixture
-async def clients():
+async def verified_identity(client, email):
+    """Real OTP proof, capturing mail delivery even when Postgres hides dev codes."""
+    from unittest.mock import patch
+    import httpx
+    from olywork import email as email_sender
+
+    delivered = {}
+
+    async def receive(email, code, **kwargs):
+        delivered[email] = code
+
+    previous_cookies = httpx.Cookies(client.cookies)
+    try:
+        with patch.object(email_sender, "send_otp", receive):
+            started = await client.post("/auth/email/start", json={"email": email})
+        assert started.status_code == 200, started.text
+        code = started.json().get("dev_code") or delivered[email]
+        proof = await client.post("/auth/email/verify", json={"email": email, "code": code})
+        assert proof.status_code == 200, proof.text
+        return proof.json()["token"]
+    finally:
+        client.cookies = previous_cookies
+
+
+async def verified_signup(client, *, json, headers=None):
+    """Funded test identity through OTP and team creation, with fixture identity fields."""
+    import httpx
+    from sqlmodel import select
+    from olywork.infra.db import session_maker
+    from olywork.models import User
+
+    email = json["email"]
+    token = await verified_identity(client, email)
+    response = await client.post("/orgs", json={"name": email},
+        headers={**(headers or {}), "X-Olywork-Token": token})
+    if response.status_code != 200:
+        return response
+    async with session_maker() as db:
+        user = (await db.execute(select(User).where(User.email == email))).scalar_one()
+        user_id = user.id
+    return httpx.Response(response.status_code,
+        json={**response.json(), "id": user_id, "email": email}, request=response.request)
+
+
+async def drain_background_writes():
     # Postgres needs a session-scoped event loop so asyncpg can safely pool connections. That also
     # lets fire-and-forget audit writes survive between tests, so drain both sides of reset_db():
     # before it, to keep an old write out of the new schema, and after the test, to finish its own.
@@ -290,6 +334,11 @@ async def clients():
     # forgives it) — the serial CI job hung exactly here, 5-minute faulthandler timeouts on
     # whichever archive test ran next (2026-08-28, twice).
     await archive.drain()
+
+
+@pytest.fixture
+async def clients():
+    await drain_background_writes()
     # The archive report's 30s server-side cache would outlive this reset and serve the previous
     # test's numbers — clear it with the schema.
     from olywork.routers import admin as admin_routes
@@ -300,13 +349,12 @@ async def clients():
     app.state.http = AsyncClient(transport=ASGITransport(app=make_upstream(app.state.hook_hits)), base_url="http://upstream")
     try:
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://registry") as c:
-            r = await c.post("/users", json={"email": "tim@olywork.com"})  # open registration
+            r = await verified_signup(c, json={"email": "tim@olywork.com"})
             assert r.status_code == 200, r.text
             c.headers["X-Olywork-Token"] = r.json()["token"]  # authed by default from here on
             yield c
     finally:
-        await audit.drain()
-        await archive.drain()
+        await drain_background_writes()
         await app.state.http.aclose()
 
 
@@ -335,6 +383,10 @@ def _reset_call_path_caches():
             limiter.reset()
         except ImportError:
             pass
+        # The shared store's in-process fallback (the review-invitation budget): org ids restart
+        # with every reset_db(), so a counter left over would ration the NEXT test's team.
+        from olywork.infra import kv
+        kv._store = None
     _clear()
     yield
     _clear()
@@ -372,3 +424,25 @@ def _no_ambient_olywork_identity(monkeypatch):
     them beat any config). The suite must not change behavior because of who is running it."""
     for var in ("OLYWORK_TOKEN", "OLYWORK_ORG", "OLYWORK_URL", "OLYWORK_CLIENT"):
         monkeypatch.delenv(var, raising=False)
+
+
+@pytest.fixture
+def kitt_on(monkeypatch):
+    from olywork.config import get_settings
+    monkeypatch.setenv("OLYWORK_PLATFORM_KEY_TRYKITT", "TEST-KITT-KEY")
+    monkeypatch.setenv("OLYWORK_PLATFORM_PROVIDERS", "trykitt")
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
+
+
+# ---- ContactOut ----
+
+@pytest.fixture
+def contactout_platform(monkeypatch):
+    from olywork.config import get_settings
+    monkeypatch.setenv("OLYWORK_PLATFORM_KEY_CONTACTOUT", "PLATFORM-TEST")
+    monkeypatch.setenv("OLYWORK_PLATFORM_PROVIDERS", "contactout")
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()

@@ -37,6 +37,8 @@ _TABLE: list[tuple[str, int, str, str]] = [
     ("akta", 402, r"insufficient credits", "balance"),
     ("lusha", 400, r"reached your credit limit", "balance"),
     ("predictleads", 402, r"exceeded the monthly request limit", "quota"),
+    # PDL meters operations separately: person_identify can run out while enrich still works.
+    ("pdl", 402, r"hit your account maximum for", "quota"),
     ("lusha", 429, r"daily", "quota"),
     ("hunter", 429, r"per billing period", "quota"),
     ("apollo", 429, r"per (day|month)|daily|monthly", "quota"),
@@ -48,6 +50,35 @@ _TABLE: list[tuple[str, int, str, str]] = [
     # unrecognised on 2026-09-04 (nothing here matched a 403, and "quota" alone is not a tripwire
     # word). The period resets on Moz's billing day, which the answer does not name.
     ("moz", 403, r"insufficient-quota", "quota"),
+    # Documented 2026-09-08: discovery's allowance is distinct from the shared credit pool.
+    # https://docs.influencers.club/guides/error-handling — ordinary burst 429s have Retry-After.
+    ("influencersclub", 429, r"Discovery API credit limit reached", "quota"),
+    # reAPI: an empty prepaid balance is a 402 {"error": {"code": 30001, "message": "Insufficient
+    # credits. Required: 13856", ...}} (observed 2026-09-14 with a request larger than the balance).
+    ("reapi", 402, r"insufficient credits", "balance"),
+    # AnyAPI: a spent wallet or per-key spend cap is a 402. Observed 2026-09-19 on a trial key
+    # driven past its cap: {"error": "trial_cap_reached"}. The funded-wallet body is documented as
+    # "insufficient wallet balance" (openapi.json, 402) and not yet observed.
+    ("anyapi", 402, r"trial_cap_reached|insufficient|spend cap|balance", "balance"),
+    ("trykitt", 418, r"temporarily throttled", "burst"),
+    ("trykitt", 402, r"insufficient (?:credits?|funds|balance)|out of credits", "balance"),
+    # This API uses 402 for both funds and rate limits. The first matching row wins.
+    ("trykitt", 402, r"", "unknown"),
+    # ContactOut documents this 403 separately from "No access to endpoint".
+    # Independent pools: lock only the failed endpoint, never the entire provider.
+    # https://api.contactout.com/#errors (checked 2026-09-08).
+    ("contactout", 403, r"you're out of credits", "quota"),
+    # cloro: a spent credit allowance is a 403 ForbiddenError with `error.code: "INSUFFICIENT_CREDITS"`
+    # (OpenAPI 3.1 spec, 2026-09-07 — documented, not yet observed: the review account had 37,500
+    # credits). Its 429s are CONCURRENT_LIMIT_EXCEEDED / RATE_LIMIT_EXCEEDED bursts with
+    # X-RateLimit-* headers, never a period quota; the plan allowance resets monthly at
+    # `cycleResetsAt` from GET /v1/credits.
+    ("cloro", 403, r"insufficient_credits", "balance"),
+    # Tavily documents distinct custom statuses for the monthly plan allowance and the operator's
+    # PAYGO ceiling. Both are quotas: the first resets with the plan period; the second serves again
+    # when the operator raises its dashboard limit. Neither is a transient 429 burst.
+    ("tavily", 432, r"exceeds your plan's set usage limit", "quota"),
+    ("tavily", 433, r"exceeds the pay-as-you-go limit", "quota"),
     ("*", 402, r"", "balance"),
 ]
 
@@ -59,10 +90,12 @@ _TABLE: list[tuple[str, int, str, str]] = [
 # `test_every_recorded_phrase_arms_the_tripwire` keeps this list and the table in step.
 CAPACITY_PHRASES = (
     r"not enough credits", r"insufficient[ _]credits", r"nocreditsremaining", r"payment required",
-    r"reached your credit limit", r"exceeded the monthly request limit",
+    r"reached your credit limit", r"exceeded the monthly request limit", r"hit your account maximum for",
     r"insufficient (?:credits?|balance|funds)", r"out of credits?", r"credits? (?:exhausted|remaining|left)",
     r"(?:account |api |credit )?(?:balance|quota)(?: (?:has been|is|was))? (?:exceeded|reached|exhausted|limit)",
     r"upgrade your plan", r"insufficient-quota", r"not have enough quota",
+    r"discovery api credit limit reached", r"exceeds your plan's set usage limit",
+    r"exceeds the pay-as-you-go limit",
 )
 _UNRECORDED = re.compile(r"\b(?:" + "|".join(f"(?:{p})" for p in CAPACITY_PHRASES) + r")\b", re.IGNORECASE)
 
@@ -140,7 +173,8 @@ def classify(provider: str, status: int, headers=None, body: bytes | str = b"",
         if pattern and not re.search(pattern, text, re.IGNORECASE):
             continue
         resets = _quota_reset(provider, kind, headers, now)
-        return Signal(kind, resets, None, detail=text[:120])
+        return Signal(kind, resets, _retry_after(headers, now) if kind == "burst" else None,
+                      detail=text[:120])
     if status == 429:
         wait = _retry_after(headers, now)
         if wait is not None and wait <= BURST_MAX_RETRY_AFTER_S:

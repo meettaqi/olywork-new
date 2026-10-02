@@ -20,10 +20,13 @@ _BLAME_BY_KIND: dict[str, Blame] = {
     "invalid_target": "caller",
     "tool_access_denied": "caller",
     "target_not_found": "caller",
+    "unknown_endpoint": "caller",
     "target_ambiguous": "caller",
     "catalog_retired": "caller",
     "catalog_parameter_invalid": "caller",
     "async_resource_not_owned": "caller",
+    "provider_resource_not_owned": "caller",
+    "provider_resource_state_failed": "olywork",
     "capability_pinned": "caller",
     "policy_denied": "caller",
     "daily_cap_reached": "caller",
@@ -31,6 +34,7 @@ _BLAME_BY_KIND: dict[str, Blame] = {
     "trial_allowance_unavailable": "olywork",
     "trial_allowance_reached": "caller",
     "platform_cap_unavailable": "olywork",
+    "catalog_price_invalid": "olywork",
     "platform_daily_cap_reached": "caller",
     "tag_budget_unavailable": "olywork",
     "tag_cardinality_exceeded": "caller",
@@ -52,6 +56,7 @@ _BLAME_BY_KIND: dict[str, Blame] = {
     "connect_failed": "upstream",
     "read_timeout": "upstream",
     "stream_interrupted": "upstream",
+    "response_buffer_limit": "olywork",
     "refresh_failed": "org_connection",
     "credential_missing": "org_connection",
     "authorization_required": "org_connection",
@@ -147,6 +152,10 @@ class CallerSnapshot:
     membership: MembershipSnapshot
     user: UserSnapshot
     org: OrgSnapshot
+    api_key_id: int | None = None
+    api_key_name: str | None = None
+    api_key_prefix: str | None = None
+    api_key_generation: int | None = None
 
     @property
     def org_id(self) -> int:
@@ -164,6 +173,7 @@ class CallerSnapshot:
     def capture(cls, caller: Any) -> "CallerSnapshot":
         membership = caller.membership
         org = caller.org
+        key = getattr(caller, "api_key", None)
         return cls(
             membership=MembershipSnapshot(
                 id=membership.id,
@@ -195,6 +205,10 @@ class CallerSnapshot:
                 autotopup_monthly_cap_micro=org.autotopup_monthly_cap_micro,
                 first_call_at=org.first_call_at,
             ),
+            api_key_id=key.id if key else None,
+            api_key_name=key.name if key else None,
+            api_key_prefix=key.safe_prefix if key else None,
+            api_key_generation=key.default_generation if key else None,
         )
 
 
@@ -231,6 +245,7 @@ class CallContext:
     credentials: dict[int, Any] | None = None
     finalization: FinalizationState = FinalizationState.NONE
     audited: bool = False
+    cached: bool = False
     cost_micro: int | None = None
 
 
@@ -241,6 +256,10 @@ class UpstreamRequest:
     query_items: tuple[tuple[str, str], ...]
     body_stream: Callable[[], AsyncIterator[bytes]]
     has_body: bool
+    # JSON credential bindings are the one body rewrite the relay permits. HTTP callers expose a
+    # cached read so that provider explicitly opting into that shape can inject without consuming
+    # the stream twice; ordinary header/query providers leave this unset and keep streaming.
+    body_read: Callable[[], Awaitable[bytes]] | None = None
 
 
 @dataclass(frozen=True)

@@ -31,13 +31,17 @@ from ... import audit
 from ...config import get_settings
 from ...infra.db import session_maker
 from ...domain.capacity.view import view as capacity_view
+from ...domain.capacity.signatures import classify as classify_capacity
 from ...domain.catalog import stats as endpoint_stats
 from ...domain.catalog import store as catalog_store
-from ...domain.catalog.routing.contracts import canonical_identity
+from ...domain.catalog.routing.contracts import canonical_identity, declared_miss, miss_status
 from ...domain.catalog.routing.plan import (
     MAX_ERROR_FALLBACKS, Candidate, Plan, candidates_for, cost_at, ignored_filters, rank,
 )
-from .resolve import _host_of, _marketplace_secret
+from .. import asynctasks as async_task_app
+from . import async_bridge
+from .intake import _tag_telemetry
+from .resolve import _anonymous_offer, _host_of, _marketplace_secret
 from .types import CallContext, CallFailure, GatewayFailed, ResolutionFailed, UpstreamResponse
 
 log = logging.getLogger("olywork.route")
@@ -75,24 +79,10 @@ EXCLUDE_HEADER = "x-olywork-route-exclude"
 MIN_RESULTS_HEADER = "x-olywork-route-min-results"
 MERGE_HEADER = "x-olywork-route-merge"
 STRICT_FILTERS_HEADER = "x-olywork-route-strict-filters"
-
-LEGACY_WATERFALL_HEADER = "x-olywork-route-waterfall"
-LEGACY_MAX_COST_HEADER = "x-olywork-route-max-cost"
-LEGACY_PREFER_HEADER = "x-olywork-route-prefer"
-LEGACY_EXCLUDE_HEADER = "x-olywork-route-exclude"
-LEGACY_MIN_RESULTS_HEADER = "x-olywork-route-min-results"
-LEGACY_MERGE_HEADER = "x-olywork-route-merge"
-LEGACY_STRICT_FILTERS_HEADER = "x-olywork-route-strict-filters"
-
-_DROP_FROM_CHILD = frozenset({
-    b"content-length", b"content-type", b"transfer-encoding", b"idempotency-key",
-    b"x-olywork-route-waterfall", b"x-olywork-route-max-cost", b"x-olywork-route-prefer",
-    b"x-olywork-route-exclude", b"x-olywork-route-min-results",
-    b"x-olywork-route-merge", b"x-olywork-route-strict-filters",
-    b"x-olywork-route-waterfall", b"x-olywork-route-max-cost", b"x-olywork-route-prefer",
-    b"x-olywork-route-exclude", b"x-olywork-route-min-results",
-    b"x-olywork-route-merge", b"x-olywork-route-strict-filters", b"host",
-})
+_DROP_FROM_CHILD = frozenset({b"content-length", b"content-type", b"transfer-encoding", b"idempotency-key",
+                              b"x-olywork-route-waterfall", b"x-olywork-route-max-cost", b"x-olywork-route-prefer",
+                              b"x-olywork-route-exclude", b"x-olywork-route-min-results",
+                              b"x-olywork-route-merge", b"x-olywork-route-strict-filters", b"host"})
 _CALLER_FAULT = frozenset({400, 401, 403, 404, 405, 409, 422})
 _CANDIDATE_LOCAL_FAILURES = frozenset({"tool_access_denied", "policy_denied", "capability_pinned"})
 _GLOBAL_REFUSALS = frozenset({"insufficient_balance", "tag_spend_cap_reached",
@@ -101,6 +91,7 @@ _GLOBAL_REFUSALS = frozenset({"insufficient_balance", "tag_spend_cap_reached",
 
 MAX_WEAK_FALLBACKS = 2   # extra providers asked after a thin-but-real answer (see min_results)
 CHEAP_RETRY_MICRO = 10_000  # ≤ 1¢: a per_call provider cheap enough to be asked after another's 4xx
+ROUTED_ASYNC_WAIT_SECONDS = 60
 
 
 def _free_on_failure(cand: Candidate) -> bool:
@@ -115,18 +106,18 @@ def _free_on_failure(cand: Candidate) -> bool:
 
 
 def _miss_status(endpoint: dict) -> int | None:
-    """The ERROR status this endpoint's YAML declares as "no result" (`miss: {status, means}`),
-    or None when an error status means what it says. Only a 4xx counts: a `status: 200` block
-    (tikhub's "an unknown id still answers 200 with a null body") documents a 2xx the adapter's
-    own `miss` predicate decides, and honouring it here would call every success a miss."""
-    m = endpoint.get("miss")
-    if isinstance(m, dict) and m.get("status") is not None:
-        try:
-            status = int(m["status"])
-        except (TypeError, ValueError):
-            return None
-        return status if 400 <= status < 500 else None
-    return None
+    """See `routing.contracts.miss_status` — kept as the router's name for it (tests pin it)."""
+    return miss_status(endpoint)
+
+
+def _declared_miss(endpoint: dict, status: int, raw: bytes) -> bool:
+    """See `routing.contracts.declared_miss`: the router and the arena read the `miss:` block
+    through the same function, so a prospeo 400 INVALID_DATAPOINTS is an error in both."""
+    if not declared_miss(endpoint, status, raw):
+        return False
+    if (endpoint.get("miss") or {}).get("when"):
+        log.debug("declared miss by predicate on %s", endpoint.get("id"))
+    return True
 
 
 DEFAULT_MAX_COST_MICRO = 1_000_000  # $1.00 per routed call unless the caller says otherwise — a runaway guard, not a budget
@@ -144,34 +135,26 @@ class RouteOptions:
 
     @classmethod
     def from_headers(cls, get, default_max_cost_micro: int | None = None) -> "RouteOptions":
-        def _get(header: str, legacy: str):
-            val = get(header)
-            return val if (val is not None and str(val).strip() != "") else get(legacy)
-
         def _list(v):
             return [p.strip() for p in (v or "").split(",") if p.strip()]
-        mc = _get(MAX_COST_HEADER, LEGACY_MAX_COST_HEADER)
+        mc = get(MAX_COST_HEADER)
         try:
             max_cost = int(round(float(mc) * 1_000_000)) if mc else (
                 default_max_cost_micro if default_max_cost_micro is not None else DEFAULT_MAX_COST_MICRO)
-        except ValueError:
+        except (ValueError, OverflowError):
             raise ResolutionFailed("catalog_parameter_invalid", status_code=400,
                                    detail=f"{MAX_COST_HEADER} must be a USD number, got {mc!r}")
-        wf = str(_get(WATERFALL_HEADER, LEGACY_WATERFALL_HEADER) or "").strip().lower()
+        wf = str(get(WATERFALL_HEADER) or "").strip().lower()
         try:
-            mr = max(1, int(_get(MIN_RESULTS_HEADER, LEGACY_MIN_RESULTS_HEADER) or 1))
+            mr = max(1, int(get(MIN_RESULTS_HEADER) or 1))
         except ValueError:
             raise ResolutionFailed("catalog_parameter_invalid", status_code=400,
-                                   detail=f"{MIN_RESULTS_HEADER} must be a whole number, got {_get(MIN_RESULTS_HEADER, LEGACY_MIN_RESULTS_HEADER)!r}")
-        mg = str(_get(MERGE_HEADER, LEGACY_MERGE_HEADER) or "").strip().lower()
-        sf = str(_get(STRICT_FILTERS_HEADER, LEGACY_STRICT_FILTERS_HEADER) or "").strip().lower()
+                                   detail=f"{MIN_RESULTS_HEADER} must be a whole number, got {get(MIN_RESULTS_HEADER)!r}")
+        mg = str(get(MERGE_HEADER) or "").strip().lower()
+        sf = str(get(STRICT_FILTERS_HEADER) or "").strip().lower()
         return cls(waterfall=wf not in ("0", "false", "no", "off"),
-                   max_cost_micro=max_cost,
-                   prefer=_list(_get(PREFER_HEADER, LEGACY_PREFER_HEADER)),
-                   exclude=_list(_get(EXCLUDE_HEADER, LEGACY_EXCLUDE_HEADER)),
-                   min_results=mr,
-                   merge=mg in ("1", "true", "yes", "on"),
-                   strict_filters=sf in ("1", "true", "yes", "on"))
+                   max_cost_micro=max_cost, prefer=_list(get(PREFER_HEADER)), exclude=_list(get(EXCLUDE_HEADER)),
+                   min_results=mr, merge=mg in ("1", "true", "yes", "on"), strict_filters=sf in ("1", "true", "yes", "on"))
 
 
 class _Bytes:
@@ -297,9 +280,15 @@ async def build_plan(ep: dict, identity_given: dict, caller, options: RouteOptio
     cands: list[Candidate] = []
     for e, ad, v in raw:
         st = stats.get(e["id"]) or {}
-        tier = "tool" if e["provider"] in own_tools else "credential" if e["provider"] in own else "platform"
+        anonymous = _anonymous_offer(e, caller.org) is not None
+        tier = (
+            "tool" if e["provider"] in own_tools else
+            "credential" if e["provider"] in own else
+            "anonymous" if anonymous else
+            "platform"
+        )
         cv = cat.cost_view(e.get("cost"), e["provider"])
-        price = 0 if tier != "platform" else cost_at(cv, identity)
+        price = 0 if tier != "platform" else cost_at(cv, identity, ad)
         c = Candidate(endpoint=e, adapter=ad, variant=v, tier=tier, price_micro=price, hit_rate=st.get("hit_rate"),
                       ok_rate=st.get("ok_rate"), p50_ms=st.get("p50_ms"), last_ok_days=st.get("last_ok_days"),
                       exhausted=(tier == "platform" and capacity_view.is_exhausted(e["provider"], e["id"])),
@@ -336,11 +325,17 @@ async def build_plan(ep: dict, identity_given: dict, caller, options: RouteOptio
                                 derive=contract.derive), dropped=dropped)
 
 
-def _child_input(parent, ep: dict, query: dict[str, str], body: dict) -> object:
+def _child_input(parent, ep: dict, query: dict[str, str], body: dict,
+                 remaining_micro: int | None = None) -> object:
     from .types import CallInput
     has_body = ep["method"] in ("POST", "PUT", "PATCH") and body is not None
     payload = json.dumps(body).encode() if has_body else b""
     headers = [(k, v) for k, v in parent.input.raw_headers if k.lower() not in _DROP_FROM_CHILD]
+    if remaining_micro is not None:
+        # Replace the parent's total ceiling with the unspent amount. The child validates its
+        # resolved, margin-inclusive reservation; advisory candidate prices cannot authorize spend.
+        ceiling = f"{remaining_micro // 1_000_000}.{remaining_micro % 1_000_000:06d}"
+        headers.append((MAX_COST_HEADER.encode(), ceiling.encode()))
     if has_body:
         headers += [(b"content-type", b"application/json"), (b"content-length", str(len(payload)).encode())]
     items = tuple(query.items())
@@ -355,6 +350,18 @@ async def _read(response: UpstreamResponse) -> bytes:
         chunks.append(chunk)
     await response.close()
     return b"".join(chunks)
+
+
+async def _async_cost(parent: CallContext, child_ref: str, fallback: int = 0) -> int:
+    """Read the original async task's terminal money truth; BYOK has no task row and costs zero."""
+    org_id = parent.input.caller.org_id
+    if org_id is None:
+        return fallback
+    views = await async_task_app.views_for(
+        org_id, [child_ref], pinned_tags=getattr(parent.meta, "tags", None))
+    view = views.get(child_ref) or {}
+    settled = view.get("settled_micro")
+    return int(settled) if settled is not None else fallback
 
 
 def _header(response: UpstreamResponse, name: str) -> str | None:
@@ -404,25 +411,41 @@ async def run_routed(parent: CallContext, ep: dict, body_bytes: bytes, get_heade
     answers: list[tuple] = []      # every attempt that returned rows, for X-Olywork-Route-Merge
     weak_hits = 0
     best: tuple[int, tuple[Candidate, dict, dict, bytes]] | None = None   # best WEAK answer seen
+    cost_capped = False            # true when any candidate was skipped due to max-cost ceiling
     for n, cand in enumerate(plan.candidates):
         if options.max_cost_micro is not None and spent + (cand.price_micro or 0) > options.max_cost_micro:
             tried.append(Attempt(cand.endpoint["id"], cand.endpoint["provider"], "skipped", None, 0, "would exceed max cost"))
+            cost_capped = True
             continue
         if rejected_by and (cand.endpoint["provider"] in rejected_by or not _free_on_failure(cand)):
             tried.append(Attempt(cand.endpoint["id"], cand.endpoint["provider"], "skipped", None, 0,
                                  "provider already rejected the request" if cand.endpoint["provider"] in rejected_by
                                  else "not retried on a paid provider (> 1¢/call) after a vendor 4xx"))
             continue
-        query, body = cand.adapter.to_upstream(plan.identity, cand.variant)
+        try:
+            query, body = cand.adapter.to_upstream(plan.identity, cand.variant)
+        except Exception as exc:  # noqa: BLE001 — adapter threw; record error and try next candidate
+            errors += 1
+            tried.append(Attempt(cand.endpoint["id"], cand.endpoint["provider"], "error", None, 0,
+                                 f"adapter.to_upstream failed: {exc}"[:120]))
+            if errors > MAX_ERROR_FALLBACKS or not plan.contract.idempotent:
+                break
+            continue
         # A filter the caller sent that this adapter never mentions is silently NOT applied — say so
         # on the attempt (live 2026-08-29: `country: fr` reached icypeas as nothing, rows came from
         # anywhere; the bench had post-filtered in the agent). Computed at planning time, where it
         # also ranks the candidate down.
         ignored = cand.ignored
-        child = CallContext(input=_child_input(parent, cand.endpoint, query, body), call_ref=f"{parent.call_ref}:r{n}", meta=parent.meta)
+        remaining = max(0, options.max_cost_micro - spent) if options.max_cost_micro is not None else None
+        child = CallContext(input=_child_input(parent, cand.endpoint, query, body, remaining), call_ref=f"{parent.call_ref}:r{n}", meta=parent.meta)
         try:
             response = await execute_child(child, upstream_client)
         except CallFailure as exc:
+            if exc.kind == "route_max_cost":
+                tried.append(Attempt(cand.endpoint["id"], cand.endpoint["provider"], "skipped", None, 0,
+                                     "would exceed max cost"))
+                cost_capped = True
+                continue
             if exc.kind in _GLOBAL_REFUSALS or (
                 exc.status_code in _CALLER_FAULT and exc.kind not in _CANDIDATE_LOCAL_FAILURES
             ):
@@ -432,24 +455,109 @@ async def run_routed(parent: CallContext, ep: dict, body_bytes: bytes, get_heade
             if errors > MAX_ERROR_FALLBACKS or not plan.contract.idempotent:
                 break
             continue
-        raw = await _read(response)
-        charged = int(_header(response, "X-Olywork-Cost-Micro") or _header(response, "X-Olywork-Cost-Micro") or 0)
+        try:
+            raw = await _read(response)
+        except Exception as exc:  # noqa: BLE001 — failed to read child's response body
+            errors += 1
+            tried.append(Attempt(cand.endpoint["id"], cand.endpoint["provider"], "error", response.status, 0,
+                                 f"failed to read response: {exc}"[:120]))
+            if errors > MAX_ERROR_FALLBACKS or not plan.contract.idempotent:
+                break
+            continue
+        charged = int(_header(response, "X-Olywork-Cost-Micro") or 0)
+        descriptor = cand.endpoint.get("async")
+        async_outcome = ""
+        if descriptor and 200 <= response.status < 300:
+            kickoff_raw = raw
+            reserved = charged
+            poll_rule = descriptor.get("poll") or {}
+            poll_ep = catalog_store.load().by_id.get(poll_rule.get("endpoint"))
+
+            async def poll_task(task_id: str, poll_number: int):
+                if poll_ep is None:
+                    raise RuntimeError(f"async poll endpoint {poll_rule.get('endpoint')!r} is not catalogued")
+                param = poll_rule.get("param") or {}
+                name = str(param.get("name") or "id")
+                poll_query = {name: task_id}
+                poll_child = CallContext(
+                    input=_child_input(parent, poll_ep, poll_query, {}, remaining),
+                    call_ref=f"{child.call_ref}:p{poll_number}", meta=parent.meta)
+                poll_response = await execute_child(poll_child, upstream_client)
+                return poll_response, await _read(poll_response)
+
+            waited = await async_bridge.await_terminal(
+                descriptor, kickoff_raw, poll_task, timeout_s=ROUTED_ASYNC_WAIT_SECONDS)
+            # Once submission produced a task id, only a declared terminal provider status can
+            # permit waterfall fallback.  A bridge error with an id is still an uncertain live
+            # task, so keep the hold/worker ownership and surface it as pending.
+            if waited.outcome == "pending" or (
+                    waited.outcome == "error" and waited.task_id):
+                tried.append(Attempt(cand.endpoint["id"], cand.endpoint["provider"], "pending",
+                                     202, 0, "provider is still processing", ignored=ignored))
+                async_view = {
+                    "task_id": waited.task_id,
+                    "poll": descriptor.get("poll") or {},
+                    "status": descriptor.get("status") or {},
+                }
+                body_out = {
+                    "output": {k: None for k in plan.contract.output},
+                    "raw": json.loads(kickoff_raw),
+                    "_olywork": {
+                        "served_by": cand.endpoint["id"], "provider": cand.endpoint["provider"],
+                        "tier": cand.tier, "outcome": "pending", "tried": [t.view() for t in tried],
+                        "call_ref": child.call_ref, "async": async_view,
+                        "reserved_micro": reserved, "charged_micro": None,
+                        **({"dropped": plan.dropped} if plan.dropped else {}),
+                    },
+                }
+                _audit_parent(parent, ep, 202, spent, audit_client)
+                return _json(body_out, 202, {
+                    "X-Olywork-Served-By": cand.endpoint["id"],
+                    "X-Olywork-Providers-Tried": ",".join(t.provider for t in tried),
+                    "X-Olywork-Route-Outcome": "pending",
+                    "X-Olywork-Reserved-Micro": str(reserved),
+                    "X-Olywork-Async": json.dumps(async_view, separators=(",", ":")),
+                    "X-Olywork-Child-Call-Id": child.call_ref,
+                }), spent
+            if waited.response is not None:
+                response = waited.response
+            raw = waited.raw
+            async_outcome = waited.outcome
+            if waited.outcome == "error":
+                errors += 1
+                tried.append(Attempt(cand.endpoint["id"], cand.endpoint["provider"], "error",
+                                     response.status if response else None, 0, waited.detail[:120]))
+                break
+            charged = await _async_cost(parent, child.call_ref, 0 if cand.tier != "platform" else reserved)
         spent += charged
-        if response.status == _miss_status(cand.endpoint):
+        if async_outcome == "failure":
+            tried.append(Attempt(cand.endpoint["id"], cand.endpoint["provider"], "miss",
+                                 response.status, charged, "asynchronous task failed", ignored=ignored))
+            if options.waterfall:
+                continue
+            winner = (cand, {}, {}, raw)
+            break
+        if _declared_miss(cand.endpoint, response.status, raw):
             # The provider's declared "asked and answered: no result" status (`miss: {status, means}`
-            # on the endpoint — aviato/hunter/leadmagic/… 404 a person they have no record of). It
-            # is a MISS, not a rejected request: before this the 404 counted as an error, so a
-            # waterfall whose other providers all missed ended in a 502 `route_failed` instead of
-            # a 200 miss (live 2026-09-03: 768 of 1,824 phone.find 502s in 30 days had no failure
-            # but an aviato 404), and a caller could not tell "nobody has it" from "olywork broke".
+            # on the endpoint — aviato/hunter/leadmagic/… 404 a person they have no record of),
+            # optionally narrowed by a body predicate (`when`) where one status carries both a miss
+            # and a fault (prospeo 400 NO_MATCH vs INVALID_DATAPOINTS). It is a MISS, not a
+            # rejected request: before this the 404 counted as an error, so a waterfall whose other
+            # providers all missed ended in a 502 `route_failed` instead of a 200 miss (live
+            # 2026-09-03: 768 of 1,824 phone.find 502s in 30 days had no failure but an aviato 404;
+            # live 2026-09-18: 64% of three days of email.find 502s were a limadata 404 or a prospeo
+            # NO_MATCH among otherwise clean misses), and a caller could not tell "nobody has it"
+            # from "olywork broke".
             tried.append(Attempt(cand.endpoint["id"], cand.endpoint["provider"], "miss", response.status, charged, ignored=ignored))
             if options.waterfall:
                 continue
             winner = (cand, {}, {}, raw)
             break
+        capacity_signal = classify_capacity(cand.endpoint["provider"], response.status, body=raw)
+        temporary_capacity = capacity_signal is not None and capacity_signal.kind in ("burst", "unknown")
         platform_auth_failure = cand.tier == "platform" and response.status in (401, 403)
         if (400 <= response.status < 500 and response.status not in (402, 408, 429)
-                and not platform_auth_failure):
+                and not platform_auth_failure and not temporary_capacity):
             # The vendor rejected the REQUEST. Usually the caller's mistake and the same answer
             # everywhere — but a scraper's "Request failed. Please retry" is also a 400 (tikhub,
             # live 2026-08-28), so the waterfall goes on to providers that are FREE ON FAILURE
@@ -478,13 +586,35 @@ async def run_routed(parent: CallContext, ep: dict, body_bytes: bytes, get_heade
             doc = json.loads(raw)
         except ValueError:
             doc = None
-        core = cand.adapter.from_upstream(doc) if doc is not None else {}
+        # An adapter transform that throws on unexpected provider output must not crash the parent
+        # after a child already answered (and was audited OK): record it as an error attempt and
+        # let the waterfall go on, so the worst case is a structured `route_failed` with `tried`.
+        # Defensive: no such crash was found in prod (2026-09-18 audit, 3 days, every 502 parent
+        # had run the route_failed path) — the bug that report traced was the undeclared miss above.
+        try:
+            core = cand.adapter.from_upstream(doc) if doc is not None else {}
+        except Exception as exc:  # noqa: BLE001 — adapter threw on provider response
+            errors += 1
+            tried.append(Attempt(cand.endpoint["id"], cand.endpoint["provider"], "error", response.status, charged,
+                                 f"adapter.from_upstream failed: {exc}"[:120]))
+            if errors > MAX_ERROR_FALLBACKS or not plan.contract.idempotent:
+                break
+            continue
         # A miss is what the adapter's predicate says — OR a 2xx whose body does not carry the
         # contract's required core (a null `result` under a 200, an error task inside a 20000
         # envelope): the caller asked for the field and did not get it (live 2026-08-28: dataforseo's
         # yahoo task returned `result: null` and was counted a hit).
         empty_core = any(core.get(k) in (None, "", [], {}) for k in plan.contract.required_output)
-        if doc is None or cand.adapter.is_miss(doc) or empty_core:
+        try:
+            is_miss = cand.adapter.is_miss(doc) if doc is not None else True
+        except Exception as exc:  # noqa: BLE001 — adapter threw on provider response
+            errors += 1
+            tried.append(Attempt(cand.endpoint["id"], cand.endpoint["provider"], "error", response.status, charged,
+                                 f"adapter.is_miss failed: {exc}"[:120]))
+            if errors > MAX_ERROR_FALLBACKS or not plan.contract.idempotent:
+                break
+            continue
+        if doc is None or is_miss or empty_core:
             tried.append(Attempt(cand.endpoint["id"], cand.endpoint["provider"], "miss", response.status, charged, ignored=ignored))
             if options.waterfall:
                 continue
@@ -519,19 +649,24 @@ async def run_routed(parent: CallContext, ep: dict, body_bytes: bytes, get_heade
     if winner is None and best is not None:
         winner = best[1]          # nobody cleared min_results — the fullest answer we paid for wins
     if winner is None:
+        if tried and all(t.outcome == "skipped" for t in tried):
+            raise ResolutionFailed("route_max_cost", status_code=402, detail={
+                "error": "route_max_cost", "endpoint_id": ep["id"],
+                "max_cost_micro": options.max_cost_micro, "charged_micro": spent,
+                "tried": [t.view() for t in tried],
+                "message": "no candidate fits the remaining cost ceiling; nothing was charged",
+            })
         outcome = "miss" if tried and all(t.outcome in ("miss", "skipped", "weak") for t in tried) else "error"
         if outcome == "miss":
             last = next(t for t in reversed(tried) if t.outcome == "miss")
             body_out = {"output": {k: None for k in plan.contract.output}, "raw": None,
                         "_olywork": {"served_by": None, "outcome": "miss", "tried": [t.view() for t in tried], "charged_micro": spent,
+                                  **({"capped": True} if cost_capped else {}),
                                   **({"dropped": plan.dropped} if plan.dropped else {})}}
             _audit_parent(parent, ep, 200, spent, audit_client)
-            return _json(body_out, 200, {
-                "X-Olywork-Providers-Tried": ",".join(t.provider for t in tried),
-                "X-Olywork-Providers-Tried": ",".join(t.provider for t in tried),
-                "X-Olywork-Route-Outcome": "miss",
-                "X-Olywork-Route-Outcome": "miss",
-            }), spent
+            headers = {"X-Olywork-Providers-Tried": ",".join(t.provider for t in tried), "X-Olywork-Route-Outcome": "miss",
+                       **({"X-Olywork-Route-Capped": "true"} if cost_capped else {})}
+            return _json(body_out, 200, headers), spent
         _audit_parent(parent, ep, 502, spent, audit_client)
         raise GatewayFailed("route_failed", status_code=502, detail={
             "error": "route_failed", "endpoint_id": ep["id"], "tried": [t.view() for t in tried], "charged_micro": spent,
@@ -540,6 +675,8 @@ async def run_routed(parent: CallContext, ep: dict, body_bytes: bytes, get_heade
                        f"every candidate for {ep['id']} failed"})
     cand, doc, output, raw = winner
     served = cand.endpoint["id"]
+    winner_outcome = next(t.outcome for t in reversed(tried)
+                          if t.endpoint_id == served and t.outcome in ("hit", "weak", "miss"))
     merged_from: list[str] = []
     if options.merge and len(answers) > 1:
         # A LIST answer is the only shape a union makes sense for, and the caller has already been
@@ -556,36 +693,39 @@ async def run_routed(parent: CallContext, ep: dict, body_bytes: bytes, get_heade
     # The rows answer a LOOSER question than the caller asked when the winner could not express a
     # filter. It is on the attempt, but no caller reads `tried[]` — say it where the answer is, and
     # on a header, or the agent post-filters nothing and never knows why the geography is wrong.
+    # A found contact is not a confirmed one. When the contract says so and the provider did not
+    # vouch for deliverability (`verified` absent or false — Hunter's `accept_all`, LeadMagic's
+    # personal finder, every phone provider), say it where the agent reads the answer. A
+    # suggestion only: the verify call is the agent's to make.
+    advice = (plan.contract.advice_unverified
+              if plan.contract.advice_unverified and output and output.get("verified") is not True else "")
     body_out = {"output": output or {k: None for k in plan.contract.output}, "raw": doc,
                 "_olywork": {"served_by": served, "provider": cand.endpoint["provider"], "tier": cand.tier,
                           **({"merged_from": merged_from} if merged_from else {}),
-                          "outcome": tried[-1].outcome, "tried": [t.view() for t in tried], "charged_micro": spent,
+                          **({"advice": advice} if advice else {}),
+                          "outcome": winner_outcome, "tried": [t.view() for t in tried], "charged_micro": spent,
+                          **({"capped": True} if cost_capped else {}),
                           **({"ignored_filters": list(cand.ignored)} if cand.ignored else {}),
                           **({"dropped": plan.dropped} if plan.dropped else {})}}
     _audit_parent(parent, ep, 200, spent, audit_client)
-    res_headers = {
-        "X-Olywork-Served-By": served,
-        "X-Olywork-Served-By": served,
-        "X-Olywork-Providers-Tried": ",".join(t.provider for t in tried),
-        "X-Olywork-Providers-Tried": ",".join(t.provider for t in tried),
-        "X-Olywork-Route-Outcome": tried[-1].outcome,
-        "X-Olywork-Route-Outcome": tried[-1].outcome,
-    }
-    if merged_from:
-        res_headers["X-Olywork-Merged-From"] = ",".join(merged_from)
-        res_headers["X-Olywork-Merged-From"] = ",".join(merged_from)
-    if cand.ignored:
-        res_headers["X-Olywork-Ignored-Filters"] = ",".join(cand.ignored)
-        res_headers["X-Olywork-Ignored-Filters"] = ",".join(cand.ignored)
-    return _json(body_out, 200, res_headers), spent
+    return _json(body_out, 200, {"X-Olywork-Served-By": served, "X-Olywork-Providers-Tried": ",".join(t.provider for t in tried),
+                                 **({"X-Olywork-Merged-From": ",".join(merged_from)} if merged_from else {}),
+                                 **({"X-Olywork-Ignored-Filters": ",".join(cand.ignored)} if cand.ignored else {}),
+                                 **({"X-Olywork-Route-Capped": "true"} if cost_capped else {}),
+                                 "X-Olywork-Route-Outcome": winner_outcome}), spent
 
 
 def _audit_parent(parent: CallContext, ep: dict, status: int, charged: int, client: str) -> None:
     c = parent.input.caller
     audit.record_call(org_id=c.org_id, user_email=c.email, tool_name=ep["id"], method="POST", path=ep["path"],
                       status_code=status, client=client,
+                      api_key_id=c.api_key_id, api_key_name=c.api_key_name,
+                      api_key_prefix=c.api_key_prefix,
+                      # The tag columns too: a pinned caller's history is filtered on them, so a
+                      # routed parent row without its pin would hide the caller's own call.
                       telemetry={"call_ref": parent.call_ref, "endpoint_id": ep["id"], "provider": "olywork",
-                                 "credential_tier": "routed", "cost_charged_micro": charged})
+                                 "credential_tier": "routed", "cost_charged_micro": charged,
+                                 **_tag_telemetry(parent.meta)})
 
 
 def _json(value, status: int, headers: dict[str, str]) -> UpstreamResponse:

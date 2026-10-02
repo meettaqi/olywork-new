@@ -5,6 +5,8 @@ POST with a same-origin check so a phished GET link can't complete a handshake b
 
 from __future__ import annotations
 
+import time
+
 import pytest
 from httpx import ASGITransport, AsyncClient
 
@@ -62,17 +64,26 @@ async def _seed_user_org(email="pat@x.dev", team="Acme", slug="acme", tools=0):
 
 
 # ---- the page ------------------------------------------------------------------------------
-async def test_landing_redirects_signed_in_visitor_to_app(web):
-    """`/` is the front door for strangers; a live session belongs on the dashboard."""
+async def test_landing_offers_dashboard_for_a_live_session(web):
+    """Members can revisit the homepage without signing out."""
     r = await web.get("/", follow_redirects=False)
     assert r.status_code == 200  # anonymous → marketing landing
+    assert 'data-signed-in="false"' in r.text
+    assert '>Start free</button>' in r.text
     uid = await _seed_user()
     web.cookies.set("olywork_session", sess.make_session(uid))
     r = await web.get("/", follow_redirects=False)
-    assert r.status_code == 302 and r.headers["location"] == "/app"
+    assert r.status_code == 200
+    assert 'data-signed-in="true"' in r.text
+    assert '>Open dashboard</button>' in r.text
+    assert '>Sign in</a>' not in r.text
+    assert r.headers['cache-control'] == 'private, no-store'
+    assert r.headers['vary'] == 'Cookie'
     web.cookies.set("olywork_session", sess.make_session(uid, ttl=-1))  # expired session → landing again
     r = await web.get("/", follow_redirects=False)
     assert r.status_code == 200
+    assert 'data-signed-in="false"' in r.text
+    assert '>Start free</button>' in r.text
 
 
 async def test_login_without_cli_redirects_to_dashboard(web):
@@ -152,6 +163,9 @@ async def test_approve_with_org_scopes_the_handshake(web):
     assert r.status_code == 200 and r.json()["active_org"] == "acme"
     d = (await web.get(f"/auth/cli/poll?login_id={lid}")).json()  # poll carries no code
     assert d["active_org"] == "acme" and d["token"]  # the CLI adopts the chosen team, no guessing
+    claims = sess.read_identity_claims(d["token"])
+    assert claims["scope"] == sess.TEAM_SCOPE and claims["org"] == "acme"
+    assert "exp" not in claims
 
 
 async def test_approve_rejects_a_foreign_org(web):
@@ -174,6 +188,8 @@ async def test_approve_completes_the_cli_handshake(web):
     # the CLI's (codeless) poll now yields a working identity token, exactly once
     d = (await web.get(f"/auth/cli/poll?login_id={lid}")).json()
     assert d["email"] == "pat@x.dev" and d["token"]
+    claims = sess.read_identity_claims(d["token"])
+    assert claims["scope"] == sess.BOOTSTRAP_SCOPE and claims["exp"] > int(time.time())
     me = await web.get("/auth/me", headers={"X-Olywork-Token": d["token"]})  # token path wins over the cookie
     assert me.status_code == 200 and me.json()["email"] == "pat@x.dev"
     again = (await web.get(f"/auth/cli/poll?login_id={lid}")).json()

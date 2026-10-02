@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from functools import lru_cache
+import hashlib
 import html as _html
 import html as html_mod
 import json
@@ -17,7 +18,7 @@ from fastapi.responses import (FileResponse, HTMLResponse, JSONResponse, PlainTe
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
-from .. import adsconv, agent_pages, oauth_providers
+from .. import adsconv, agent_pages, analytics, oauth_providers
 from ..domain import referrals
 from ..domain.catalog import store as catalog_store
 from ..domain.identity import session as sess
@@ -28,8 +29,80 @@ from ..domain.catalog import stats as endpoint_stats
 from .catalog import (_endpoint_observation_reader, _observed_or_empty, _platform_rows,
                       _provider_display, catalog_platform)
 from ..domain.identity.access import _user_from_session
-from .auth_helpers import LEGACY_OAUTH_RETURN_COOKIE, OAUTH_RETURN_COOKIE, _is_https, _take_oauth_return
+from .auth_helpers import OAUTH_RETURN_COOKIE, _is_https, _take_oauth_return
 from .signup_cookies import _remember_referral
+
+
+def _dashboard_bucket(user_id: int) -> int:
+    return int.from_bytes(hashlib.sha256(f"dashboard-v2:{user_id}".encode()).digest()[:8], "big") % 100
+
+
+def _dashboard_assignment(user: User) -> str:
+    """Why this account gets its frontend: `off`, `allowlist` or `bucket`."""
+    settings = get_settings()
+    if not settings.dashboard_rollout_enabled:
+        return "off"
+    return "allowlist" if user.id in settings.dashboard_rollout_user_ids else "bucket"
+
+
+def _new_dashboard(user: User | None) -> bool:
+    if user is None:
+        return False
+    assignment = _dashboard_assignment(user)
+    if assignment != "bucket":
+        return assignment == "allowlist"
+    return _dashboard_bucket(user.id) < get_settings().dashboard_rollout_percent
+
+
+def _record_dashboard_served(user: User, new: bool) -> None:
+    """Tell product analytics which frontend this account was served.
+
+    The bucket alone cannot say when an account switched (the percentage moves) or whether it
+    ever opened the Dashboard, and PostHog persons carry no user ID to recompute it from. The
+    person property lets any funnel break down by frontend; the event dates each exposure.
+    """
+    variant = "new" if new else "legacy"
+    bucket = _dashboard_bucket(user.id)
+    analytics.capture(user.email, "dashboard_served", {
+        "variant": variant,
+        "assignment": _dashboard_assignment(user),
+        "bucket": bucket,
+        "rollout_percent": get_settings().dashboard_rollout_percent,
+        "$set": {"dashboard_variant": variant, "dashboard_bucket": bucket},
+    })
+
+
+def _dashboard_index(user: User | None = None) -> Path:
+    new = _new_dashboard(user)
+    if user is not None:
+        _record_dashboard_served(user, new)
+    if not new:
+        return _WEB_DIR / "dashboard-legacy" / "index.html"
+    return _new_dashboard_index()
+
+
+def _new_dashboard_index() -> Path:
+    """The new frontend's index, whoever asks: the rollout decision is `_dashboard_index`'s."""
+    settings = get_settings()
+    if settings.frontend_dev:
+        host = urlsplit(settings.public_url).hostname
+        if "sqlite" not in settings.database_url or host not in {"localhost", "127.0.0.1", "::1"}:
+            raise RuntimeError("OLYWORK_FRONTEND_DEV requires local SQLite and a loopback public URL")
+        return Path(__file__).resolve().parents[3] / "frontend" / "index.html"
+    return _WEB_DIR / "dashboard" / "index.html"
+
+
+def _dashboard_document(index: Path) -> str:
+    document = index.read_text(encoding="utf-8")
+    if get_settings().frontend_dev and index.parent.name == "frontend":
+        host = urlsplit(get_settings().public_url).hostname
+        origin = "http://[::1]:5173" if host == "::1" else f"http://{host}:5173"
+        document = document.replace(
+            '<script type="module" src="/src/main.ts"></script>',
+            f'<script type="module" src="{origin}/app/ui/@vite/client"></script>'
+            f'<script type="module" src="{origin}/app/ui/src/main.ts"></script>',
+        )
+    return document
 
 
 LOCAL_USER_EMAIL = "you@local.olywork"   # the single-user identity; a real address is never needed
@@ -62,9 +135,9 @@ app = catalog_pages_router
 # `/catalog/<slug>` is registered after the JSON routes so /catalog/platforms, /catalog/search,
 # /catalog/endpoints/… and /catalog/examples/… keep matching first. Registration order alone is a
 # thin guarantee, so the reserved names are also refused explicitly below.
-_CATALOG_RESERVED = {"platforms", "search", "endpoints", "examples"}
+_CATALOG_RESERVED = {"platforms", "search", "find", "endpoints", "examples"}
 
-_GH = "https://github.com/meettaqi/olywork-new"
+_GH = "https://github.com/olywork/olywork"
 
 
 def _usd_short(usd: float) -> str:
@@ -82,6 +155,9 @@ def _price_label(cost: dict | None) -> str:
     whole CLI in for one string (see `_olywork_version`)."""
     if not isinstance(cost, dict):
         return ""
+    if cost.get("display_unit") and cost.get("display_usd") is not None:
+        return (cost.get("display_prefix", "") + _usd_short(cost["display_usd"]) + cost.get("display_suffix", "")
+                + "/" + cost["display_unit"])
     usd = cost.get("usd")
     if usd is None:
         return "own account"     # no rate published — never invent a dollar figure
@@ -166,6 +242,9 @@ def _page(title: str, description: str, path: str, body: str, ld: list[dict],
     # self-hosted registry must not put three 404s in its own footer.
     hub_links = ('<a href="/use-cases">Use cases</a><a href="/workflows">Workflows</a>'
                  '<a href="/agents">Agents</a>' if _hosted() else "")
+    hosted_resources = ('<a href="/use-cases/seo-data-for-ai-agents">Use Cases</a>'
+                        '<a href="/agents/claude-code">Agents</a>' if _hosted() else "")
+    blog_link = '<a href="/blog">Blog</a>' if _hosted() else ""
     return HTMLResponse(f"""<!doctype html>
 <html lang="en">
 <head>
@@ -190,84 +269,64 @@ def _page(title: str, description: str, path: str, body: str, ld: list[dict],
 <meta name="twitter:image" content="{base}/media/og.png"/>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/olywork.css?v={_css_stamp('olywork.css')}"/>
+<link href="https://fonts.googleapis.com/css2?family=Geist+Pixel&family=Inter:wght@400;450;500;600;650;700&family=DM+Mono:ital,wght@0,400;0,500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/{css}?v={_css_stamp(css)}"/>
 {head_extra}
 {blocks}
 </head>
 <body>
-<nav class="ow-nav" aria-label="Main navigation">
-  <a class="ow-nav-brand" href="/">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-    Olywork
-  </a>
-  <div class="ow-nav-links">
+<div class="navwrap"><nav class="nav">
+  <a class="brand" href="/" aria-label="Olywork"><img src="/media/brand/olywork_Official.svg" alt="Olywork" style="height:26px;width:auto;display:inline-block;vertical-align:middle;"></a>
+  <div class="links">
     {navlink("/catalog", "Catalog")}
-    {navlink("/use-cases", "Use cases")}
-    {navlink("/workflows", "Workflows")}
-    {navlink("/agents", "Agents")}
-    {navlink("/docs", "API Docs")}
     {navlink("/tutorial", "Tutorial")}
-    <a href="/pricing" style="color:var(--muted);font-weight:500;">Pricing</a>
-    <a href="/app?signin=1" style="color:var(--ink);font-weight:600;margin-left:6px;font-size:13.5px;">Sign in</a>
-    <a href="/app?ref={ref}" class="ow-btn-nav">Start free &#8594;</a>
+    {navlink("/docs", "API")}
+    <a class="hidem" href="{_GH}" target="_blank" rel="noopener">GitHub ↗</a>
+    <a class="candy" href="/app?ref={ref}">Start free</a>
   </div>
-</nav>
+</nav></div>
 {body}
 <footer class="ow-footer">
   <div class="ow-footer-inner">
-    <a class="ow-footer-brand" href="/">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-      olywork
-    </a>
-    <div class="ow-footer-nav">
+    <div class="ow-footer-brand-wrap">
+      <a class="ow-footer-brand" href="/" aria-label="olywork">
+        <img src="/media/brand/olywork_Official.svg" alt="olywork" style="height:28px;width:auto;display:block;">
+      </a>
+      <p class="ow-footer-tagline">The OpenRouter for AI Agent Tools.<br>One token for 2,800+ endpoints. Zero key management.</p>
+    </div>
+    <nav class="ow-footer-nav" aria-label="Site navigation">
       <div class="ow-footer-col">
-        <div class="ow-footer-head">Marketplace</div>
+        <div class="ow-footer-head">Explore</div>
         <a href="/catalog">Catalog</a>
-        <a href="/use-cases">Use cases</a>
-        <a href="/workflows">Workflows</a>
-        <a href="/agents">Agents</a>
+        <a href="/pricing">Pricing</a>
+        {hub_links}
+      </div>
+      <div class="ow-footer-col">
+        <div class="ow-footer-head">Build</div>
+        <a href="/docs">API Reference</a>
+        <a href="/tutorial">Tutorial</a>
+        <a href="/llms.txt">llms.txt</a>
+      </div>
+      <div class="ow-footer-col">
+        <div class="ow-footer-head">Resources</div>
+        <a href="/resources">Workflows</a>
+        {hosted_resources}
       </div>
       <div class="ow-footer-col">
         <div class="ow-footer-head">Company</div>
-        <a href="/support">Contact us</a>
-        <a href="/privacy">Privacy policy</a>
-        <a href="/terms">Terms of service</a>
+        {blog_link}
+        <a href="/support">Support</a>
+        <a href="/terms">Terms</a>
+        <a href="/privacy">Privacy</a>
+        <a href="{_GH}" target="_blank" rel="noopener">GitHub ↗</a>
       </div>
-    </div>
+    </nav>
   </div>
   <div class="ow-footer-bottom">
-    <div class="ow-footer-copy">&#169; 2026 Olywork. All rights reserved.</div>
-    <div class="ow-theme-switcher" role="group" aria-label="Theme switcher">
-      <button type="button" class="ow-theme-btn active">Light</button>
-      <button type="button" class="ow-theme-btn">Dark</button>
-      <button type="button" class="ow-theme-btn">Auto</button>
-    </div>
-    <div class="ow-social-links">
-      <a href="https://linkedin.com" target="_blank" rel="noopener" class="ow-social-link" aria-label="LinkedIn">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.88 8.56a1.68 1.68 0 0 0 1.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 0 0-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z"/></svg>
-      </a>
-      <a href="https://instagram.com" target="_blank" rel="noopener" class="ow-social-link" aria-label="Instagram">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>
-      </a>
-      <a href="https://x.com" target="_blank" rel="noopener" class="ow-social-link" aria-label="X (Twitter)">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-      </a>
-      <a href="https://discord.gg" target="_blank" rel="noopener" class="ow-social-link" aria-label="Discord">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.929 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.894.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
-      </a>
-    </div>
+    <span class="ow-footer-copy">&copy; 2026 Olywork. All rights reserved.</span>
+    <span class="ow-footer-note">Open source · Pay-per-call · No markup</span>
   </div>
 </footer>
-<script>
-document.querySelectorAll('.ow-theme-btn').forEach(btn => {{
-  btn.addEventListener('click', () => {{
-    document.querySelectorAll('.ow-theme-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-  }});
-}});
-</script>
 <script src="/adtrack.js"></script>
 <script src="/gtag.js"></script>
 </body>
@@ -275,104 +334,105 @@ document.querySelectorAll('.ow-theme-btn').forEach(btn => {{
 
 
 def _spa_catalog_page(title: str, description: str, path: str, ld: list[dict],
-                      prerender: str) -> HTMLResponse:
-    """The public catalog is now a purely SSR rendered page matching the marketing site's 
-    design system (olywork.css + catalog.css), completely decoupled from the dashboard SPA.
+                      prerender: str, user: User | None = None, *, index: Path | None = None) -> HTMLResponse:
+    """Serve the dashboard SPA at a PUBLIC catalog URL, with the head a crawler needs.
+
+    The public catalog is not a second implementation of the marketplace — it IS the marketplace.
+    `/catalog` and `/catalog/<slug>` hand back `index.html`, and the Vue app renders the same
+    platform views a member sees (its catalog API is unauthenticated, so it works signed out; see
+    `publicCatalog` in index.html). That is the whole point: one UI, so the two can never drift
+    apart visually the way a hand-built copy would.
+
+    Two things have to be added on the way out:
+
+    1. **The head.** The SPA ships one bare `<title>olywork</title>`. Every catalog URL needs its own
+       title, description, canonical, og/twitter card and JSON-LD, so they are substituted in here —
+       the same trick `_spa_with_og` uses for shared skill/tool links.
+    2. **A no-JS fallback.** Vue compiles `#app`'s own innerHTML as its template, so prerendered
+       markup cannot go inside it. `#prerender` is therefore a SIBLING, removed by the app on boot.
+       It is deliberately plainer than the Vue view — the ledger's row-merging is a chain of
+       client-side computeds, and reproducing it server-side would recreate exactly the duplicate
+       implementation this design avoids. It carries the TEXT (names, summaries, providers, prices),
+       which is what a crawler that does not run scripts is here for.
     """
-    return _page(title, description, path, prerender, ld, nav_current="Catalog", css="catalog.css")
+    index = index or _dashboard_index(user)
+    if not index.exists():
+        return HTMLResponse("<h3>tools-registry API. Dashboard not bundled.</h3>")
+    base = get_settings().public_url.rstrip("/")
+    t, d = _esc_html(title), _esc_html(description)
+    # `path` carries the {slug} from the URL. Today an unknown slug 404s in catalog_platform before
+    # it reaches here, so a quote can't get this far — but that is an upstream lookup's side effect,
+    # not a guarantee this function makes. Escape it where it is used, so a future "slug not found →
+    # suggestions" page cannot turn a canonical tag into a reflected XSS.
+    url = _esc_html(base + path)
+    blocks = "\n".join(
+        '<script type="application/ld+json">'
+        + json.dumps(b, separators=(",", ":")).replace("<", "\\u003c") + "</script>"
+        for b in ld)
+    meta = (
+        f"<title>{t}</title>\n"
+        f'<meta name="description" content="{d}"/>\n'
+        f'<link rel="canonical" href="{url}"/>\n'
+        f'<meta name="robots" content="index, follow"/>\n'   # index.html defaults to noindex
+        f'<meta property="og:type" content="website"/>\n'
+        f'<meta property="og:site_name" content="olywork"/>\n'
+        f'<meta property="og:url" content="{url}"/>\n'
+        f'<meta property="og:title" content="{t}"/>\n'
+        f'<meta property="og:description" content="{d}"/>\n'
+        f'<meta property="og:image" content="{base}/media/og.png"/>\n'
+        f'<meta property="og:image:width" content="1200"/>\n'
+        f'<meta property="og:image:height" content="630"/>\n'
+        f'<meta name="twitter:card" content="summary_large_image"/>\n'
+        f'<meta name="twitter:title" content="{t}"/>\n'
+        f'<meta name="twitter:description" content="{d}"/>\n'
+        f'<meta name="twitter:image" content="{base}/media/og.png"/>\n'
+        + blocks
+    )
+    html = _dashboard_document(index)
+    if not _hosted():
+        html = re.sub(r"<!--hosted-->.*?<!--/hosted-->", "", html, flags=re.S)
+    # index.html carries `robots: noindex` for the authenticated app; these URLs are public, and the
+    # `index, follow` in `meta` only wins if the noindex is gone. Stripped BEFORE `meta` is spliced
+    # in, so this scan only ever runs over the static bundle — never over a string carrying a
+    # caller-supplied title, which is what made it a ReDoS candidate rather than a fixed-cost pass.
+    html = re.sub(r'<meta name="robots" content="noindex[^>]*>\s*', "", html, count=1)
+    # Match whatever title the page carries, not one exact string — a rename in the dashboard must
+    # not be able to switch every catalog page's head off without a word (the same failure
+    # `_spa_with_og` was written to survive).
+    html, hits = re.subn(r"<title>.*?</title>", lambda _m: meta, html, count=1,
+                         flags=re.IGNORECASE | re.DOTALL)
+    if not hits:
+        html = html.replace("<head>", "<head>\n" + meta, 1)
+    marker = '<div id="app"'
+    if marker in html:
+        html = html.replace(marker, f'<div id="prerender">{prerender}</div>\n{marker}', 1)
+    return HTMLResponse(html, headers={"Cache-Control": "private, no-store", "Vary": "Cookie"})
 
 
-# The no-JS fallback for the catalog page.  This is what search engines and users without JS see.
-# Styled with the Olywork design system tokens matching the new landing page aesthetic.
+# The fallback's own skin. Scoped to #prerender and written against the dashboard's OWN tokens
+# (already defined in index.html), so it reads as the same product for the moment it is on screen.
 _PRERENDER_CSS = """<style>
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700;800&family=Inter:wght@400;500;600&display=swap');
-#prerender{
-  font-family:"Inter",system-ui,sans-serif; color:#202020;
-  --bg:#F4F2EC; --surface:#FCFBFA; --panel2:#EDEAE0;
-  --ink:#202020; --muted:#7E7C74; --muted2:#A09E96;
-  --line:#E8E5DA; --line2:#D5D1C3; --accent:#9FF25F;
-  --inv:#1A1A1A; --font-h:"Plus Jakarta Sans",sans-serif;
-  --font-m:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
-  background:var(--bg);
-}
-/* Hero */
-#prerender .cat-hero{
-  padding:80px 40px 64px; text-align:center; max-width:1200px; margin:0 auto;
-}
-#prerender .cat-eyebrow{
-  display:inline-block; font-family:var(--font-m);
-  font-size:11px; font-weight:700; text-transform:uppercase;
-  letter-spacing:.14em; color:var(--muted); margin-bottom:16px;
-}
-#prerender h1{
-  font-family:var(--font-h); font-size:clamp(36px,5vw,64px);
-  font-weight:800; letter-spacing:-.04em; line-height:1.06;
-  margin:0 0 16px;
-}
-#prerender .lede{
-  font-size:17px; color:var(--muted); max-width:56ch;
-  line-height:1.55; margin:0 auto 40px;
-}
-/* Stats strip */
-#prerender .stats-strip{
-  display:flex; border-top:1px solid var(--line); border-bottom:1px solid var(--line);
-  background:var(--surface); max-width:100%;
-}
-#prerender .stat-item{
-  flex:1; padding:28px 0; text-align:center;
-  border-right:1px solid var(--line);
-}
-#prerender .stat-item:last-child{border-right:none}
-#prerender .stat-n{
-  font-family:var(--font-h); font-size:40px; font-weight:800;
-  letter-spacing:-.04em; color:var(--ink); line-height:1;
-}
-#prerender .stat-l{font-size:12.5px;color:var(--muted);margin-top:4px;}
-/* Category label */
-#prerender h2{
-  font-family:var(--font-m); font-size:11px; font-weight:700;
-  text-transform:uppercase; letter-spacing:.12em;
-  color:var(--muted2); margin:48px 0 16px;
-  padding-bottom:12px; border-bottom:1px solid var(--line);
-}
-/* Card grid */
-#prerender .cat-wrap{max-width:1200px;margin:0 auto;padding:0 40px 80px;}
-#prerender ul{list-style:none;margin:0;padding:0;
-  display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr));
-  gap:12px;}
-#prerender li{
-  background:var(--surface); border:1px solid var(--line);
-  border-radius:20px; padding:24px;
-  display:flex; flex-direction:column; gap:8px;
-  transition:transform .25s,border-color .25s;
-}
-#prerender li:hover{transform:translateY(-3px);border-color:var(--line2)}
-#prerender li b{font-weight:700;font-size:15px;color:var(--ink)}
-#prerender li b a{color:var(--ink);text-decoration:none}
-#prerender li b a:hover{text-decoration:underline}
-#prerender li i{font-style:normal;font-size:13px;color:var(--muted);line-height:1.5}
-#prerender .m{
-  font-family:var(--font-m);font-size:11.5px;
-  color:var(--muted2);margin-top:4px;display:block;
-}
-/* Providers section */
-#prerender .prov-h{font-family:var(--font-h);font-size:22px;font-weight:700;
-  letter-spacing:-.02em;margin:56px 0 16px;}
-#prerender .prov-p{font-size:14px;color:var(--muted);line-height:1.7;max-width:80ch}
-#prerender .prov-p a{color:var(--ink);font-weight:600;text-decoration:underline;text-underline-offset:3px}
-/* Search hint */
-#prerender .search-hint{
-  display:inline-flex;align-items:center;gap:10px;
-  background:var(--surface);border:1.5px solid var(--line);
-  border-radius:99px;padding:12px 24px;font-size:14px;font-weight:500;
-  color:var(--muted);margin:0 auto 32px;
-  cursor:text;
-}
+#prerender{max-width:1160px;margin:0 auto;padding:48px 28px 80px;font-family:var(--sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif);
+  color:var(--ink,#202020);background:var(--bg,#F4F2EC)}
+#prerender h1{font-size:36px;font-weight:800;letter-spacing:-.03em;margin:0 0 12px;color:var(--ink,#202020)}
+#prerender .lede{color:var(--muted,#7A7870);margin:0 0 28px;max-width:64ch;font-size:16px;line-height:1.6}
+#prerender h2{font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--ink-2,#484844);margin:34px 0 16px;padding-bottom:10px;
+  border-bottom:1px solid var(--line,#E8E5DA)}
+#prerender ul{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px}
+#prerender li{padding:18px 20px;background:var(--surface,#FCFBFA);border:1px solid var(--line,#E8E5DA);border-radius:14px;display:flex;flex-direction:column;gap:6px;transition:border-color .15s}
+#prerender li:hover{border-color:var(--ink,#202020)}
+#prerender li b{font-weight:700;font-size:15px;color:var(--ink,#202020)}
+#prerender li i{font-style:normal;color:var(--muted,#7A7870);display:block;font-size:13px;line-height:1.45}
+#prerender .m{font-family:var(--mono,ui-monospace);font-size:11.5px;
+  color:var(--muted2,#9E9C94);margin-top:auto;padding-top:8px;border-top:1px solid var(--line,#E8E5DA);display:block}
+#prerender a{color:var(--ink,#202020);text-decoration:none}
+#prerender a:hover{color:#000;text-decoration:underline}
 </style>"""
 
 
 @app.get("/catalog", include_in_schema=False)
-async def catalog_index():
+async def catalog_index(olywork_session: str = Cookie(default=""), db: AsyncSession = Depends(get_session)):
     """The catalog index — the marketplace's Catalog view, on a public, indexable URL."""
     base = get_settings().public_url.rstrip("/")
     rows = _platform_rows()
@@ -381,217 +441,49 @@ async def catalog_index():
     # this page would quietly contradict the number on the landing.
     cat = catalog_store.load()
     total_eps = len(cat.endpoints)
-    providers = sorted({e["provider"] for e in cat.endpoints})
+    providers = sorted({e["provider"] for e in cat.endpoints if e["kind"] != "routed"})   # olywork is no vendor
 
     cats: dict[str, list[dict]] = {}
     for row in rows:
         cats.setdefault(row["category"], []).append(row)
-
-    # 1. Build sidebar items
-    sidebar_items = []
-    # 'All' tab
-    sidebar_items.append(
-        '<div class="cat-nav-item active" data-cat="all">'
-        '<div class="cat-nav-left"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>All</div>'
-        f'<div class="cat-nav-count">{total_eps}</div></div>'
-    )
-    
-    # Rest of categories
-    cat_icons = {
-        "Social": '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>',
-        "Advertising": '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>',
-        "SEO/AEO": '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>',
-        "Community": '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>',
-        "E-commerce": '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>',
-        "Market data": '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3v18h18"></path><path d="m19 9-5 5-4-4-3 3"></path></svg>',
-        "AI generation": '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg>',
-        "Developer": '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>',
-        "Reviews & Apps": '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16c0 1.1.9 2 2 2h12a2 2 0 0 0 2-2V8l-6-6z"></path><path d="M14 3v5h5M16 13H8M16 17H8M10 9H8"></path></svg>',
-        "Enrichment": '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>'
-    }
-
-    # Sort categories alphabetically
-    for name, items in sorted(cats.items()):
-        # simple generic icon for everything else
-        icon = cat_icons.get(name, '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"></circle></svg>')
-        cat_eps = sum(r.get("endpoints", 0) for r in items)
-        sidebar_items.append(
-            f'<div class="cat-nav-item" data-cat="{_esc_html(name)}">'
-            f'<div class="cat-nav-left">{icon}{_esc_html(name)}</div>'
-            f'<div class="cat-nav-count">{cat_eps}</div></div>'
-        )
-
-    # 2. Build flat grid of all cards
-    all_cards = []
-    # sort all rows alphabetically by label
-    for r in sorted(rows, key=lambda x: x["label"].lower()):
-        price = _price_label(r["price_from"])
-        slug = _esc_html(r["slug"])
-        label = _esc_html(r["label"])
-        name = _esc_html(r["category"])
-        summary = _esc_html(r["summary"])
-        logo_url = f'/logos/platforms/{slug}.svg'
-        price_badge = f'<span class="pcard-price">from {_esc_html(price)}</span>' if price else ""
-        first_prov = r["providers"][0] if r["providers"] else slug
-        logo_url2 = f'/logos/platforms/{_esc_html(first_prov)}.svg'
-        
-        all_cards.append(
-            f'<a href="/catalog/{slug}" class="pcard" data-cat="{name}" data-search="{label.lower()} {summary.lower()}">'
-            f'<div class="pcard-head">'
-            f'<div class="pcard-logo"><img src="{logo_url}" onerror="this.src=\'{logo_url2}\';this.onerror=null" alt="{label}" loading="lazy"></div>'
-            f'<div><div class="pcard-name">{label}</div>'
-            f'<div class="pcard-cat">{name}</div></div>'
-            f'</div>'
-            f'<div class="pcard-desc">{summary}</div>'
-            f'<div class="pcard-meta">'
-            f'<span class="pcard-badge">{r["endpoints"]} endpoints</span>'
-            f'<span class="pcard-badge">{r.get("capabilities", 0)} caps</span>'
-            f'{price_badge}'
-            f'</div>'
-            f'</a>'
-        )
-
+    sections = []
+    for name, items in cats.items():
+        lis = []
+        for r in items:
+            price = _price_label(r["price_from"])
+            vendors = ", ".join(_provider_display(p) for p in r["providers"])
+            lis.append(
+                f'<li><b><a href="/catalog/{_esc_html(r["slug"])}">{_esc_html(r["label"])}</a></b>'
+                f'<i>{_esc_html(r["summary"])}</i>'
+                f'<span class="m">{r["endpoints"]} endpoints · {r["capabilities"]} capabilities'
+                + (f" · from {_esc_html(price)}" if price else "")
+                + f" · {_esc_html(vendors)}</span></li>")
+        sections.append(f"<h2>{_esc_html(name)}</h2><ul>{''.join(lis)}</ul>")
 
     # The provider links live HERE, in the crawlable prerender, rather than on an index page of
     # their own: /providers earned no searches and made a second "browse everything" URL beside
     # this one. The /tools pages still get their internal links; there is just one index.
     prov_rows = _provider_rows()
-    prov_links = " &middot; ".join(
+    prov_links = " · ".join(
         f'<a href="/tools/{_esc_html(r["service"])}">{_esc_html(r["display"])}</a>'
         for r in prov_rows)
-    # Cross-links to the other hubs — keeps Google from losing these URLs
-    hub_links = (
-        '<p class="cat-lede" style="margin-top:-16px;">'
-        'Looking for a job rather than a platform? '
-        '<a href="/use-cases" style="color:var(--ink);font-weight:600;text-decoration:underline;text-underline-offset:3px">Use cases</a> compare providers by job, '
-        '<a href="/workflows" style="color:var(--ink);font-weight:600;text-decoration:underline;text-underline-offset:3px">Workflows</a> '
-        'chain steps into one prompt, and '
-        '<a href="/agents" style="color:var(--ink);font-weight:600;text-decoration:underline;text-underline-offset:3px">Agent pages</a> show the full menu for one agent.</p>'
-        if _hosted() else ""
-    )
-    # Vanilla JS for instant filter/search
-    filter_script = '''
-    <style>
-    dialog {
-      border: none; border-radius: 12px; padding: 24px; width: 100%; max-width: 500px;
-      box-shadow: 0 10px 40px rgba(0,0,0,0.1); font-family: var(--font-i);
-    }
-    dialog::backdrop { background: rgba(0,0,0,0.4); }
-    .d-close { float: right; background: none; border: none; cursor: pointer; font-size: 16px; opacity: 0.5; margin-top: -4px; margin-right: -4px; }
-    .d-close:hover { opacity: 1; }
-    .d-title { font-size: 18px; font-weight: 600; margin-bottom: 12px; color: var(--ink); }
-    .d-input { width: 100%; box-sizing: border-box; padding: 12px; border: 1px solid var(--line); border-radius: 6px; margin: 12px 0 20px; font-family: var(--font-i); font-size: 15px; }
-    .d-input:focus { outline: none; border-color: var(--line2); }
-    .d-pre { background: rgba(0,0,0,0.03); padding: 16px; border-radius: 8px; font-family: var(--font-m); font-size: 13px; white-space: pre-wrap; margin-bottom: 20px; color: var(--ink); line-height: 1.5; border: 1px solid var(--line); }
-    </style>
-
-    <dialog id="reqAsk">
-      <button class="d-close" onclick="this.closest('dialog').close()">✕</button>
-      <div class="d-title">Request a tool</div>
-      <p style="color:var(--muted); font-size: 14px; margin-bottom:16px; line-height: 1.5;">Missing a provider or capability? Tell us what you need and we'll add it.</p>
-      <input type="text" id="reqInput" class="d-input" placeholder="e.g. Ahrefs backlinks, flight prices...">
-      <button class="btn sm primary" onclick="submitReq()">Submit request</button>
-      <span id="reqMsg" style="margin-left: 12px; font-size: 14px; color: #10B981; display: none; font-weight: 500;">Sent!</span>
-    </dialog>
-
-    <dialog id="vendorAsk">
-      <button class="d-close" onclick="this.closest('dialog').close()">✕</button>
-      <div class="d-title">List your API in this catalog</div>
-      <p style="color:var(--muted); font-size: 14px; margin-bottom:16px; line-height: 1.5;">Paste this instruction into your coding agent (Claude Code, Cursor, etc). It will read the docs and open a pull request.</p>
-      <div class="d-pre" id="vendorPrompt">Help me create a PR to olywork (https://github.com/meettaqi/olywork-new) that adds our API to its tool catalog. Follow the instructions at https://olywork.com/vendor-listing — and include our contact email in the PR description so the maintainers can reach us to arrange live verification.</div>
-      <button class="btn sm primary" onclick="navigator.clipboard.writeText(document.getElementById('vendorPrompt').innerText); this.innerText='Copied!'; setTimeout(()=>this.innerText='Copy instruction',2000)">Copy instruction</button>
-    </dialog>
-
-    <script>
-      document.addEventListener("DOMContentLoaded", () => {
-        const input = document.getElementById("catSearch");
-        const cards = document.querySelectorAll(".pcard");
-        const navs = document.querySelectorAll(".cat-nav-item");
-        let currentCat = "all";
-
-        function filter() {
-          const q = input.value.toLowerCase();
-          cards.forEach(c => {
-            const matchesCat = currentCat === "all" || c.getAttribute("data-cat") === currentCat;
-            const matchesSearch = !q || c.getAttribute("data-search").includes(q);
-            c.style.display = (matchesCat && matchesSearch) ? "flex" : "none";
-          });
-        }
-
-        input.addEventListener("input", filter);
-        navs.forEach(nav => {
-          nav.addEventListener("click", () => {
-            navs.forEach(n => n.classList.remove("active"));
-            nav.classList.add("active");
-            currentCat = nav.getAttribute("data-cat");
-            filter();
-          });
-        });
-        
-        window.submitReq = async function() {
-          const cap = document.getElementById("reqInput").value.trim();
-          if(!cap) return;
-          try {
-            await fetch('/api/1/catalog/requests', {
-              method: 'POST',
-              headers: {'Content-Type': 'application/json'},
-              body: JSON.stringify({capability: cap, note: '', contact: ''})
-            });
-            const msg = document.getElementById("reqMsg");
-            msg.style.display = 'inline';
-            setTimeout(() => { document.getElementById('reqAsk').close(); msg.style.display='none'; document.getElementById("reqInput").value=''; }, 1500);
-          } catch (e) {
-            alert('Failed to submit. Please try again.');
-          }
-        };
-      });
-    </script>'''
-
-    prerender = (
-        _PRERENDER_CSS
-        + f'''<div class="cat-hero-bar">
-<div class="cat-hero-inner">
-  <div class="cat-eyebrow">Tool catalog</div>
-  <h1 class="cat-h1">{total_eps:,} endpoints.<br><span style="opacity:.4">One key.</span></h1>
-  <p class="cat-lede">{total_eps:,} endpoints across {len(rows)} platforms and {len(providers)} providers — every tool your agent can call through one key, priced per call with no provider signup.</p>
-  {hub_links}
-  <div style="margin-top: 12px; display: flex; gap: 12px; flex-wrap: wrap;">
-    <button class="btn sm" onclick="document.getElementById('reqAsk').showModal()">Request a tool</button>
-    <button class="btn sm" onclick="document.getElementById('vendorAsk').showModal()">List as vendor</button>
-    <button class="btn sm primary" onclick="window.location.href='/app'">Bring your own key</button>
-  </div>
-</div>
-</div>
-<div class="stats-strip">
-  <div class="stat-item"><div class="stat-n">{total_eps:,}</div><div class="stat-l">Endpoints</div></div>
-  <div class="stat-item"><div class="stat-n">{len(providers)}</div><div class="stat-l">Providers</div></div>
-  <div class="stat-item"><div class="stat-n">{len(rows)}</div><div class="stat-l">Platforms</div></div>
-  <div class="stat-item"><div class="stat-n">$0</div><div class="stat-l">Markup</div></div>
-</div>
-
-<div class="cat-main-wrap">
-  <div class="cat-top-search">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-    <input type="text" id="catSearch" placeholder="Search the catalog — try 'video gen' or 'amazon reviews'">
-  </div>
-  
-  <div class="cat-layout">
-    <div class="cat-sidebar">
-      {"".join(sidebar_items)}
-    </div>
-    
-    <div>
-      <div class="cat-grid">{"".join(all_cards)}</div>
-      
-      <div style="margin-top: 80px; border-top: 1px solid var(--line); padding-top: 40px;">
-        <h2 class="prov-h">The providers</h2>
-        <p class="prov-p">{len(prov_rows)} vendors serve this catalog, each with its own page: {prov_links}</p>
-      </div>
-    </div>
-  </div>
-</div>
-{filter_script}'''
-    )
+    prerender = (_PRERENDER_CSS
+                 + "<h1>The tool catalog</h1>"
+                 + f'<p class="lede">{total_eps:,} endpoints across {len(rows)} platforms and '
+                   f"{len(providers)} providers — every tool your agent can call through one key, "
+                   "priced up front and billed per call, with no provider signup.</p>"
+                 # The two hubs are linked from HERE as well as the nav: this prerender is the page
+                 # Google crawls most, and before this line the job and workflow pages were reachable
+                 # only from the sitemap — "URL is unknown to Google" on every one of them.
+                 + ('<p>Looking for a job rather than a platform? <a href="/use-cases">The use cases</a> '
+                    'compare the providers that do one job, <a href="/workflows">the workflows</a> '
+                    'chain several jobs into one prompt with the price of each step, and '
+                    '<a href="/agents">the agent pages</a> show the whole menu for one '
+                    'agent, and <a href="/blog">the blog</a> carries the measured receipts and '
+                    'launch notes.</p>' if _hosted() else "")
+                 + "".join(sections)
+                 + f"<h2>The providers</h2><p>{len(prov_rows)} vendors serve this catalog, each "
+                   f"with its own page: {prov_links}</p>")
 
     ld = [
         {"@context": "https://schema.org", "@type": "ItemList",
@@ -610,11 +502,37 @@ async def catalog_index():
         f"Tool catalog — {total_eps:,} API endpoints your agent can call | olywork",
         f"Browse {total_eps:,} endpoints across {len(rows)} platforms and {len(providers)} providers "
         "— SEO, social, enrichment, ads and scraping data. One key, priced per call, no provider signup.",
-        "/catalog", ld, prerender)
+        "/catalog", ld, prerender, await _user_from_session(olywork_session, db))
+
+
+@app.get("/search", include_in_schema=False)
+async def search_page():
+    """Find tools by describing the job: the new frontend's public find view over `/catalog/find`.
+
+    Only the new frontend has this page, so it is served to every visitor while the rollout is
+    enabled (anonymous included), with no per-user rollout check, and is absent when the rollout
+    switch forces legacy."""
+    if not get_settings().dashboard_rollout_enabled:
+        raise HTTPException(status_code=404, detail="not found")
+    rows = _platform_rows()
+    # Until the page's script runs, a visitor sees the page's own ground and nothing else: a
+    # different first screen that swaps out would read as a loading step. The words are for readers
+    # that never run the script, so they are visually hidden rather than drawn.
+    prerender = ('<style>#prerender{position:fixed;inset:0;z-index:100;background:#f4f4f1}'
+                 '#prerender>div{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}</style>'
+                 "<div><h1>What does your agent need to do?</h1>"
+                 '<p>Describe the job in plain words and see which tools in the olywork catalog can do it, '
+                 f'across {len(rows)} platforms. Prefer to browse? <a href="/catalog">The catalog</a> '
+                 "lists every platform.</p></div>")
+    return _spa_catalog_page(
+        "Find tools for your agent | olywork",
+        "Describe the job in plain words and see which tools in the olywork catalog can do it, "
+        "priced per call, callable through one key.",
+        "/search", [], prerender, index=_new_dashboard_index())
 
 
 @app.get("/catalog/{slug}", include_in_schema=False)
-async def catalog_page(slug: str):
+async def catalog_page(slug: str, olywork_session: str = Cookie(default=""), db: AsyncSession = Depends(get_session)):
     """One platform shelf — the marketplace's platform view, on a public, indexable URL."""
     if slug in _CATALOG_RESERVED:
         raise HTTPException(status_code=404, detail=f"unknown platform {slug!r}")
@@ -635,49 +553,31 @@ async def catalog_page(slug: str):
 
     blocks = []
     for cap in caps:
-        trs = []
+        lis = []
         for e in cap["endpoints"]:
             price = _price_label(e.get("cost"))
-            bits = []
+            bits = [_esc_html(e["provider_display"])]
             if e.get("verified"):
-                bits.append('<span class="ep-prov">live-verified</span>')
-            bits.append(f'<span class="ep-prov">{_esc_html(e["provider_display"])}</span>')
-            prov_html = "".join(bits)
-            ep_price_html = f'<span class="ep-price">{_esc_html(price)}</span>' if price else ''
-            
-            trs.append(f'<tr>'
-                       f'<td><div class="ep-name">{_esc_html(e["name"])}<code>{_esc_html(e["id"])}</code></div></td>'
-                       f'<td><div class="pcard-desc" style="margin:0;font-size:13.5px">{_esc_html(e.get("summary") or "")}</div></td>'
-                       f'<td><div class="ep-providers">{prov_html}</div></td>'
-                       f'<td style="text-align:right">{ep_price_html}</td>'
-                       f'</tr>')
-        
-        blocks.append(f'<div class="cap-label">{_esc_html(cap["description"] or cap["id"])}</div>'
-                      f'<table class="ep-table">'
-                      f'<thead><tr><th style="width:25%">Endpoint</th><th style="width:40%">Description</th><th style="width:20%">Provider</th><th style="text-align:right;width:15%">Price</th></tr></thead>'
-                      f'<tbody>{"".join(trs)}</tbody>'
-                      f'</table>')
+                bits.append("live-verified")
+            if price:
+                bits.append(_esc_html(price))
+            bits.append(_esc_html(e["id"]))
+            lis.append(f'<li><b>{_esc_html(e["name"])}</b>'
+                       f'<i>{_esc_html(e.get("summary") or "")}</i>'
+                       f'<span class="m">{" · ".join(bits)}</span></li>')
+        blocks.append(f'<h2>{_esc_html(cap["description"] or cap["id"])}</h2><ul>{"".join(lis)}</ul>')
 
     provs = ", ".join(p["display_name"] for p in detail["providers"].values())
-    logo_url = f'/logos/platforms/{slug}.svg'
-    fallback_logo = f'/logos/platforms/{_esc_html(list(detail["providers"].keys())[0])}.svg' if detail["providers"] else logo_url
-    
-    prerender = (
-        _PRERENDER_CSS
-        + f'<div class="phead"><div class="phead-inner">'
-        + f'<div class="phead-logo-wrap"><img src="{logo_url}" onerror="this.src=\'{fallback_logo}\';this.onerror=null" alt="{_esc_html(label)}"></div>'
-        + f'<div class="phead-text">'
-        + f'<div class="kicker"><a href="/catalog" style="color:var(--muted);text-decoration:none">Catalog</a> <span style="margin:0 6px">/</span> {_esc_html(category)}</div>'
-        + f'<h1 class="phead-h">{_esc_html(label)}</h1>'
-        + f'<div class="phead-desc">{_esc_html(summary)} {len(eps)} endpoints from {_esc_html(provs)}'
-        + (f", from {_esc_html(cheapest)} per call" if cheapest else "")
-        + '. Jobs that several providers do sit on one row, so you can compare price and coverage before you spend a call.</div>'
-        + f'<div class="phead-pills"><div class="phead-pill">{len(eps)} Endpoints</div><div class="phead-pill">{len(caps)} Capabilities</div></div>'
-        + f'</div></div></div>'
-        + f'<div class="wrap" style="padding-top:20px;">'
-        + "".join(blocks)
-        + f'</div>'
-    )
+    prerender = (_PRERENDER_CSS
+                 + f'<p class="m"><a href="/catalog">← Catalog</a> · {_esc_html(category)}</p>'
+                 + f"<h1>{_esc_html(label)}</h1>"
+                 + f'<p class="lede">{_esc_html(summary)} {len(eps)} endpoints from '
+                   f"{_esc_html(provs)}"
+                 + (f", from {_esc_html(cheapest)} per call" if cheapest else "")
+                 + ". Jobs that several providers do sit on one row, so you can compare price and "
+                   "coverage before you spend a call — <b>choosing is yours</b>; olywork does not route "
+                   "between providers automatically.</p>"
+                 + "".join(blocks))
 
     desc = (f"{len(eps)} {label.lower()} API endpoints from "
             f"{', '.join(p['display_name'] for p in list(detail['providers'].values())[:3])}"
@@ -692,12 +592,14 @@ async def catalog_page(slug: str):
               "url": f"{base}/catalog/{slug}#{cap['id']}"}
              for i, cap in enumerate(caps, 1)]},
         {"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [
-            {"@type": "ListItem", "position": 1, "name": "olywork", "item": base + "/"},
+            {"@type": "ListItem", "position": 1, "name": "olywork.com", "item": base + "/"},
             {"@type": "ListItem", "position": 2, "name": "Catalog", "item": base + "/catalog"},
             {"@type": "ListItem", "position": 3, "name": label, "item": f"{base}/catalog/{slug}"}]},
     ]
-    return _spa_catalog_page(f"{label} API — {len(eps)} endpoints, priced per call | olywork",
-                             desc[:300], f"/catalog/{slug}", ld, prerender)
+    # "{platform} api pricing" is the non-brand phrasing that reaches the site (GSC), so the shelf
+    # title leads with it; the brand is olywork.com and the copy carries no em-dash.
+    return _spa_catalog_page(f"{label} API pricing: {len(eps)} endpoints priced per call | olywork.com",
+                             desc[:300], f"/catalog/{slug}", ld, prerender, await _user_from_session(olywork_session, db))
 
 
 # --------------------------------------------------------------------------- /agents/<agent>
@@ -709,13 +611,7 @@ def _hosted() -> bool:
     return host in PUBLIC_HOST_ALIASES or host in ("localhost", "127.0.0.1", "0.0.0.0") or not host
 
 
-
-def _pub(e: dict) -> bool:
-    """An endpoint the PUBLIC pages may count or list: hidden utility kinds out, and the
-    `kind: routed` meta-rows (PR #242) out with them — a routed row delegates to children that
-    are already on the page, so anywhere public it double-counts and surfaces a provider named
-    "olywork", which the brand rules say must never appear as a vendor."""
-    return e["kind"] not in catalog_store.HIDDEN_KINDS and e.get("kind") != "routed"
+_pub = catalog_store.browsable
 
 
 def _catalog_census() -> tuple[int, int]:
@@ -733,7 +629,7 @@ def _logo(domain: str | None, alt: str) -> str:
     """A 20px brand mark from the favicon service the landing uses, or the olywork glyph when the
     brand is unknown (never a wrong logo)."""
     if not domain:
-        return '<span class="lg lg-none" aria-hidden="true">▚</span>'
+        return '<img class="lg" src="/favicon.svg" alt="" width="20" height="20" aria-hidden="true"/>'
     return (f'<img class="lg" src="https://www.google.com/s2/favicons?domain={_esc_html(domain)}&amp;sz=64" '
             f'alt="{_esc_html(alt)}" width="20" height="20" loading="lazy"/>')
 
@@ -883,54 +779,34 @@ async def agents_hub():
         if head == defn and len(defn) > 140:  # a future definition without the clause still fits
             head = defn[:140].rsplit(" ", 1)[0]
         return head.rstrip(".") + "."
+    def _agent_href(slug: str) -> str:
+        # grok-bot links to the launch page at /grokbot
+        return "/grokbot" if slug == "grok-bot" else f"/agents/{slug}"
     cards = "".join(
-        f'<a class="pcard" href="/agents/{slug}">'
-        f'<div class="pcard-head">'
-        f'<div class="pcard-logo"><img src="/logos/agents/{slug}.svg" onerror="this.style.display=\'none\'" alt="{_esc_html(spec["name"])}"></div>'
-        f'<div><div class="pcard-name">{_esc_html(spec["name"])}</div>'
-        f'<div class="pcard-cat">{n} tools &middot; {p} platforms</div></div>'
-        f'</div>'
-        f'<div class="pcard-desc">{_esc_html(_blurb(spec["definition"].format(n=n, p=p)))}</div>'
-        f'<div class="pcard-meta">'
-        f'<span class="pcard-badge">{n} tools</span>'
-        f'<span class="pcard-badge">Zero API keys</span>'
-        f'<span class="pcard-cta">Setup guide →</span>'
-        f'</div></a>'
+        f'<a class="pcard" href="{_agent_href(slug)}"><h3>{_esc_html(spec["name"])}</h3>'
+        f'<p>{_esc_html(_blurb(spec["definition"].format(n=n, p=p)))}</p>'
+        f'<div class="meta">{n} tools &middot; {p} platforms</div></a>'
         for slug, spec in agent_pages.AGENTS.items())
     body = (
-        '<div class="cat-hero-bar">'
-        '<div class="cat-hero-inner">'
-        '<div class="cat-eyebrow">Supported Agents</div>'
-        '<h1 class="cat-h1">Connect your coding agent.<br><span style="opacity:.4">Claude, Cursor, Codex, OpenClaw.</span></h1>'
-        '<p class="cat-lede">One page per client: the install steps for that agent, then the menu of '
-        f'jobs it can do once connected. Every client gets the same {n} tools through one olywork '
+        '<main class="wrap"><div class="phead">'
+        '<div class="crumbs"><a href="/">olywork.com</a> / <a href="/agents">Agents</a></div>'
+        '<h1>The agents that can use olywork.com</h1>'
+        '<p class="lede">One page per client: the install steps for that agent, then the menu of '
+        f'jobs it can do once connected. Every client gets the same {n} tools through one olywork.com '
         'key, at the provider&rsquo;s own rate with $0.000 markup.</p>'
-        '</div>'
-        '</div>'
-        '<div class="stats-strip">'
-        f'<div class="stat-item"><div class="stat-n">{len(agent_pages.AGENTS)}</div><div class="stat-l">Agents Supported</div></div>'
-        f'<div class="stat-item"><div class="stat-n">{n}</div><div class="stat-l">Tools Accessible</div></div>'
-        '<div class="stat-item"><div class="stat-n">1-Step</div><div class="stat-l">Install Flow</div></div>'
-        '<div class="stat-item"><div class="stat-n">$0.00</div><div class="stat-l">Markup</div></div>'
-        '</div>'
-        '<div class="cat-main-wrap">'
-        f'<div class="cat-grid">{cards}</div>'
-        '<div style="margin-top:60px;padding:32px;border:1px solid var(--line);border-radius:16px;background:var(--surface);">'
-        '<h3 style="margin:0 0 8px;font-family:var(--font-h);font-size:18px;">Looking for specific tasks or multi-step workflows?</h3>'
-        '<p style="margin:0;color:var(--muted);font-size:14px;line-height:1.6;">Browse use cases by job at <a href="/use-cases" style="text-decoration:underline;color:var(--ink);font-weight:600;">/use-cases</a>, '
-        'multi-step recipes at <a href="/workflows" style="text-decoration:underline;color:var(--ink);font-weight:600;">/workflows</a>, '
-        'or the complete tool index at <a href="/catalog" style="text-decoration:underline;color:var(--ink);font-weight:600;">/catalog</a>.</p>'
-        '</div>'
-        '</div>'
-    )
+        f'</div><section class="cat"><div class="grid">{cards}</div></section>'
+        '<section class="cat"><h2>Everything else</h2><div class="cap"><p style="margin:0">The jobs '
+        'themselves are written up at <a href="/use-cases">/use-cases</a>, the multi-step versions '
+        'at <a href="/workflows">/workflows</a>, and the whole catalog is at '
+        '<a href="/catalog">/catalog</a>.</p></div></section></main>')
     names = [s["name"] for s in agent_pages.AGENTS.values()]
     ld = [{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [
-        {"@type": "ListItem", "position": 1, "name": "olywork", "item": base + "/"},
+        {"@type": "ListItem", "position": 1, "name": "olywork.com", "item": base + "/"},
         {"@type": "ListItem", "position": 2, "name": "Agents", "item": base + "/agents"}]}]
-    return _page("Install olywork in ChatGPT, Claude, Cursor or Grok",
+    return _page("Install olywork.com in ChatGPT, Claude, Cursor or Grok",
                  f"Install steps for {', '.join(names[:-1])} and {names[-1]}, and the menu of jobs "
-                 "each can do once connected. One olywork key, no markup.",
-                 "/agents", body, ld, css="catalog.css")
+                 "each can do once connected. One olywork.com key, no markup.",
+                 "/agents", body, ld)
 
 
 @app.get("/agents/{agent}.md", include_in_schema=False)
@@ -943,6 +819,10 @@ async def agent_page(request: Request, agent: str):
     `/agents/<agent>.md` is the same page as Markdown, for agents and answer engines."""
     as_md = request.url.path.endswith(".md")
     raw = agent[:-3] if agent.endswith(".md") else agent
+    # grok-bot redirects to the launch page at /grokbot: the launch page is what people expect
+    # when they click "Grok Bot", and the /agents/grok-bot URL was never the primary destination.
+    if raw.lower() == "grok-bot":
+        return RedirectResponse("/grokbot", status_code=301)
     # Resolve to the dict's OWN key, never the request's bytes: `agent` is interpolated into the
     # canonical, the rel=alternate href and the JSON-LD breadcrumb below, and a path parameter
     # must not reach those unescaped (CodeQL py/reflective-xss). The lookup is case-insensitive,
@@ -1079,7 +959,7 @@ async def agent_page(request: Request, agent: str):
 
     body = (
         '<div class="hero"><div class="wrap">'
-        f'<div class="trust" style="margin:0 0 18px"><a href="/">olywork</a> / '
+        f'<div class="trust" style="margin:0 0 18px"><a href="/">olywork.com</a> / '
         f'<a href="/agents/{_esc_html(agent)}">{_esc_html(name)}</a></div>'
         f'<div class="kicker">{n} endpoints &middot; {p} platforms &middot; $0.000 markup</div>'
         # The H1 carries the measured term and the promise, never a persona — a crawler was reading
@@ -1094,7 +974,7 @@ async def agent_page(request: Request, agent: str):
         '<div class="ctas">'
         f'<a class="candy" href="/app?ref=agents-{_esc_html(agent)}">Start free</a>'
         '<a class="ghostbtn" href="#use-cases">See what it can do</a></div>'
-        '<div class="trust">$1.00 of free credit on every new team &middot; no provider signup &middot; no card</div>'
+        '<div class="trust">$1.00 of free credit once per new verified account &middot; no provider signup &middot; no card</div>'
         f'<div class="subline">Your own keys always win and are never metered. '
         f'{_esc_html(name)} sees the price before it spends.</div>'
         + (f'<div class="provstrip"><div class="pl">a few of the {p} platforms</div>'
@@ -1107,7 +987,7 @@ async def agent_page(request: Request, agent: str):
         '<section id="use-cases"><div class="wrap"><div class="seclab">The menu</div>'
         f'<h2>What {_esc_html(name)} can do now</h2>'
         '<p>By job, not by endpoint. The price is the lowest provider&rsquo;s own rate with $0.000 added by '
-        'olywork; <b>free</b> means the job runs on an account you already own and is never metered. Where '
+        'olywork.com; <b>free</b> means the job runs on an account you already own and is never metered. Where '
         f'several providers do one job, {_esc_html(name)} sees them side by side and choosing is yours.</p>'
         f'<div class="cards">{"".join(cards)}</div>'
         f'<p style="margin-top:20px"><a href="/catalog">Browse all {n} endpoints &rarr;</a> &middot; '
@@ -1168,14 +1048,14 @@ async def agent_page(request: Request, agent: str):
 </script>""")
 
     ld = [
-        {"@context": "https://schema.org", "@type": "SoftwareApplication", "name": "olywork",
+        {"@context": "https://schema.org", "@type": "SoftwareApplication", "name": "olywork.com",
          "applicationCategory": "DeveloperApplication", "operatingSystem": "Web",
          "url": base + "/", "description": desc,
          "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD",
                     "description": "Free to install. Calls are metered per call from a prepaid balance at the "
                                    "provider's own rate with no markup; every new team starts with $1.00 free."}},
         {"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [
-            {"@type": "ListItem", "position": 1, "name": "olywork", "item": base + "/"},
+            {"@type": "ListItem", "position": 1, "name": "olywork.com", "item": base + "/"},
             {"@type": "ListItem", "position": 2, "name": "Agents", "item": base + "/agents"},
             {"@type": "ListItem", "position": 3, "name": name, "item": f"{base}/agents/{agent}"}]},
         {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [
@@ -1362,7 +1242,7 @@ async def use_case_job_page(request: Request, job: str,
     # No priced row is two different facts: own-account rows are free on the reader's key; trial
     # rows are free on olywork.com's key up to a daily allowance. Say whichever is true.
     trial_max = max((p["trial"] for p in provs), default=0)
-    free_words = (f"free, up to {trial_max} calls a day on olywork's key" if trial_max
+    free_words = (f"free, up to {trial_max} calls a day on olywork.com's key" if trial_max
                   else "free on your own account")
     n = str(len({p["id"] for p in provs}))
     n_ver = sum(1 for e in eps if e.get("verified"))
@@ -1381,35 +1261,35 @@ async def use_case_job_page(request: Request, job: str,
     def unit_plural(u: str) -> str:
         return {"found": f"{noun}s found", "result": "results"}.get(u, "calls")
 
-    title = spec.get("title", "{sentence}: {n} providers | olywork").format(
+    title = spec.get("title", "{sentence}: {n} providers | olywork.com").format(
         sentence=spec["sentence"], n=n, agent=agent_name,
         cheapest=money(headline["usd"]) if headline else free_words)
     # The number goes in the title. Search Console shows the pricing phrasing is what reaches this
     # site, and a title that already names the cheapest price is the one fact a vendor's own page
     # cannot carry. Only the compare form has a price to name; a hand-written title that already
     # carries one is left alone.
-    if form == "compare" and headline and "$" not in title and (title.endswith(" | olywork") or title.endswith(" | olywork.com")):
-        head = title[: -len(" | olywork")] if title.endswith(" | olywork") else title[: -len(" | olywork.com")]
+    if form == "compare" and headline and "$" not in title and title.endswith(" | olywork.com"):
+        head = title[: -len(" | olywork.com")]
         if head.endswith(" compared"):  # "5 verifiers compared" -> "5 verifiers, from $0.0019"
             head = head[: -len(" compared")]
-        priced = f"{head}, from {money(headline['usd'])} | olywork"
+        priced = f"{head}, from {money(headline['usd'])} | olywork.com"
         if len(priced) <= _TITLE_MAX:
             title = priced
     lede = spec["lede"].format(n=n, agent=agent_name,
                                cheapest=money(headline["usd"]) if headline else free_words)
     bits_desc = [spec["sentence"] + "."]
     # A single provider is one of three facts, not two: an own-account connection (free), a metered
-    # row on olywork's key, or a trial pool (no USD, a daily allowance on olywork's free-tier key,
+    # row on olywork.com's key, or a trial pool (no USD, a daily allowance on olywork.com's free-tier key,
     # then the reader's own key). The trial case fell into `metered_single` and claimed a bill.
     trial_single = form == "short" and not provs[0]["free"] and bool(provs[0]["trial"])
     metered_single = form == "short" and not provs[0]["free"] and not trial_single
     if trial_single:
-        bits_desc.append(f"One provider, free for {provs[0]['trial']} calls a day on olywork's key, then your own key.")
+        bits_desc.append(f"One provider, free for {provs[0]['trial']} calls a day on olywork.com's key, then your own key.")
     elif metered_single:
-        bits_desc.append(f"One provider, {money(headline['usd'])} per {headline['unit']} on olywork's key, no signup."
-                         if headline else "One provider, served on olywork's key.")
+        bits_desc.append(f"One provider, {money(headline['usd'])} per {headline['unit']} on olywork.com's key, no signup."
+                         if headline else "One provider, served on olywork.com's key.")
     elif form == "short":
-        bits_desc.append("Runs on the account you already own, so olywork never meters it.")
+        bits_desc.append("Runs on the account you already own, so olywork.com never meters it.")
     elif headline:
         bits_desc.append(f"{n} providers compared, cheapest {money(headline['usd'])} per {headline['unit']}.")
     bits_desc.append(f"The prompt that works in {agent_name}, with the price shown before the call.")
@@ -1426,18 +1306,18 @@ async def use_case_job_page(request: Request, job: str,
         # accounts" and "Hunter" are false wherever the reader's own account does the job.
         own_key_free = any(p["free"] for p in provs)
         why_olywork = agent_pages.WHY_OLYWORK_OWN_KEY if own_key_free else agent_pages.WHY_OLYWORK
-        md += ["", "## Why go through olywork", ""] + [f"- **{t}** {d}" for t, d in why_olywork]
+        md += ["", "## Why go through olywork.com", ""] + [f"- **{t}** {d}" for t, d in why_olywork]
         if trial_single:
             e0 = provs[0]["eps"][0]
             md += ["", "## How it works", "",
                    f"One provider does this job: {provs[0]['name']} (`{e0['id']}`), free for {provs[0]['trial']} "
-                   "calls a day per team on olywork's own free-tier key. Past the allowance the call is refused "
+                   "calls a day per team on olywork.com's own free-tier key. Past the allowance the call is refused "
                    "with a hint to connect your own key, and on your own key it is never metered.",
                    "", f"    {_uc_call(e0)}", ""]
         elif metered_single:
             e0 = provs[0]["cheapest_ep"] or provs[0]["eps"][0]
             md += ["", "## How it works", "",
-                   f"One provider does this job: {provs[0]['name']} (`{e0['id']}`), served on olywork's own key at "
+                   f"One provider does this job: {provs[0]['name']} (`{e0['id']}`), served on olywork.com's own key at "
                    + (f"{money(provs[0]['usd'])} per {provs[0]['unit']}, " if provs[0]["usd"] else "")
                    + "the provider's own rate with $0.000 markup, metered from your team's balance. "
                    "No account with the provider, and no key of your own, unless you would rather bring one.",
@@ -1446,11 +1326,11 @@ async def use_case_job_page(request: Request, job: str,
             e0 = provs[0]["eps"][0]
             md += ["", "## How it works", "",
                    f"One provider does this job: {provs[0]['name']} (`{e0['id']}`), on the account you already own. "
-                   "You connect it once, olywork keeps the token server side, and the call is never metered.",
+                   "You connect it once, olywork.com keeps the token server side, and the call is never metered.",
                    "", f"    {_uc_call(e0)}", ""]
         else:
             md += ["", f"## Behind the scenes: what {agent_name} sees before it calls", "",
-                   f"olywork does not choose for you. It hands {agent_name} this comparison and it picks, "
+                   f"olywork.com does not choose for you. It hands {agent_name} this comparison and it picks, "
                    "or you tell it how.", ""]
             if units:
                 md += [f"### {spec.get('q_cheapest', 'Which is cheapest?')}", ""]
@@ -1464,7 +1344,7 @@ async def use_case_job_page(request: Request, job: str,
                 md += ["", f"### {spec.get('q_reliable', 'Which is the most reliable?')}", ""]
                 md += [f"- {p['name']}: {pct(p['ok_rate'])} over {p['samples']} calls, {ms(p['p50'])} median"
                        for p in reliable[:6]]
-                md += ["", "Measured on olywork traffic; not a controlled benchmark."]
+                md += ["", "Measured on olywork.com traffic; not a controlled benchmark."]
             md += ["", f"### {spec.get('q_compare', 'How do they compare?')}", ""]
             for plat in (platforms if form == "platforms" else [None]):
                 rows_ = [p for p in provs if plat is None or p["platform_label"] == plat]
@@ -1473,7 +1353,7 @@ async def use_case_job_page(request: Request, job: str,
                 md += ["| Provider | Price | Accepts | Verified |", "|---|---|---|---|"]
                 for p in sorted(rows_, key=lambda p: (p["usd"] is None, p["usd"] or 0)):
                     price = (f"{money(p['usd'])} per {p['unit']}" if p["usd"]
-                             else (f"free, {p['trial']} calls a day on olywork's key, then your own key" if p["trial"]
+                             else (f"free, {p['trial']} calls a day on olywork.com's key, then your own key" if p["trial"]
                                    else ("own account, free" if p["free"] else "no dollar rate published")))
                     md.append(f"| {p['name']} | {price} | {', '.join(p['inputs'])} | {p['verified'] or 'unverified'} |")
                 md.append("")
@@ -1484,7 +1364,12 @@ async def use_case_job_page(request: Request, job: str,
                 md += [f"**{head}**", "", f'> "{quote}" ({who}: {url})', "",
                        f"What this page can do about it: {answer}", ""]
         md += ["", "## What actually differs", ""] + [f"- {x}" for x in spec["notes"]]
-        md += ["", f"## {spec.get('what_is_heading', 'What is this?')}", "", spec["what_is"], "", "## Questions", ""]
+        md += ["", f"## {spec.get('what_is_heading', 'What is this?')}", "", spec["what_is"]]
+        if spec.get("failure_modes"):
+            md += ["", "## Where it goes wrong", ""]
+            for h, p in spec["failure_modes"]:
+                md += [f"**{h}** {p}", ""]
+        md += ["", "## Questions", ""]
         for q, a in spec["faq"]:
             md += [f"**{q}** {a}", ""]
         md += [f"HTML version: {base}/use-cases/{job_slug}"]
@@ -1525,7 +1410,7 @@ async def use_case_job_page(request: Request, job: str,
             return f'{_esc_html(money(p["usd"]))} <span style="color:var(--muted2)">per {p["unit"]}</span>'
         if p["trial"]:
             return (f'<span style="color:var(--green)">free, {p["trial"]} calls a day</span> '
-                    '<span style="color:var(--muted2)">on olywork\'s key, then your own key</span>')
+                    '<span style="color:var(--muted2)">on olywork.com\'s key, then your own key</span>')
         if p["free"]:
             return '<span style="color:var(--green)">free, your own account</span>'
         return '<span style="color:var(--muted2)">no dollar rate published</span>'
@@ -1552,8 +1437,8 @@ async def use_case_job_page(request: Request, job: str,
         p0, e0 = provs[0], provs[0]["eps"][0]
         sections.append(
             '<section id="how"><div class="wrap"><div class="seclab">How it works</div>'
-            f'<h2>One provider, free for {p0["trial"]} calls a day on olywork\'s key</h2>'
-            f'<p>{_logo(p0["domain"], p0["name"])}<b>{_esc_html(p0["name"])}</b> answers this job, served on olywork\'s '
+            f'<h2>One provider, free for {p0["trial"]} calls a day on olywork.com\'s key</h2>'
+            f'<p>{_logo(p0["domain"], p0["name"])}<b>{_esc_html(p0["name"])}</b> answers this job, served on olywork.com\'s '
             f'own free-tier key with an allowance of {p0["trial"]} calls a day per team. Past the allowance the call is '
             'refused with a hint to connect your own key, and on your own key it is never metered.</p>'
             f'<div class="sample"><div class="sbar">the call</div><pre>{_esc_html(_uc_call(e0))}</pre></div>'
@@ -1566,7 +1451,7 @@ async def use_case_job_page(request: Request, job: str,
         rate = f'{_esc_html(money(p0["usd"]))} per {p0["unit"]}, ' if p0["usd"] else ""
         sections.append(
             '<section id="how"><div class="wrap"><div class="seclab">How it works</div>'
-            f'<h2>One provider, served on olywork\'s key</h2>'
+            f'<h2>One provider, served on olywork.com\'s key</h2>'
             f'<p>{_logo(p0["domain"], p0["name"])}<b>{_esc_html(p0["name"])}</b> answers this job, at {rate}'
             'the provider\'s own rate with $0.000 markup, metered from your team\'s balance. No account with the '
             'provider and no key of your own, unless you would rather bring one.</p>'
@@ -1580,13 +1465,13 @@ async def use_case_job_page(request: Request, job: str,
             '<section id="how"><div class="wrap"><div class="seclab">How it works</div>'
             f'<h2>One provider, on the account you already own</h2>'
             f'<p>{_logo(p0["domain"], p0["name"])}<b>{_esc_html(p0["name"])}</b> answers this job. You connect it once, '
-            'olywork keeps the token server side, and the call is never metered.</p>'
+            'olywork.com keeps the token server side, and the call is never metered.</p>'
             f'<div class="sample"><div class="sbar">the call</div><pre>{_esc_html(_uc_call(e0))}</pre></div>'
             f'<p style="font-size:12.5px;color:var(--muted)">Every endpoint on this connection is listed on the '
             f'<a href="/catalog/{_esc_html(e0["platform"])}">{_esc_html((cat.platforms.get(e0["platform"]) or {}).get("label") or e0["platform"])} shelf</a>.</p>'
             + '</div></section>')
     else:
-        inner = [f'<p>olywork does not choose for you. It hands {_esc_html(agent_name)} this comparison, with the '
+        inner = [f'<p>olywork.com does not choose for you. It hands {_esc_html(agent_name)} this comparison, with the '
                  f'price shown before any call, and {_esc_html(agent_name)} picks. Or you <b>tell it how</b>: '
                  '"cheapest", "most reliable", "the one that takes what I have", or a provider by name.</p>']
         if headline:
@@ -1609,7 +1494,7 @@ async def use_case_job_page(request: Request, job: str,
             inner.append(f'<h3 id="reliable">{_esc_html(spec.get("q_reliable", "Which is the most reliable?"))}</h3>'
                          '<div class="tablewrap"><table><thead><tr><th>Provider</th><th>Success</th><th>Median</th>'
                          f'<th>Sample</th></tr></thead><tbody>{rel_rows}</tbody></table></div>'
-                         '<blockquote>Measured on olywork traffic: real calls, real inputs, and sample sizes differ '
+                         '<blockquote>Measured on olywork.com traffic: real calls, real inputs, and sample sizes differ '
                          'by provider. Live reliability, not a controlled benchmark.</blockquote>')
         inner.append(f'<h3 id="compare">{_esc_html(spec.get("q_compare", "How do they compare?"))}</h3>')
         if form == "platforms":
@@ -1634,16 +1519,16 @@ async def use_case_job_page(request: Request, job: str,
             '<h3>How these numbers are made</h3>'
             '<div class="who">'
             '<div><b>Prices</b>Each provider&rsquo;s own published rate, converted to US dollars for one chargeable '
-            'event of the unit they bill in. olywork adds $0.000. Where a provider bills in credits, the conversion '
+            'event of the unit they bill in. olywork.com adds $0.000. Where a provider bills in credits, the conversion '
             'uses the rate on their public pricing page'
             + (f', last checked {_esc_html(latest_verified)}.' if latest_verified else '.') + '</div>'
-            '<div><b>Success rate</b>olywork&rsquo;s own served calls over the last 30 days: 2xx counts as a success, '
+            '<div><b>Success rate</b>olywork.com&rsquo;s own served calls over the last 30 days: 2xx counts as a success, '
             '5xx and timeouts as a failure. A 4xx is excluded, because it usually means the caller sent bad '
             'parameters and one bad query should not make a healthy endpoint look broken.</div>'
             '<div><b>What this is not</b>A controlled benchmark. These are real calls with real inputs, so sample '
             'sizes and the difficulty of what was asked differ by provider. Treat the rates as live reliability, '
             'not a like-for-like test.</div>'
-            '<div><b>Verified</b>The date olywork last called the endpoint end to end and confirmed the shape of '
+            '<div><b>Verified</b>The date olywork.com last called the endpoint end to end and confirmed the shape of '
             'its response and the price it charged.</div>'
             '</div>')
         sections.append(f'<section id="bts"><div class="wrap"><div class="seclab">Behind the scenes</div>'
@@ -1667,8 +1552,18 @@ async def use_case_job_page(request: Request, job: str,
         return (f'<a class="card" href="{href}"><h4>{_esc_html(lbl)}</h4>'
                 f'<p>Another job in {_esc_html((owner or cat_label).lower())}.</p></a>')
 
+    def _extra_link_card(lbl: str, href: str, desc: str) -> str:
+        return (f'<a class="card" href="{_esc_html(href)}"><h4>{_esc_html(lbl)}</h4>'
+                f'<p>{_esc_html(desc)}</p></a>')
+
     related = "".join(_related_card(lbl) for lbl in spec.get("related", ()))
+    related += "".join(_extra_link_card(lbl, href, desc)
+                       for lbl, href, desc in spec.get("extra_links", ()))
     faq_html = "".join(f'<h3>{_esc_html(q)}</h3><p>{_esc_html(a)}</p>' for q, a in spec["faq"])
+    # Optional on a use-case page (a workflow page always has one): the same "Where it goes wrong"
+    # block, between the background and the FAQ.
+    failures = "".join(f'<h3>{_esc_html(h)}</h3><p>{_esc_html(p)}</p>'
+                       for h, p in spec.get("failure_modes", ()))
 
     # The "instead of" anchor: what the same job costs on subscriptions from the providers on this
     # page whose plan prices are recorded in marketing/landing/_facts.md, against a real run here.
@@ -1700,12 +1595,12 @@ async def use_case_job_page(request: Request, job: str,
             f'<div class="s">{run_n} &times; {_esc_html(money(headline["usd"]))} at {_esc_html(headline["name"])}, '
             'metered per call</div></div></div>'
             '<p style="font-size:12.5px;color:var(--muted)">Subscription figures are provider list prices recorded in '
-            'olywork&rsquo;s own catalog grid; per-call prices are what olywork charges today, with $0.000 added.</p>'
+            'olywork.com&rsquo;s own catalog grid; per-call prices are what olywork.com charges today, with $0.000 added.</p>'
             '</div></section>')
 
     body = (
         '<div class="hero"><div class="wrap">'
-        f'<div class="trust" style="margin:0 0 18px"><a href="/">olywork</a> / <a href="/use-cases">Use cases</a> / '
+        f'<div class="trust" style="margin:0 0 18px"><a href="/">olywork.com</a> / <a href="/use-cases">Use cases</a> / '
         f'<a href="/use-cases#{agent_pages.category_slug(cat_label)}">{_esc_html(cat_label)}</a></div>'
         f'<div class="kicker">{n} providers &middot; {hero_price} &middot; $0.000 markup</div>'
         f'<h1>{_esc_html(spec["sentence"])}</h1>'
@@ -1713,7 +1608,7 @@ async def use_case_job_page(request: Request, job: str,
         '<div class="ctas">'
         f'<a class="candy" href="/app?ref=uc-{_esc_html(job_slug)}">Start free</a>'
         '<a class="ghostbtn" href="#bts">See the comparison</a></div>'
-        '<div class="trust">$1.00 of free credit on every new team &middot; no provider signup &middot; no card</div>'
+        f'<div class="trust">$1.00 of free credit once per new verified account &middot; no provider signup &middot; no card</div>'
         f'<div class="subline">{n_ver} of {len(eps)} endpoints on this page are live-verified against the provider.</div>'
         f'{provstrip}</div></div>'
 
@@ -1731,8 +1626,8 @@ async def use_case_job_page(request: Request, job: str,
            'style="display:block;width:100%"/></div>' if spec.get("result_image") else "")
         + '</div></section>'
 
-        '<section id="why"><div class="wrap"><div class="seclab">Why olywork</div>'
-        '<h2>Why go through olywork</h2>'
+        '<section id="why"><div class="wrap"><div class="seclab">Why olywork.com</div>'
+        '<h2>Why go through olywork.com</h2>'
         f'<div class="cards">{olywork_cards}</div></div></section>'
 
         + "".join(sections) + voices_section
@@ -1743,6 +1638,9 @@ async def use_case_job_page(request: Request, job: str,
         + f'<section id="what"><div class="wrap"><div class="seclab">Background</div>'
           f'<h2>{_esc_html(spec.get("what_is_heading", "What is this?"))}</h2>'
           f'<p>{_esc_html(spec["what_is"])}</p></div></section>'
+
+        + (f'<section id="failures"><div class="wrap"><div class="seclab">The detail</div>'
+           f'<h2>Where it goes wrong</h2>{failures}</div></section>' if failures else "")
 
         + f'<section id="faq"><div class="wrap"><div class="seclab">Questions</div>'
           f'<h2>Before you start</h2>{faq_html}</div></section>'
@@ -1758,7 +1656,7 @@ async def use_case_job_page(request: Request, job: str,
         + _COPY_JS)
     ld = [
         {"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [
-            {"@type": "ListItem", "position": 1, "name": "olywork", "item": base + "/"},
+            {"@type": "ListItem", "position": 1, "name": "olywork.com", "item": base + "/"},
             {"@type": "ListItem", "position": 2, "name": "Use cases", "item": base + "/use-cases"},
             {"@type": "ListItem", "position": 3, "name": cat_label,
              "item": f"{base}/use-cases#{agent_pages.category_slug(cat_label)}"},
@@ -1798,49 +1696,28 @@ async def use_cases_hub():
         blurb = spec["lede"].format(n=nprov, agent=agent_name,
                                     cheapest=_usd_short(min(prices)) if prices else "free")
         by_cat.setdefault(label, []).append(
-            f'<a class="pcard" href="/use-cases/{j}">'
-            f'<div class="pcard-head">'
-            f'<div><div class="pcard-name">{_esc_html(spec["sentence"])}</div>'
-            f'<div class="pcard-cat">{_esc_html(label)}</div></div>'
-            f'</div>'
-            f'<div class="pcard-desc">{_esc_html(blurb[:140])}</div>'
-            f'<div class="pcard-meta">'
-            f'<span class="pcard-badge">{meta}</span>'
-            f'<span class="pcard-cta">View job →</span>'
-            f'</div></a>')
-    blocks = "".join(f'<div style="margin-bottom:52px;"><h2 style="font-family:var(--font-h);font-size:24px;font-weight:700;letter-spacing:-0.03em;margin:0 0 20px;" id="{_anchor(c)}">{_esc_html(c)}</h2>'
-                     f'<div class="cat-grid">{"".join(v)}</div></div>' for c, v in by_cat.items())
+            f'<a class="pcard" href="/use-cases/{j}"><h3>{_esc_html(spec["sentence"])}</h3>'
+            f'<p>{_esc_html(blurb[:140])}</p><div class="meta">{meta}</div></a>')
+    blocks = "".join(f'<section class="cat"><h2 id="{_anchor(c)}">{_esc_html(c)}</h2>'
+                     f'<div class="grid">{"".join(v)}</div></section>' for c, v in by_cat.items())
     body = (
-        '<div class="cat-hero-bar">'
-        '<div class="cat-hero-inner">'
-        '<div class="cat-eyebrow">Use cases</div>'
-        '<h1 class="cat-h1">What your agent can do.<br><span style="opacity:.4">One prompt. Real tools.</span></h1>'
-        '<p class="cat-lede">One page per job: the prompt that works, what the call costs, and every provider '
-        'that does it. All through one olywork key, at the provider&rsquo;s own rate with $0.000 markup.</p>'
-        '</div>'
-        '</div>'
-        '<div class="stats-strip">'
-        f'<div class="stat-item"><div class="stat-n">{len(agent_pages.USE_CASE_PAGES)}</div><div class="stat-l">Curated Jobs</div></div>'
-        f'<div class="stat-item"><div class="stat-n">{len(by_cat)}</div><div class="stat-l">Categories</div></div>'
-        '<div class="stat-item"><div class="stat-n">$0.00</div><div class="stat-l">Markup</div></div>'
-        '<div class="stat-item"><div class="stat-n">$1.00</div><div class="stat-l">Free Credit</div></div>'
-        '</div>'
-        f'<div class="cat-main-wrap">{blocks}'
-        '<div style="margin-top:60px;padding:32px;border:1px solid var(--line);border-radius:16px;background:var(--surface);">'
-        '<h3 style="margin:0 0 8px;font-family:var(--font-h);font-size:18px;">Looking for multi-step runs or specific agents?</h3>'
-        '<p style="margin:0;color:var(--muted);font-size:14px;line-height:1.6;">Browse multi-step sequences at <a href="/workflows" style="text-decoration:underline;color:var(--ink);font-weight:600;">/workflows</a>, '
-        'agent setup guides at <a href="/agents" style="text-decoration:underline;color:var(--ink);font-weight:600;">/agents</a>, '
-        'or the full 2,800+ API endpoint index at <a href="/catalog" style="text-decoration:underline;color:var(--ink);font-weight:600;">/catalog</a>.</p>'
-        '</div>'
-        '</div>'
-    )
+        '<main class="wrap"><div class="phead">'
+        '<div class="crumbs"><a href="/">olywork.com</a> / <a href="/use-cases">Use cases</a></div>'
+        '<h1>What you can have your agent do</h1>'
+        '<p class="lede">One page per job: the prompt that works, what the call costs, and every provider '
+        'that does it. All of it through one olywork.com key, at the provider&rsquo;s own rate with $0.000 markup.</p>'
+        '</div>' + blocks
+        + '<section class="cat"><h2>Everything else</h2><div class="cap"><p style="margin:0">These are the jobs '
+          'written up so far. The full menu is on the agent pages, and the whole catalog is at '
+          '<a href="/catalog">/catalog</a>. The multi-step versions are at <a href="/workflows">/workflows</a>.'
+          '</p></div></section></main>')
     ld = [{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [
-        {"@type": "ListItem", "position": 1, "name": "olywork", "item": base + "/"},
+        {"@type": "ListItem", "position": 1, "name": "olywork.com", "item": base + "/"},
         {"@type": "ListItem", "position": 2, "name": "Use cases", "item": base + "/use-cases"}]}]
-    return _page("What you can have your agent do | olywork",
+    return _page("What you can have your agent do | olywork.com",
                  "One page per job: the prompt that works in ChatGPT or Claude, what the call costs, and "
-                 "every provider that does it, compared. One olywork key, no markup.",
-                 "/use-cases", body, ld, css="catalog.css")
+                 "every provider that does it, compared. One olywork.com key, no markup.",
+                 "/use-cases", body, ld)
 
 
 # ------------------------------------------------------------------ /workflows/<slug>
@@ -1862,6 +1739,16 @@ async def _wf_steps(cat, observations: endpoint_stats.EndpointObservationReader,
     price per billing unit, how many providers do the step, and the observed stats when any."""
     out = []
     for name, cap, asks, ep_id, why in spec["steps"]:
+        if cap == "decision":
+            # A judgement on rows already fetched (jev), priced from DECISION_STEPS, not the catalog.
+            dec = agent_pages.DECISION_STEPS[ep_id]
+            out.append({
+                "name": name, "cap": cap, "asks": asks, "why": why, "ep": None, "ep_id": ep_id,
+                "provider": dec["provider"], "provider_name": dec["provider_name"],
+                "domain": dec["domain"], "usd": dec["usd"], "unit": dec["unit"], "providers": 1,
+                "ok_rate": None, "p50": None, "samples": 0, "link": dec["link"], "decision": True,
+            })
+            continue
         eps = [e for e in cat.for_capability(cap) if _pub(e)]
         used = next((e for e in eps if e["id"] == ep_id), None)
         cv = cat.cost_view(used.get("cost"), used.get("provider")) if used else None
@@ -1877,7 +1764,7 @@ async def _wf_steps(cat, observations: endpoint_stats.EndpointObservationReader,
             "ok_rate": st.get("ok_rate") if st.get("samples") else None,
             "p50": st.get("p50_ms") if st.get("samples") else None,
             "samples": st.get("samples") or 0,
-            "link": _wf_use_case_link(cap, agent_slug),
+            "link": _wf_use_case_link(cap, agent_slug), "decision": False,
         })
     return out
 
@@ -1952,7 +1839,7 @@ async def workflow_page(request: Request, slug: str,
 
     title = spec["title"].format(n=n_steps, steps=n_steps)
     lede = spec["lede"].format(n=n_steps, steps=n_steps)
-    desc = _serp_desc(f"{spec['sentence']}. {n_steps} steps through one olywork key, priced before "
+    desc = _serp_desc(f"{spec['sentence']}. {n_steps} steps through one olywork.com key, priced before "
                       f"each call, with a real run's receipt.")
 
     if as_md:
@@ -1965,7 +1852,8 @@ async def workflow_page(request: Request, slug: str,
                "| # | Step | What the agent asks | Provider used | Price | Success rate |", "|---|---|---|---|---|---|"]
         for i, s in enumerate(steps, 1):
             price = f"{money(s['usd'])} per {s['unit']}" if s["usd"] else "no dollar rate published"
-            rel = f"{pct(s['ok_rate'])} over {s['samples']} calls, {ms(s['p50'])} median" if s["samples"] else "not yet measured"
+            rel = (f"{pct(s['ok_rate'])} over {s['samples']} calls, {ms(s['p50'])} median" if s["samples"]
+                   else "a verdict on rows already fetched" if s["decision"] else "not yet measured")
             md.append(f"| {i} | {s['name']} | {s['asks']} | {s['provider_name']} (`{s['ep_id']}`, {s['providers']} providers, "
                       f"{base}{s['link']}) | {price} | {rel} |")
         md += [""] + [f"- {s['name']}: {s['why']}" for s in steps]
@@ -1974,7 +1862,7 @@ async def workflow_page(request: Request, slug: str,
         md += [f"- {k}: {v}" for k, v in run["receipt"]]
         md += [""] + list(run["narrative"])
         md += ["", f"Download the CSV of this run: {base}{run['csv']}", ""]
-        md += ["## Why go through olywork", ""] + [f"- **{t}** {d}" for t, d in agent_pages.WHY_OLYWORK]
+        md += ["## Why go through olywork.com", ""] + [f"- **{t}** {d}" for t, d in agent_pages.WHY_OLYWORK]
         md += ["", "## Where it goes wrong", ""]
         for h, p in spec["failure_modes"]:
             md += [f"**{h}** {p}", ""]
@@ -2019,6 +1907,8 @@ async def workflow_page(request: Request, slug: str,
         return '<span style="color:var(--muted2)">no dollar rate published</span>'
 
     def rel_cell(s: dict) -> str:
+        if s["decision"]:
+            return '<span style="color:var(--muted2)">a verdict on rows already fetched</span>'
         if not s["samples"]:
             return '<span style="color:var(--muted2)">not yet measured</span>'
         return (f'{pct(s["ok_rate"])} <span style="color:var(--muted2)">({s["samples"]} calls'
@@ -2034,12 +1924,11 @@ async def workflow_page(request: Request, slug: str,
         f'<td>{price_cell(s)}</td>'
         f'<td>{rel_cell(s)}</td>'
         '</tr>' for i, s in enumerate(steps, 1))
-    calls_summary = " + ".join(f"{s['calls']} &times; {_esc_html(money(s['usd']))}" for s in steps if s['usd'])
     steps_table = ('<div class="tablewrap"><table class="wftable"><thead><tr>'
                    '<th>#</th><th>Step</th><th>What the agent asks</th><th>Provider used</th><th>Price</th><th>Success rate</th>'
                    f'</tr></thead><tbody>{step_rows}</tbody></table></div>'
                    f'<div class="wftotal">At the rates above, {rows_in} rows where every call hits comes to <b>${worst:,.2f}</b>'
-                   f'<span style="color:var(--muted)"> ({calls_summary}). '
+                   f'<span style="color:var(--muted)"> ({" + ".join(f"{s["calls"]} &times; {_esc_html(money(s["usd"]))}" for s in steps if s["usd"])}). '
                    'The receipt below is what it actually cost.</span></div>')
 
     receipt = "".join(f'<dt>{_esc_html(k)}</dt><dd>{_esc_html(v)}</dd>' for k, v in run["receipt"])
@@ -2051,11 +1940,18 @@ async def workflow_page(request: Request, slug: str,
         href, owner = _related_link(lbl, agent_slug)
         return (f'<a class="card" href="{href}"><h4>{_esc_html(lbl)}</h4>'
                 f'<p>One step of this workflow, on its own{(", in " + _esc_html(owner.lower())) if owner else ""}.</p></a>')
+
+    def _extra_link_card(lbl: str, href: str, desc: str) -> str:
+        return (f'<a class="card" href="{_esc_html(href)}"><h4>{_esc_html(lbl)}</h4>'
+                f'<p>{_esc_html(desc)}</p></a>')
+
     related = "".join(_related_card(lbl) for lbl in spec.get("related", ()))
+    related += "".join(_extra_link_card(lbl, href, desc)
+                       for lbl, href, desc in spec.get("extra_links", ()))
 
     body = (
         '<div class="hero"><div class="wrap">'
-        f'<div class="trust" style="margin:0 0 18px"><a href="/">olywork</a> / <a href="/workflows">Workflows</a> / '
+        f'<div class="trust" style="margin:0 0 18px"><a href="/">olywork.com</a> / <a href="/workflows">Workflows</a> / '
         f'{_esc_html(spec["sentence"])}</div>'
         f'<div class="kicker">{n_steps} steps &middot; {n_prov} providers &middot; $0.000 markup</div>'
         f'<h1>{_esc_html(spec["sentence"])}</h1>'
@@ -2063,7 +1959,7 @@ async def workflow_page(request: Request, slug: str,
         '<div class="ctas">'
         f'<a class="candy" href="/app?ref=wf-{_esc_html(wf_slug)}">Start free</a>'
         '<a class="ghostbtn" href="#run">See the receipt</a></div>'
-        '<div class="trust">$1.00 of free credit on every new team &middot; no provider signup &middot; no card</div>'
+        '<div class="trust">$1.00 of free credit once per new verified account &middot; no provider signup &middot; no card</div>'
         f'{provstrip}</div></div>'
 
         '<section id="ask"><div class="wrap"><div class="seclab">Try it</div>'
@@ -2079,18 +1975,18 @@ async def workflow_page(request: Request, slug: str,
         + '<section id="steps"><div class="wrap"><div class="seclab">The steps</div>'
           f'<h2>What {_esc_html(agent_name)} calls, and what each call costs</h2>'
           '<p>Prices are the provider&rsquo;s own rate, read from the catalog when this page loads, with $0.000 '
-          'added by olywork. Success rates are olywork&rsquo;s own served calls over the last 30 days.</p>'
+          'added by olywork.com. Success rates are olywork.com&rsquo;s own served calls over the last 30 days.</p>'
           + steps_table + '</div></section>'
 
         + '<section id="run"><div class="wrap"><div class="seclab">The receipt</div>'
           '<h2>What it actually cost</h2>'
-          f'<p style="color:var(--muted)">Run on {_esc_html(run["date"])}, {rows_in} companies in.</p>'
+          f'<p style="color:var(--muted)">Run on {_esc_html(run["date"])}, {rows_in} {_esc_html(run.get("rows_noun", "companies"))} in.</p>'
           f'<dl class="receipt">{receipt}</dl>{narrative}'
           f'<p><a class="ghostbtn" href="{_esc_html(run["csv"])}">Download the CSV of this run</a></p>'
           '</div></section>'
 
-        + '<section id="why"><div class="wrap"><div class="seclab">Why olywork</div>'
-          '<h2>Why go through olywork</h2>'
+        + '<section id="why"><div class="wrap"><div class="seclab">Why olywork.com</div>'
+          '<h2>Why go through olywork.com</h2>'
           f'<div class="cards">{olywork_cards}</div></div></section>'
 
         + '<section id="failures"><div class="wrap"><div class="seclab">The detail</div>'
@@ -2104,7 +2000,7 @@ async def workflow_page(request: Request, slug: str,
         + _COPY_JS)
     ld = [
         {"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [
-            {"@type": "ListItem", "position": 1, "name": "olywork", "item": base + "/"},
+            {"@type": "ListItem", "position": 1, "name": "olywork.com", "item": base + "/"},
             {"@type": "ListItem", "position": 2, "name": "Workflows", "item": base + "/workflows"},
             {"@type": "ListItem", "position": 3, "name": spec["sentence"],
              "item": f"{base}/workflows/{wf_slug}"}]},
@@ -2138,53 +2034,28 @@ async def workflows_hub(observations: endpoint_stats.EndpointObservationReader =
         once = set(spec.get("once") or ())
         per_row = sum(((s["usd"] or 0) / rows_in) if s["ep_id"] in once else (s["usd"] or 0) for s in steps)
         n = len(steps)
-        meta = f"from {_esc_html(_usd_short(per_row))} / row" if per_row else "Free on your account"
+        meta = f"{n} steps &middot; from {_esc_html(_usd_short(per_row))} per row" if per_row else f"{n} steps"
         blurb = spec["lede"].format(n=n, steps=n)
-        cards.append(
-            f'<a class="pcard" href="/workflows/{slug}">'
-            f'<div class="pcard-head">'
-            f'<div><div class="pcard-name">{_esc_html(spec["sentence"])}</div>'
-            f'<div class="pcard-cat">{n} steps chained</div></div>'
-            f'</div>'
-            f'<div class="pcard-desc">{_esc_html(blurb[:140])}</div>'
-            f'<div class="pcard-meta">'
-            f'<span class="pcard-badge">{n} steps</span>'
-            f'<span class="pcard-badge">{meta}</span>'
-            f'<span class="pcard-cta">View workflow →</span>'
-            f'</div></a>')
+        cards.append(f'<a class="pcard" href="/workflows/{slug}"><h3>{_esc_html(spec["sentence"])}</h3>'
+                     f'<p>{_esc_html(blurb[:140])}</p><div class="meta">{meta}</div></a>')
     body = (
-        '<div class="cat-hero-bar">'
-        '<div class="cat-hero-inner">'
-        '<div class="cat-eyebrow">Workflows</div>'
-        '<h1 class="cat-h1">Multi-step agent workflows.<br><span style="opacity:.4">One prompt. Live receipts.</span></h1>'
-        '<p class="cat-lede">A use-case page answers one job. A workflow is the sequence a person actually runs: '
-        'one prompt, a price per step read live from the catalog, and the real receipt and CSV of a real run. '
-        'All of it through one olywork key, at the provider&rsquo;s own rate with $0.000 markup.</p>'
-        '</div>'
-        '</div>'
-        '<div class="stats-strip">'
-        f'<div class="stat-item"><div class="stat-n">{len(agent_pages.WORKFLOWS)}</div><div class="stat-l">Workflows</div></div>'
-        '<div class="stat-item"><div class="stat-n">Live</div><div class="stat-l">Real Receipts</div></div>'
-        '<div class="stat-item"><div class="stat-n">CSV</div><div class="stat-l">Exportable Data</div></div>'
-        '<div class="stat-item"><div class="stat-n">$0.00</div><div class="stat-l">Markup</div></div>'
-        '</div>'
-        '<div class="cat-main-wrap">'
-        f'<div class="cat-grid">{"".join(cards)}</div>'
-        '<div style="margin-top:60px;padding:32px;border:1px solid var(--line);border-radius:16px;background:var(--surface);">'
-        '<h3 style="margin:0 0 8px;font-family:var(--font-h);font-size:18px;">Looking for single-job prompts or full catalog?</h3>'
-        '<p style="margin:0;color:var(--muted);font-size:14px;line-height:1.6;">Browse single-job comparisons at <a href="/use-cases" style="text-decoration:underline;color:var(--ink);font-weight:600;">/use-cases</a>, '
-        'client setup guides at <a href="/agents" style="text-decoration:underline;color:var(--ink);font-weight:600;">/agents</a>, '
-        'or the full tool index at <a href="/catalog" style="text-decoration:underline;color:var(--ink);font-weight:600;">/catalog</a>.</p>'
-        '</div>'
-        '</div>'
-    )
+        '<main class="wrap"><div class="phead">'
+        '<div class="crumbs"><a href="/">olywork.com</a> / <a href="/workflows">Workflows</a></div>'
+        '<h1>Workflows your agent can run from one prompt</h1>'
+        '<p class="lede">A use-case page answers one job. A workflow is the sequence a person actually runs: '
+        'one prompt, a price per step read live from the catalog, and the receipt and CSV of a real run. '
+        'All of it through one olywork.com key, at the provider&rsquo;s own rate with $0.000 markup.</p>'
+        f'</div><section class="cat"><div class="grid">{"".join(cards)}</div></section>'
+        '<section class="cat"><h2>Everything else</h2><div class="cap"><p style="margin:0">The single-job '
+        'versions are at <a href="/use-cases">/use-cases</a>, and the whole catalog is at '
+        '<a href="/catalog">/catalog</a>.</p></div></section></main>')
     ld = [{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [
-        {"@type": "ListItem", "position": 1, "name": "olywork", "item": base + "/"},
+        {"@type": "ListItem", "position": 1, "name": "olywork.com", "item": base + "/"},
         {"@type": "ListItem", "position": 2, "name": "Workflows", "item": base + "/workflows"}]}]
-    return _page("Workflows your agent can run from one prompt | olywork",
+    return _page("Workflows your agent can run from one prompt | olywork.com",
                  "Multi-step jobs as one prompt: a price per step read live from the catalog, and the "
-                 "receipt and CSV of a real run. One olywork key, no markup.",
-                 "/workflows", body, ld, css="catalog.css")
+                 "receipt and CSV of a real run. One olywork.com key, no markup.",
+                 "/workflows", body, ld)
 
 
 @app.get("/catalog.css", include_in_schema=False)
@@ -2193,15 +2064,6 @@ async def catalog_css():
     f = _WEB_DIR / "catalog.css"
     if not f.exists():
         raise HTTPException(status_code=404, detail="catalog.css not bundled")
-    return FileResponse(f, media_type="text/css", headers={"Cache-Control": "public, max-age=600"})
-
-
-@app.get("/olywork.css", include_in_schema=False)
-async def olywork_css():
-    """Global design system — tokens, nav, footer, animations shared by all pages."""
-    f = _WEB_DIR / "olywork.css"
-    if not f.exists():
-        raise HTTPException(status_code=404, detail="olywork.css not bundled")
     return FileResponse(f, media_type="text/css", headers={"Cache-Control": "public, max-age=600"})
 
 
@@ -2237,6 +2099,14 @@ _AGENTS = [("ChatGPT", "openai.png"), ("Claude", "claude-color.png"),
 
 
 _AGENT_CDN = "https://unpkg.com/@lobehub/icons-static-png@latest/light/"
+
+# Own-account providers where GSC shows strong "{provider} mcp" or "{provider} connector" impressions
+# with near-zero clicks. Their titles/H1s lead with MCP intent instead of the generic "connect your
+# own account" pattern.
+_MCP_INTENT_PROVIDERS = {
+    "google-search-console", "google-analytics", "semrush",  # SEO and analytics
+    "snapchat-ads", "pinterest-ads", "meta-ads", "tiktok-ads", "facebook",  # ads and social
+}
 
 
 def _agent_ptiles() -> str:
@@ -2296,11 +2166,13 @@ async def tools_provider(service: str, db: AsyncSession = Depends(get_session),
     all_eps = cat.for_provider(service)
     if not all_eps:
         raise HTTPException(status_code=404, detail=f"unknown provider {service!r}")
+    # Full provider inventory includes helpers and account management; the browse census
+    # deliberately excludes them. Access labels below distinguish platform offers from BYOK.
     # Fresh name on purpose: from here on the page prints the CATALOG's spelling of the provider,
     # never the request's. (Same idiom as the use-case pages; it is also what reads as a taint
     # kill to CodeQL, which cannot see _esc_html as a sanitizer.)
     svc = all_eps[0]["provider"]
-    eps = [e for e in all_eps if _pub(e)] or [e for e in all_eps if e.get("kind") != "routed"]
+    eps = [e for e in all_eps if e.get("kind") != "routed" and not e.get("status")]
     if not eps:
         # The first-party "olywork" pseudo-provider is nothing but routed meta-rows. Without this a
         # self-referential /tools/olywork page rendered (and reached the sitemap) — the fallback above
@@ -2314,11 +2186,14 @@ async def tools_provider(service: str, db: AsyncSession = Depends(get_session),
     blurb = (getattr(reg, "summary", "") or "") if reg else ""
     base_api = (getattr(reg, "base_url", "") or "") if reg else ""
     docs_url = (getattr(reg, "docs_url", "") or "") if reg else ""
-    prices = [c for e in eps if (c := cat.cost_view(e.get("cost"), e.get("provider"))) and c["usd"]]
-    # Own-account vs metered is read off the INVENTORY, not the credential registry: nearly every
-    # provider is in oauth_providers (that is how a team registers its own key), but only a
-    # provider with no priced endpoint at all is genuinely connect-your-own-account.
-    is_oauth = not prices
+    platform_eps = [e for e in eps if cat.platform_eligible(e)]
+    byok_only = len(eps) - len(platform_eps)
+    key_auth = bool(reg and reg.auth_kind == "key")
+    oauth_metered = bool(reg and reg.platform_billed and svc in get_settings().oauth_billed_set)
+    mixed = bool(platform_eps and byok_only and key_auth)
+    prices = [c for e in platform_eps if (c := cat.cost_view(e.get("cost"), e.get("provider"))) and c["usd"]]
+    # Published prices do not remove the OAuth account-connection requirement.
+    is_oauth = bool(reg and reg.auth_kind == "oauth") or not platform_eps
     cheapest = _price_label(min(prices, key=lambda c: c["usd"])) if prices else ""
     verified = len([e for e in eps if e["verified"]])
     plat_label = {sl: pl["label"] for sl, pl in cat.platforms.items()}
@@ -2341,9 +2216,9 @@ async def tools_provider(service: str, db: AsyncSession = Depends(get_session),
         task_lines.append(d[0].lower() + d[1:])
         if len(task_lines) == 3:
             break
-    sample_eps = sorted([e for e in eps if e["verified"]], key=lambda e: len(e["id"])) or eps
+    sample_eps = sorted([e for e in (platform_eps or eps) if e["verified"]], key=lambda e: len(e["id"])) or platform_eps or eps
     sample_id = sample_eps[0]["id"]
-    badge = "YOUR ACCOUNT" if is_oauth else "NO SIGNUP"
+    badge = "PLATFORM + BYOK" if mixed else ("YOUR ACCOUNT" if is_oauth else "NO SIGNUP")
     # The measured line: what olywork.com has actually observed calling this provider. It is the one
     # thing a vendor's own pricing page cannot print, and it goes above the fold for that reason.
     obs = await _observed_or_empty(observations, [e["id"] for e in eps])
@@ -2378,17 +2253,34 @@ async def tools_provider(service: str, db: AsyncSession = Depends(get_session),
               else f"{len(eps)} tools · from {_esc_html(cheapest)} · $0.000 markup")
     if measured:
         kicker += f" · {_esc_html(measured)}"
-    lede = (f"{_esc_html(blurb)} Connect your own {esc_d} account once and your agent uses it "
-            "from then on, through one olywork token. Calls on your own connection are never metered."
+    mcp_intent = svc in _MCP_INTENT_PROVIDERS
+    lede = (f"{_esc_html(blurb)} One MCP server for the whole catalog. Connect your own {esc_d} "
+            "account once and your agent uses it from then on. Calls on your own connection are never metered."
+            if is_oauth and mcp_intent else
+            f"{_esc_html(blurb)} Connect your own {esc_d} account once and your agent uses it "
+            "from then on, through one olywork.com token. Calls on your own connection are never metered."
             if is_oauth else
-            f"{_esc_html(blurb)} {len(eps)} tools for your agent through one olywork key, priced "
+            f"{_esc_html(blurb)} {len(eps)} tools for your agent through one olywork.com key, priced "
             f"at the provider's own rate{' from ' + _esc_html(cheapest) if cheapest else ''}, with no {esc_d} signup.")
-    h1_text = (f"{esc_d}: connect your own account" if is_oauth
+    h1_text = (f"{esc_d} MCP: connect your own account" if is_oauth and mcp_intent
+               else f"{esc_d}: connect your own account" if is_oauth
                else (f"{esc_d}: {len(eps)} tools from {_esc_html(cheapest)}" if cheapest
                      else f"{esc_d}: {len(eps)} tools"))
+    if mixed:
+        kicker = f"{len(eps)} tools · {len(platform_eps)} platform + BYOK · {byok_only} BYOK only"
+        h1_text = f"{esc_d}: {len(eps)} tools, platform or your own key"
+        lede = (f"{_esc_html(blurb)} {len(platform_eps)} tools support olywork's platform key. "
+                f"All {len(eps)} support your own {esc_d} key; {byok_only} require it. "
+                "Your own key always wins and olywork does not meter those calls.")
+    if oauth_metered:
+        kicker = f"{len(eps)} tools · OAuth connection · metered"
+        # The H1 above still says "MCP" for an MCP-intent provider, so the lede must too.
+        lede = (f"{_esc_html(blurb)} {'One MCP server for the whole catalog. ' if mcp_intent else ''}"
+                f"Connect your own {esc_d} account. "
+                "Calls through olywork's OAuth app are metered under this server's billing policy.")
     hero = (
         '<div class="hero"><div class="wrap">'
-        '<div class="trust" style="margin:0 0 18px"><a href="/">olywork</a> / '
+        '<div class="trust" style="margin:0 0 18px"><a href="/">olywork.com</a> / '
         '<a href="/catalog">Catalog</a> / ' + esc_d + "</div>"
         f'<div class="kicker">{kicker}</div>'
         f"<h1>{h1_text}</h1>"
@@ -2397,7 +2289,7 @@ async def tools_provider(service: str, db: AsyncSession = Depends(get_session),
         f'<a class="ghostbtn" href="#tools">See all {len(eps)} tools</a>'
         + (f'<a class="ghostbtn" href="{_esc_html(docs_url)}" target="_blank" rel="noopener">API docs ↗</a>'
            if docs_url else "") + "</div>"
-        '<div class="trust">$1.00 of free credit on every new team · no provider signup · no card</div>'
+        '<div class="trust">$1.00 of free credit once per new verified account · no card · platform tools need no provider signup</div>'
         + (f'<div class="subline">{verified} of {len(eps)} tools on this page are live-verified '
            "against the provider.</div>" if verified else "")
         + f'<div class="provstrip"><div class="pl">works in</div><div class="ptiles">{_agent_ptiles()}</div></div>'
@@ -2412,7 +2304,7 @@ async def tools_provider(service: str, db: AsyncSession = Depends(get_session),
         + "".join(f'<div class="t"><span>{_esc_html(t)}</span><i>✓</i></div>' for t in task_lines)
         + "</div>"
         '<div class="ar">→</div>'
-        '<div class="fp dk"><div class="b"><span>▚</span> olywork</div>'
+        '<div class="fp dk"><div class="b"><img src="/media/brand/olywork_Official.svg" alt="olywork" style="height:20px;width:auto;display:inline-block;vertical-align:middle;margin-right:6px;"/></div>'
         + "".join(
             f'<div class="c">$ olywork call <em>{_esc_html(e["id"])}</em></div>'
             f'<div class="cr"><i>✓ 200</i>'
@@ -2426,9 +2318,9 @@ async def tools_provider(service: str, db: AsyncSession = Depends(get_session),
         f'<img src="/logos/{_esc_html(svc)}.svg" alt="" aria-hidden="true" '
         'onerror="this.style.display=\'none\'"/>'
         f'<b>{esc_d}</b><span class="bdg">{badge}</span></div>'
-        f'<div class="sm">{_esc_html(blurb) or esc_d + " through one olywork token."}</div>'
+        f'<div class="sm">{_esc_html(blurb) or esc_d + " through one olywork.com token."}</div>'
         f'<div class="ct">⚒ {len(eps)} TOOLS'
-        + ("" if is_oauth else " · metered per call") + "</div></div>"
+        + (" · platform + BYOK" if mixed else ("" if is_oauth else " · metered per call")) + "</div></div>"
         "</div>"
         + (f'<p style="font-size:12.5px;color:var(--muted);margin-top:12px">{_esc_html(category)}'
            f"{' · ' if category and base_api else ''}<code>{_esc_html(base_api)}</code></p>"
@@ -2457,7 +2349,7 @@ async def tools_provider(service: str, db: AsyncSession = Depends(get_session),
         f"<code>{_esc_html(base)}/mcp</code> (HTTP transport).</p></div>"
         f'<div class="card"><h4>CLI</h4><p><code>curl -fsSL {_esc_html(base)}/install.sh | sh</code></p></div>'
         '<div class="card"><h4>Plain HTTP</h4><p>LangChain, CrewAI or any code: '
-        "<code>/call/&lt;tool-id&gt;</code> with a Bearer token. No SDK.</p></div>"
+        "<code>/call/&lt;tool-id&gt;</code> + <code>X-Olywork-Token: &lt;token&gt;</code>. No SDK.</p></div>"
         "</div></div></section>")
 
     prompt = (f"Using olywork, {task_lines[0]}. Show me the price first." if task_lines
@@ -2471,47 +2363,66 @@ async def tools_provider(service: str, db: AsyncSession = Depends(get_session),
         '<h3>Run one directly</h3>'
         '<div class="sample"><div class="sbar">'
         + ("a live-verified call" if sample_eps[0]["verified"] else "a call") + "</div>"
-        "<pre>curl -H \"Authorization: Bearer $OLYWORK_TOKEN\" \\\n"
-        f"  \"{_esc_html(base)}/call/{_esc_html(sample_id)}\"</pre></div>"
+        f"<pre>{_esc_html(catalog_store.call_template(sample_eps[0]).replace('https://olywork.com', base))}</pre></div>"
         "</div></section>")
 
     alt_names = sorted({e["provider"] for e in cat.endpoints
                         if _pub(e) and e["capability"] in cap_counts and e["provider"] != svc})
     why = (
-        '<section id="why"><div class="wrap"><div class="seclab">Why olywork</div>'
-        f"<h2>Why call {esc_d} through olywork</h2>"
+        '<section id="why"><div class="wrap"><div class="seclab">Why olywork.com</div>'
+        f"<h2>Why call {esc_d} through olywork.com</h2>"
         '<div class="cards">'
-        + ("<div class=\"card\"><h4>Your account, held safely</h4><p>Connect once; olywork keeps the "
+        + ("<div class=\"card\"><h4>Your account, held safely</h4><p>Connect once; olywork.com keeps the "
            "credential server-side and injects it per call. No key on any machine.</p></div>"
            if is_oauth else
-           f"<div class=\"card\"><h4>No {esc_d} signup</h4><p>Eligible tools run on olywork's key, "
+           f"<div class=\"card\"><h4>No {esc_d} signup</h4><p>Eligible tools run on olywork.com's key, "
            "metered per call from a prepaid balance.</p></div>")
         + '<div class="card"><h4>Price before the call</h4><p>The provider&#x27;s own rate, $0.000 '
         'markup. <a href="/pricing">How billing works</a>.</p></div>'
-        '<div class="card"><h4>No subscription, no seats</h4><p>Charged per call. $1.00 free per '
-        "new team, no card to start.</p></div>"
-        f'<div class="card"><h4>Your own {esc_d} key is free</h4><p>Register it and those calls are '
-        "never metered. Your key always wins.</p></div>"
-        '<div class="card"><h4>Switch by changing a word</h4><p>Another provider is a different '
+        + ('<div class="card"><h4>Account billing</h4><p>'
+           + ("Calls through olywork's OAuth app are metered under this server's billing policy."
+              if oauth_metered else "Calls through your own connection are not metered by olywork.")
+           + '</p></div>' if is_oauth else
+           '<div class="card"><h4>No subscription, no seats</h4><p>Platform calls are charged per call. '
+           '$1.00 free per new team, no card to start.</p></div>')
+        + (f'<div class="card"><h4>Your own {esc_d} key is free</h4><p>Register it and those calls are '
+           "never metered. Your key always wins.</p></div>" if key_auth else
+           '<div class="card"><h4>Your account connection</h4><p>'
+           + ("Calls through olywork's OAuth app are metered under this server's billing policy."
+              if oauth_metered else "Connect your account with the provider's supported authentication method.")
+           + '</p></div>')
+        + '<div class="card"><h4>Switch by changing a word</h4><p>Another provider is a different '
         "word in the prompt, not a new integration.</p></div>"
         '<div class="card"><h4>One key, the whole catalog</h4><p>The same token calls '
         + (_esc_html(", ".join(_provider_display(a) for a in alt_names[:3])) if alt_names
            else "every provider in the catalog")
-        + f" and {_catalog_census()[0] - len(eps):,} other tools.</p></div>"
+        + f" and {_catalog_census()[0] - sum(_pub(e) for e in eps):,} other tools.</p></div>"
         "</div></div></section>")
 
     tool_blocks = []
-    max_shown = 8
+    max_shown = len(eps) if len(eps) <= 50 else 8
     for i, (slug, items) in enumerate(sorted(groups.items(), key=lambda kv: (-len(kv[1]), kv[0]))):
         lis = []
         shown = sorted(items, key=lambda e: (not e.get("verified"), e["id"]))[:max_shown]
         for e in shown:
             price = _price_label(cat.cost_view(e.get("cost"), e.get("provider")))
-            bits = [b for b in ("live-verified" if e.get("verified") else "", _esc_html(price)) if b]
+            eligible = cat.platform_eligible(e)
+            if reg and reg.auth_kind == "oauth":
+                access = "OAuth connection · metered" if oauth_metered else "OAuth connection"
+            elif key_auth:
+                access = "Platform + BYOK" if eligible else "BYOK only"
+                if not eligible:
+                    price = "No olywork charge; upstream " + price
+            else:
+                access = "Platform access" if eligible else "Own connection required"
+            kind = "account management" if e.get("kind") == "account" else ("helper" if e.get("kind") == "utility" else "")
+            bits = [b for b in (access, kind, "live-verified" if e.get("verified") else "", _esc_html(price)) if b]
             lis.append(f"<li><b>{_esc_html(e['name'])}</b>"
                        + (f" · <small>{' · '.join(bits)}</small>" if bits else "")
                        + f"<br/><small>{_esc_html(e.get('summary') or '')} "
-                         f"<code>{_esc_html(e['id'])}</code></small></li>")
+                         f"<code>{_esc_html(e['id'])}</code></small>"
+                       + (f"<br/><small>{_esc_html(e['cost']['note'])}</small>"
+                          if (e.get("cost") or {}).get("note") else "") + "</li>")
         if len(items) > max_shown:
             lis.append(f'<li class="more"><a href="/catalog/{_esc_html(slug)}">See all {len(items)} '
                        f'{_esc_html(plat_label.get(slug, slug))} tools on the catalog →</a></li>')
@@ -2523,7 +2434,7 @@ async def tools_provider(service: str, db: AsyncSession = Depends(get_session),
         '<section id="tools"><div class="wrap"><div class="seclab">The shelf</div>'
         f"<h2>All {len(eps)} {esc_d} tools</h2>{''.join(tool_blocks)}"
         '<p style="font-size:12.5px;color:var(--muted)">Reliability badges come from live traffic '
-        "through olywork, not a controlled benchmark.</p></div></section>")
+        "through olywork.com. Live-verified means a successful provider check; it does not verify every request variant.</p></div></section>")
 
     alt_sec = ""
     if alt_names:
@@ -2536,7 +2447,7 @@ async def tools_provider(service: str, db: AsyncSession = Depends(get_session),
             '<section id="alts"><div class="wrap"><div class="seclab">Related</div>'
             "<h2>Same jobs, other providers</h2>"
             f"<p>These providers answer some of the same capabilities as {esc_d}. The platform "
-            "pages show them on one row with rate and coverage; choosing is yours, olywork does "
+            "pages show them on one row with rate and coverage; choosing is yours, olywork.com does "
             "not route between providers automatically.</p>"
             f'<div class="provstrip"><div class="pl">also on the catalog</div>'
             f'<div class="ptiles">{tiles}</div></div></div></section>')
@@ -2545,20 +2456,28 @@ async def tools_provider(service: str, db: AsyncSession = Depends(get_session),
         faq_items = [
             (f"Do I need a {display} account?",
              f"Yes. This is an own-account connection: you sign in to {display} once and your "
-             "agent uses that connection through your olywork token. Calls on it are never metered."),
+             "agent uses that connection through your olywork.com token. Calls on it are never metered."),
         ]
     else:
         faq_items = [
             (f"Do I need a {display} account?",
-             f"No. Eligible tools run on olywork's key and the call is metered from your team's "
+             f"No. Eligible tools run on olywork.com's key and the call is metered from your team's "
              f"prepaid balance, priced up front. If your team registers its own {display} key, "
              "that key always wins and those calls are never metered."),
             ("What does a call cost?",
              f"Each tool on this page shows its rate{'; the cheapest is ' + cheapest if cheapest else ''}. "
-             "The rate is the provider's own and olywork adds no markup; it is billed per call "
+             "The rate is the provider's own and olywork.com adds no markup; it is billed per call "
              f"from a prepaid balance. It is not {display}'s subscription pricing, which is on "
              "their own site. New teams start with $1.00 of free credit."),
         ]
+    if oauth_metered:
+        faq_items[0] = (f"Do I need a {display} account?",
+                        f"Yes. Connect your {display} account through OAuth. Calls through olywork's "
+                        "OAuth app are metered under this server's billing policy.")
+    if mixed:
+        faq_items[0] = (f"Do I need a {display} account?",
+                        f"For {len(platform_eps)} platform tools, no. The other {byok_only} require your own "
+                        f"{display} key. All {len(eps)} accept your own key, and olywork never meters BYOK calls.")
     faq_items += [
         (f"How do I add {display} to Claude Code?",
          f"Run: claude mcp add --transport http olywork {base}/mcp. One MCP server carries "
@@ -2567,7 +2486,7 @@ async def tools_provider(service: str, db: AsyncSession = Depends(get_session),
          "Anything that speaks MCP (Claude Code, Claude Desktop, ChatGPT, Codex, Cursor, Grok) "
          "and anything that can make an HTTP request (LangChain, CrewAI, LlamaIndex, plain code)."),
         (f"Is this the official {display} MCP server?",
-         f"No. olywork serves {display}'s real API through its own metered proxy: the request "
+         f"No. olywork.com serves {display}'s real API through its own metered proxy: the request "
          f"is the provider's own, the credential is injected server-side, and the answer is "
          f"relayed verbatim. The official {display} channels are linked above."),
     ]
@@ -2596,34 +2515,52 @@ async def tools_provider(service: str, db: AsyncSession = Depends(get_session),
     body = _TOOLS_CSS + hero + flow + setup + tryit + why + tools_sec + used_sec + alt_sec + faq + copy_js
 
     if is_oauth:
-        title = f"{display}: connect your own account | olywork"
-        desc = (f"Use {display} from Claude Code, ChatGPT or any MCP agent: {len(eps)} tools "
-                "through one olywork token. Calls on your own connection are never metered.")
+        if mcp_intent:
+            title = f"{display} MCP: connect your own account | olywork.com"
+            desc = (f"{display} MCP server: connect your own account and call {len(eps)} tools "
+                    "through olywork.com, one MCP for the whole catalog. Never metered on your connection.")
+        else:
+            title = f"{display}: connect your own account | olywork.com"
+            desc = (f"Use {display} from Claude Code, ChatGPT or any MCP agent: {len(eps)} tools "
+                    "through one olywork.com token. Calls on your own connection are never metered.")
     else:
-        # The title leads with the pricing intent: Search Console shows "{provider} api pricing" is
-        # what reaches these pages ("linkedin api pricing", "1688 api pricing" — the site's one
-        # non-brand click), and the number is the part no vendor page prints.
-        # `cheapest` already names its unit ("$0.00245/result"), so the title does not say "per
-        # call" beside it — a per-result price is not a per-call one.
+        # Title matches H1: `{Provider}: {n} tools from {price}`.
         # `cheapest` carries its own billing unit ("$0.00245/result", "$0.0089/call"), so the copy
         # never says "per call" next to it: a per-result or per-success rate is not a per-call one.
-        title = (f"{display} API pricing: from {cheapest}, no signup | olywork" if cheapest
-                 else f"{display} API pricing, no signup | olywork")
+        title = (f"{display}: {len(eps)} tools from {cheapest} | olywork.com" if cheapest
+                 else f"{display}: {len(eps)} tools | olywork.com")
         if len(title) > _TITLE_MAX:
-            title = (f"{display} API pricing: from {cheapest} | olywork" if cheapest
-                     else f"{display} API pricing | olywork")
+            # Both branches must be shorter than the primary; the H1 still starts with `display`.
+            title = (f"{display}: from {cheapest} | olywork.com" if cheapest
+                     else f"{display} | olywork.com")
         desc = (f"{display} API pricing at the provider's own rate, with no {display} signup: {len(eps)} tools "
-                f"{'from ' + cheapest + ' ' if cheapest else ''}through one olywork key or MCP server"
+                f"{'from ' + cheapest + ' ' if cheapest else ''}through one olywork.com key or MCP server"
                 f"{', ' + measured if measured else ''}. Use it from Claude Code, ChatGPT or any agent.")
 
+    if mixed:
+        # Title matches H1: `{Provider}: {n} tools, platform or your own key`.
+        title = f"{display}: {len(eps)} tools, platform or your own key | olywork.com"
+        if len(title) > _TITLE_MAX:
+            title = f"{display}: {len(eps)} tools, platform + BYOK | olywork.com"
+        if len(title) > _TITLE_MAX:
+            title = f"{display}: platform + BYOK | olywork.com"
+        desc = (f"{display} on olywork: {len(platform_eps)} tools with platform or your own key, "
+                f"{byok_only} BYOK only. Compare access, billing units and live verification for every tool.")
+    if oauth_metered:
+        # Same shape as the H1/title: an MCP-intent provider keeps "MCP" in its description.
+        desc = (f"{display} MCP server: connect your own account and call {len(eps)} tools through "
+                "olywork.com. Calls through olywork's OAuth app are metered under this server's billing policy."
+                if mcp_intent else
+                f"Use {display} through your OAuth connection. Calls through olywork's OAuth app "
+                "are metered under this server's billing policy.")
     ld = [
         {"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [
-            {"@type": "ListItem", "position": 1, "name": "olywork", "item": base + "/"},
+            {"@type": "ListItem", "position": 1, "name": "olywork.com", "item": base + "/"},
             {"@type": "ListItem", "position": 2, "name": "Catalog", "item": base + "/catalog"},
             {"@type": "ListItem", "position": 3, "name": display,
              "item": f"{base}/tools/{svc}"}]},
         {"@context": "https://schema.org", "@type": "ItemList",
-         "name": f"{display} tools on olywork", "numberOfItems": len(groups),
+         "name": f"{display} tools on olywork.com", "numberOfItems": len(groups),
          "itemListElement": [
              {"@type": "ListItem", "position": i, "name": plat_label.get(sl, sl),
               "url": f"{base}/catalog/{sl}"}
@@ -2633,7 +2570,7 @@ async def tools_provider(service: str, db: AsyncSession = Depends(get_session),
              "acceptedAnswer": {"@type": "Answer", "text": a}}
             for q, a in faq_items]},
         {"@context": "https://schema.org", "@type": "HowTo",
-         "name": f"Set up {display} for an AI agent via olywork",
+         "name": f"Set up {display} for an AI agent via olywork.com",
          # The steps mirror the VISIBLE setup section in order — schema that describes a
          # different flow than the page shows is the mismatch Google treats as a violation.
          "step": [
@@ -2657,13 +2594,20 @@ _PV_CSS = """<style>
 .pv-why{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin:14px 0}
 .pv-why div{background:#fff;border:1px solid var(--line,#e6e6df);border-radius:12px;padding:14px 16px;font-size:13.5px;color:#4a4a46}
 .pv-why b{display:block;margin-bottom:5px;color:#191917;font-size:14px}
+.pv-receipts{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin:18px 0}
+.pv-receipt{background:#fff;border:1px solid var(--line,#e6e6df);border-radius:12px;padding:16px 18px}
+.pv-receipt h4{margin:0 0 8px;font-size:14px;color:#191917}
+.pv-receipt .date{font-size:12px;color:var(--muted,#6b6b66);margin-bottom:10px}
+.pv-receipt ul{margin:0;padding:0 0 0 16px;font-size:13px;color:#4a4a46;line-height:1.6}
+.pv-receipt .total{margin-top:10px;font-weight:600;color:#191917;font-size:13.5px}
+.pv-receipt a{color:inherit;text-decoration:underline;text-underline-offset:2px}
 </style>"""
 
 
 @app.get("/pricing", include_in_schema=False)
 async def pricing_page():
-    """The one canonical answer to "what does olywork charge" - the page every rate table links,
-    so a provider's per-call rate can never be mistaken for olywork's fees (or for the provider's
+    """The one canonical answer to "what does olywork.com charge" - the page every rate table links,
+    so a provider's per-call rate can never be mistaken for olywork.com's fees (or for the provider's
     own subscription pricing). Everything here restates commitments that are already public:
     no markup is terms §08, and every number renders from the catalog."""
     base = get_settings().public_url.rstrip("/")
@@ -2677,14 +2621,22 @@ async def pricing_page():
         ("Is there a subscription?",
          "No. You top up a prepaid balance and each catalog call is metered against it, priced "
          "before you call. No seats, no monthly minimum. New teams start with $1.00 of free credit."),
-        ("Does olywork add a markup?",
+        ("Does olywork.com add a markup?",
          "No. A metered call is billed at the provider's own rate; adding no markup is a public "
-         "commitment in the terms. olywork is not the provider's pricing page either: providers "
+         "commitment in the terms. olywork.com is not the provider's pricing page either: providers "
          "sell their own subscriptions on their own sites, and those are linked, not restated."),
         ("What is never metered?",
          "Anything that is yours: calls on your team's own provider keys (your key always wins), "
          "your team's own registered tools and skills, and your own connected accounts (Google "
          "Analytics, Search Console, Google Ads, Business Profile and the rest)."),
+        ("What is the difference between call cost and usable-result cost?",
+         "A raw API call is one charge at the provider's rate. A usable result (like a verified "
+         "deliverable lead) often takes multiple calls and filters out misses, so the per-result "
+         "cost is higher. The receipts above show both: the total metered and the per-usable-row cost."),
+        ("Are own-key calls billed?",
+         "No. Register your team's provider key and olywork.com uses it instead of the shared key. "
+         "Those calls are never metered. The receipts still show the shared-key rate for comparison, "
+         "as in the Meta Ad Library example where the team's own Apify key made the Meta calls free."),
         ("What happens when the balance runs out?",
          "Metered calls stop with a clear error until you top up. Calls on your own keys and your "
          "own tools are unaffected."),
@@ -2708,19 +2660,62 @@ async def pricing_page():
             '<section class="cat"><div class="prose">'
             "<h2>How a call is billed</h2>"
             '<div class="pv-why">'
-            "<div><b>Catalog calls, metered</b>Eligible tools run on olywork's key and the call is "
+            "<div><b>Catalog calls, metered</b>Eligible tools run on olywork.com's key and the call is "
             "metered from your prepaid balance at the provider's own rate, shown before you call. "
             "No markup; that promise is in the terms.</div>"
             "<div><b>Your own key always wins</b>Register your team's key for a provider and "
-            "olywork uses it instead. Those calls are never metered.</div>"
+            "olywork.com uses it instead. Those calls are never metered.</div>"
             "<div><b>Your own tools and accounts</b>Tools a teammate registered and your own "
             "connected accounts are yours; calls on them are never metered.</div>"
             "<div><b>Runs dry, fails loud</b>When the balance is empty, metered calls stop with a "
             "clear error until you top up. Your own-key calls keep working.</div></div>"
+            "<h2>Understanding costs</h2>"
+            "<p>Every workflow receipt on this site comes from a real run, not a rate card. "
+            "Four patterns that show what genuinely costs.</p>"
+            '<div class="pv-why">'
+            "<div><b>Billing unit</b>Metered per catalog call (or per success where the provider "
+            "bills that way) at the provider's own rate, no markup. Prepaid balance, $1.00 free to start.</div>"
+            "<div><b>Call cost vs usable-result cost</b>A raw API call is one charge; a deliverable "
+            "row can cost more when multi-step work filters out misses. The receipts below show both.</div>"
+            "<div><b>Misses</b>Invalid, empty, or catch-all outcomes. On per-success tools, a miss "
+            "settles at $0.00. On per-call tools, every call costs regardless of what comes back.</div>"
+            "<div><b>BYOK (bring your own key)</b>Register your team's provider key and olywork.com uses "
+            "it instead. Calls on your own key are never metered. Receipts still show the shared-key "
+            "rate for comparison.</div></div>"
+            "<h2>Receipts from real runs</h2>"
+            "<p>These figures are what the ledger settled, not rate-card estimates.</p>"
+            '<div class="pv-receipts">'
+            '<div class="pv-receipt"><h4>Enrichment: verified lead list</h4>'
+            '<div class="date">2026-09-23 · <a href="/workflows/find-and-verify-a-lead-list">workflow</a></div>'
+            "<ul><li>50 companies in, 27 kept by a jev gate before any paid step, 20 verified deliverable leads out</li>"
+            "<li>$2.33 total metered ($0.12 per deliverable lead); the first run of the same filter without the gate was $3.62 for 27</li>"
+            "<li>Miss handling: Hunter, Kitt and LeadMagic settled every miss at $0.00 "
+            "(per-success, no hit); Findymail billed all 27 calls at list rate, 7 misses included</li></ul>"
+            '<div class="total">Multi-step cost: $0.05 per row, $0.12 per usable lead</div></div>'
+            '<div class="pv-receipt"><h4>SEO: keyword demand</h4>'
+            '<div class="date">2026-09-14 · <a href="/workflows/keyword-demand-to-ad-budget">workflow</a></div>'
+            "<ul><li>50 keywords expanded, volume and trend priced</li>"
+            "<li>$0.11 total: $0.018 ideas, $0.09 volume (batch), $0.0012 trend</li>"
+            "<li>Volume call billed per request, not per keyword (50 keywords cost one fee)</li></ul>"
+            '<div class="total">Three calls, $0.11</div></div>'
+            '<div class="pv-receipt"><h4>Ad library: Meta and Google ads</h4>'
+            '<div class="date">2026-09-14 · <a href="/workflows/mine-competitor-meta-ads-as-creative-pack">workflow</a></div>'
+            "<ul><li>20 Meta ads and 17 Google ads pulled for Notion</li>"
+            "<li>Meta calls ran on team's own Apify key (not metered)</li>"
+            "<li>Google call metered: $0.015 on olywork.com's shared key</li>"
+            "<li>Shared-key rate for Meta if needed: $0.105 for probe and 20 ads</li></ul>"
+            '<div class="total">BYOK in action: own key $0, shared key $0.12</div></div>'
+            '<div class="pv-receipt"><h4>Creator discovery: Instagram</h4>'
+            '<div class="date">2026-09-14 · <a href="/workflows/discover-creators-in-a-niche">workflow</a></div>'
+            "<ul><li>25 fitness creators discovered, profiles and posts pulled</li>"
+            "<li>$0.20 total: $0.15 discovery, $0.025 profiles, $0.024 posts</li>"
+            "<li>Discovery billed per creator returned; a zero-match page costs nothing</li></ul>"
+            '<div class="total">Per-creator cost: $0.008</div></div>'
+            "</div>"
             "<h2>Example rates, by platform</h2>"
             "<p>Rendered from the live catalog; every tool page carries its own rate.</p>"
             f"<ul>{lis}</ul>"
-            "<p><small>Rates are each provider's own, metered per call through olywork. A "
+            "<p><small>Rates are each provider's own, metered per call through olywork.com. A "
             "provider's subscription pricing lives on its own site.</small></p>"
             f"{faq}</div></section></main>")
     ld = [
@@ -2732,8 +2727,8 @@ async def pricing_page():
              "acceptedAnswer": {"@type": "Answer", "text": a}}
             for q, a in faq_items]},
     ]
-    return _page("Pricing — pay per call, no markup, first $1.00 free | olywork",
-                 "How olywork charges: a prepaid balance metered per call at the provider's own "
+    return _page("Pricing — pay per call, no markup, first $1.00 free | olywork.com",
+                 "How olywork.com charges: a prepaid balance metered per call at the provider's own "
                  "rate with no markup. Your own keys, tools and accounts are never metered.",
                  "/pricing", body, ld)
 
@@ -2747,8 +2742,8 @@ _DOCS_INTRO = """
 response. olywork injects the credential server-side and relays the answer verbatim. Nothing here
 models a provider's API, which is why an upstream change does not break us and why the caller never
 holds a secret.</p>
-<pre class="call">curl -H "Authorization: Bearer $OLYWORK_TOKEN" \\
-  "{BASE}/call/moz.web.url.metrics"</pre>
+<pre class="call">curl -X POST -H "X-Olywork-Token: $OLYWORK_TOKEN" -H "content-type: application/json" \\
+  -d '{"targets":["moz.com"]}' "{BASE}/call/moz.web.url.metrics"</pre>
 <p>Prefix any catalogued endpoint id with <code>/call/</code>. If your team has its own key for that
 provider, olywork uses it and the call is <b>not metered</b>; otherwise eligible endpoints are served on
 olywork's key and metered against your prepaid balance at the provider's own rate.</p>
@@ -2767,8 +2762,10 @@ endpoint is at <code>{BASE}/mcp</code>. An interactive console for everything be
 <a href="/docs/api">/docs/api</a>.</p>
 
 <h2>Endpoints</h2>
-<p>Authenticated requests carry <code>Authorization: Bearer &lt;token&gt;</code> (or
-<code>X-Olywork-Token</code>). The catalog routes are open and need no token.</p>
+<p>Authenticated requests carry <code>X-Olywork-Token: &lt;token&gt;</code>. <code>Authorization: Bearer</code>
+authenticates only the MCP endpoint; REST ignores it (<code>401 not authenticated</code>), and
+<code>/call/</code> relays it to the provider like any other header, so never put your olywork token there.
+The catalog routes need no token.</p>
 """
 
 
@@ -2790,7 +2787,7 @@ async def docs_page():
 
     # Auth travels the same way on every route; naming it on all 135 rows is noise, and the page
     # says it once above. `/admin/*` is super-admin only — still in openapi.json, not advertised here.
-    _PLUMBING = {"x-olywork-token", "x-olywork-token", "olywork_session", "olywork_session", "authorization"}
+    _PLUMBING = {"x-olywork-token", "olywork_session", "authorization"}
     ops = []
     for path in sorted(schema.get("paths", {}), key=rank):
         if path.startswith("/admin"):
@@ -2811,15 +2808,16 @@ async def docs_page():
                 + (f'<div class="params">{_esc_html(params)}</div>' if params else "")
                 + "</div>")
 
+    n_endpoints, _ = catalog_store.headline_counts(catalog_store.load())
     body = f"""<main class="wrap">
 <div class="phead">
   <div class="crumbs"><a href="/">olywork</a> / api</div>
   <h1>API reference</h1>
   <p class="lede">One base URL, one token. Call any of {len(ops)} documented operations, or proxy a
-  real request to any of 2,630 catalogued provider endpoints through <code>/call/</code>.</p>
+  real request to any of {n_endpoints} catalogued provider endpoints through <code>/call/</code>.</p>
   <div class="facts">
     <span>base <b>{_esc_html(base)}</b></span>
-    <span><b>Bearer</b> token auth</span>
+    <span><b>X-Olywork-Token</b> header auth</span>
     <span><a href="/openapi.json">openapi.json</a></span>
     <span><a href="/docs/api">interactive console</a></span>
   </div>
@@ -2831,10 +2829,10 @@ async def docs_page():
 </main>"""
     ld = [{"@context": "https://schema.org", "@type": "TechArticle",
            "headline": "olywork API reference",
-           "description": "How to call 2,630 provider API endpoints through one olywork token.",
+           "description": f"How to call {n_endpoints} provider API endpoints through one olywork.com token.",
            "url": f"{base}/docs"}]
     return _page("API reference — call any tool through one endpoint | olywork",
-                 "The olywork HTTP API: proxy a real request to any of 2,630 catalogued provider "
+                 f"The olywork.com HTTP API: proxy a real request to any of {n_endpoints} catalogued provider "
                  "endpoints through /call/, with the credential injected server-side. Plus the "
                  "catalog, org, billing and tool-management routes.",
                  "/docs", body, ld, nav_current="/docs")
@@ -2855,53 +2853,75 @@ def _esc_html(s: str) -> str:
     return _html.escape(str(s), quote=True)
 
 
-@app.get("/", include_in_schema=False)
-async def landing(
-    request: Request,
-    olywork_session: str = Cookie(default=""),
-    db: AsyncSession = Depends(get_session),
-):
-    """Serve the marketing landing at the root. Any query string (invite links, OAuth returns,
-    tour deep-links) belongs to the SPA, so those requests fall through to the dashboard —
-    the landing is only the clean, parameterless front door. A signed-in visitor belongs on
-    the dashboard, so a live session redirects to /app instead of re-showing the pitch.
+def _resume_parked_authorization(request: Request) -> RedirectResponse | None:
+    """Send a signed-in browser back to its parked `/oauth/authorize` request, consuming the cookie."""
+    if (parked := _take_oauth_return(request)) is None:
+        return None
+    resume = RedirectResponse(parked, status_code=302)
+    resume.delete_cookie(OAUTH_RETURN_COOKIE)
+    return resume
 
-    `?ref=<code>` is the ONE exception, and it has to be: a referral link's whole job is to show a
-    stranger the pitch. Falling through to the SPA would send someone who has never heard of olywork
-    to an empty dashboard shell — so a lone `ref` counts as parameterless, and the code is parked in
-    a cookie on the way past. It is only redeemed much later, when they create their first team.
+
+@app.get("/", include_in_schema=False)
+async def landing(request: Request, olywork_session: str = Cookie(default=""),
+                  db: AsyncSession = Depends(get_session)):
+    """Serve the homepage with session-aware entry points.
+
+    Query links go to the SPA, except a lone referral code retained for signup.
     """
     page = _WEB_DIR / "landing.html"
     ref = referrals.normalize_code(request.query_params.get("ref", ""))
-    # Only `ref` may be present. Anything else alongside it belongs to the SPA, and a referral code
-    # is not a reason to hijack an invite or an OAuth return.
     ref_only = set(request.query_params.keys()) <= {"ref"}
-    session_cookie = olywork_session
     if page.exists() and (not request.query_params or (ref and ref_only)):
-        if session_cookie and await _user_from_session(session_cookie, db):
-            return RedirectResponse("/app", status_code=302)
-        # Read-and-substitute rather than a bare FileResponse: the canonical, og:url and og:image
-        # are `{BASE}`-templated so they name the serving host. Hardcoded, a self-hosted registry
-        # would tell crawlers its front page really lives on olywork.com.
-        html = page.read_text(encoding="utf-8").replace(
+        signed_in = bool(olywork_session and await _user_from_session(olywork_session, db))
+        # The email-code door signs in on the page that opened it and reloads there, and the
+        # OAuth sign-in modal opens on `/`, so a parked authorization must resume here as well.
+        if signed_in and (resume := _resume_parked_authorization(request)) is not None:
+            return resume
+        # Canonical and social URLs use the serving origin.
+        html = _fill_headline(page.read_text(encoding="utf-8")).replace(
             "{BASE}", get_settings().public_url.rstrip("/"))
+        html = html.replace("{SIGNED_IN}", "true" if signed_in else "false")
+        html = html.replace("{START_LABEL}", "Open dashboard" if signed_in else "Start free")
+        if signed_in:
+            html = re.sub(r"<!--signed-out-->.*?<!--/signed-out-->", "", html, flags=re.S)
         # The footer's hub links point at hosted-only pages; a self-hosted landing drops them.
         if not _hosted():
             html = re.sub(r"<!--hosted-->.*?<!--/hosted-->", "", html, flags=re.S)
-        resp = HTMLResponse(html, headers={"Cache-Control": "no-cache"})
+        resp = HTMLResponse(html, headers={"Cache-Control": "private, no-store", "Vary": "Cookie"})
         if ref:
             _remember_referral(resp, request, ref)
         return resp
-    return await dashboard(request, olywork_session=olywork_session, db=db)
+    return await dashboard(request, olywork_session, db)
+
+
+def _dashboard_asset(directory: Path, name: str) -> FileResponse:
+    # Select a file discovered inside the build directory; never construct a path from a URL.
+    root = directory.resolve()
+    assets = {p.relative_to(root).as_posix(): p for p in root.rglob("*")
+              if p.is_file() and p.resolve().is_relative_to(root)}
+    asset = assets.get(name)
+    if asset is None:
+        raise HTTPException(404)
+    return FileResponse(asset, headers={"Cache-Control": "public, max-age=31536000, immutable"})
+
+
+@app.get("/app/legacy/assets/{path:path}", include_in_schema=False)
+async def legacy_dashboard_asset(path: str):
+    return _dashboard_asset(_WEB_DIR / "dashboard-legacy" / "assets", path)
+
+
+@app.get("/app/ui/assets/{name}", include_in_schema=False)
+async def dashboard_asset(name: str):
+    return _dashboard_asset(_WEB_DIR / "dashboard" / "assets", name)
 
 
 @app.get("/app", include_in_schema=False)
 async def dashboard(
-    request: Request,
-    olywork_session: str = Cookie(default=""),
+    request: Request, olywork_session: str = Cookie(default=""),
     db: AsyncSession = Depends(get_session),
 ):
-    """Serve the single-file dashboard (same-origin, so it calls this API directly).
+    """Serve the compiled dashboard (same-origin, so it calls this API directly).
 
     Also the place a parked OAuth authorization resumes. Every browser sign-in door — GitHub, Google,
     the email code — ends here, so honouring the cookie at this ONE point covers all of them, rather
@@ -2913,39 +2933,29 @@ async def dashboard(
     an account. Only reachable when `single_user_ok` holds (local sqlite + loopback URL), so this
     can never hand a session to a stranger on a real deploy.
     """
-    index = _WEB_DIR / "index.html"
-    if not index.exists():
-        return HTMLResponse("<h3>tools-registry API. Dashboard not bundled.</h3>")
-    session_cookie = olywork_session
-    signed_in = await _user_from_session(session_cookie, db)
+    signed_in = await _user_from_session(olywork_session, db)
     # A parked authorization resumes here, but ONLY once the user is actually signed in — otherwise
     # this would bounce them back to /oauth/authorize, which would bounce them here again.
-    if signed_in and (parked := _take_oauth_return(request)) is not None:
-        resume = RedirectResponse(parked, status_code=302)
-        resume.delete_cookie(OAUTH_RETURN_COOKIE)
-        resume.delete_cookie(LEGACY_OAUTH_RETURN_COOKIE)
+    if signed_in and (resume := _resume_parked_authorization(request)) is not None:
         return resume
-    resp = FileResponse(index, headers={"Cache-Control": "no-cache"})
-    if not signed_in:
-        owner = await _local_owner(db)
-        if owner is not None:
-            sess_val = sess.make_session(owner.id, token_version=owner.token_version)
-            resp.set_cookie(sess.COOKIE, sess_val,
-                            httponly=True, samesite="lax",
-                            secure=_is_https(request),
-                            max_age=sess.TTL_SECONDS)
-            resp.set_cookie(sess.LEGACY_COOKIE, sess_val,
-                            httponly=True, samesite="lax",
-                            secure=_is_https(request),
-                            max_age=sess.TTL_SECONDS)
+    owner = await _local_owner(db) if not signed_in else None
+    index = _dashboard_index(signed_in or owner)
+    if not index.exists():
+        raise HTTPException(503, "Dashboard not bundled")
+    resp = HTMLResponse(_dashboard_document(index), headers={"Cache-Control": "private, no-store", "Vary": "Cookie"})
+    if owner is not None:
+        resp.set_cookie(sess.COOKIE, sess.make_session(owner.id, token_version=owner.token_version),
+                        httponly=True, samesite="lax",
+                        secure=_is_https(request),
+                        max_age=sess.TTL_SECONDS)
     return resp
 
 
-def _spa_with_og(kind: str, name: str):
+def _spa_with_og(kind: str, name: str, user: User | None = None):
     """Serve the SPA at a shareable detail path (/app/skills/x, /app/tools/x) with per-resource
     og/twitter meta so link unfurls show what was shared. The meta echoes only the URL's own
-    name segment — no DB read, so an unauthenticated crawler learns nothing it didn't send."""
-    index = _WEB_DIR / "index.html"
+    name segment. Session lookup selects the frontend but never exposes resource contents."""
+    index = _dashboard_index(user)
     if not index.exists():
         return HTMLResponse("<h3>tools-registry API. Dashboard not bundled.</h3>")
     label = "skill" if kind == "skills" else "tool"
@@ -2961,42 +2971,41 @@ def _spa_with_og(kind: str, name: str):
     # `<title>tools-registry</title>`, the page says `<title>olywork</title>`, so the replacement
     # silently did nothing and every shared link unfurled blank — a rename in the dashboard must
     # not be able to switch this off without a word.
-    html, hits = re.subn(r"<title>.*?</title>", lambda _m: meta, index.read_text(encoding="utf-8"),
+    html, hits = re.subn(r"<title>.*?</title>", lambda _m: meta, _dashboard_document(index),
                          count=1, flags=re.IGNORECASE | re.DOTALL)
     if not hits:  # no title at all: still emit the meta rather than serve a bare page
         html = html.replace("<head>", "<head>\n" + meta, 1)
-    return HTMLResponse(html, headers={"Cache-Control": "no-cache"})
+    return HTMLResponse(html, headers={"Cache-Control": "private, no-store", "Vary": "Cookie"})
 
 
 @app.get("/app/marketplace/{service}", include_in_schema=False)
 async def dashboard_marketplace(
-    service: str, request: Request,
-    olywork_session: str = Cookie(default=""),  # noqa: ARG001 — the SPA reads the path itself
+    service: str, request: Request, olywork_session: str = Cookie(default=""),  # noqa: ARG001 — the SPA reads the path itself
     db: AsyncSession = Depends(get_session),
 ):
     """One integration's page. Served as the plain SPA: unlike /app/skills/<x> there is no og meta
     to add, because this view is only meaningful to a signed-in member of the org. A signed-out
     visitor is sent to the provider's PUBLIC page instead — /tools/<service> is the same subject
     with the member actions replaced by sign-in CTAs (and it is the URL crawlers get)."""
-    session_cookie = olywork_session
-    if not session_cookie:
+    if not olywork_session:
         # Redirect on the CATALOG's spelling of the provider, never the request's: an unknown
         # service 404s here rather than bouncing into a 404, and the redirect target is a value
         # we own (which is also what keeps this off CodeQL's url-redirection list).
         known = next((r["service"] for r in _provider_rows() if r["service"] == service), None)
         if known is None:
             raise HTTPException(status_code=404, detail=f"unknown provider {service!r}")
-    return await dashboard(request, olywork_session=olywork_session, db=db)
+        return RedirectResponse(f"/tools/{known}", status_code=302)
+    return await dashboard(request, olywork_session, db)
 
 
 @app.get("/app/skills/{name}", include_in_schema=False)
-async def dashboard_skill_page(name: str):
-    return _spa_with_og("skills", name)
+async def dashboard_skill_page(name: str, olywork_session: str = Cookie(default=""), db: AsyncSession = Depends(get_session)):
+    return _spa_with_og("skills", name, await _user_from_session(olywork_session, db))
 
 
 @app.get("/app/tools/{name}", include_in_schema=False)
-async def dashboard_tool_page(name: str):
-    return _spa_with_og("tools", name)
+async def dashboard_tool_page(name: str, olywork_session: str = Cookie(default=""), db: AsyncSession = Depends(get_session)):
+    return _spa_with_og("tools", name, await _user_from_session(olywork_session, db))
 
 
 @app.get("/llms.txt", include_in_schema=False)
@@ -3008,7 +3017,7 @@ async def llms_txt():
     if not f.exists():
         raise HTTPException(status_code=404, detail="llms.txt not bundled")
     base = get_settings().public_url.rstrip("/")
-    return PlainTextResponse(_strip_routed(f.read_text(encoding="utf-8")).replace("{BASE}", base),
+    return PlainTextResponse(_fill_headline(_strip_routed(f.read_text(encoding="utf-8"))).replace("{BASE}", base),
                              media_type="text/plain; charset=utf-8")
 
 
@@ -3052,12 +3061,18 @@ _SITEMAP_PAGES: tuple[tuple[str, str, str], ...] = (
     ("/tutorial", "tutorial.html", "0.8"),
     ("/docs", "", "0.7"),
     ("/resources", "resources.html", "0.8"),
+    ("/blog", "", "0.7"),
+    ("/blog/work-email-finding-bench", "", "0.6"),
+    ("/blog/people-search-bench", "", "0.6"),
     ("/vendor-listing", "vendor-listing.md", "0.5"),
     ("/support", "support.html", "0.4"),
     ("/connectors/claude", "claude-connector.html", "0.6"),
     ("/people-search", "people-search.html", "0.8"),
     ("/grokbot", "grokbot.html", "0.8"),
     ("/fable", "fable-gtm.html", "0.8"),
+    ("/gpt6", "astra.html", "0.8"),
+    ("/ugc", "ugc.html", "0.8"),
+    ("/jev", "jev.html", "0.8"),
     ("/terms", "terms.html", "0.2"),
     ("/privacy", "privacy.html", "0.2"),
     # The outcome pages. Listed WITHOUT a trailing slash on purpose: `/use-cases/<slug>/` 307s to
@@ -3122,6 +3137,8 @@ async def sitemap_xml():
         copy_day = _iso_day(Path(agent_pages.__file__).stat().st_mtime)
         add("/agents", copy_day, "0.8")
         for slug in agent_pages.AGENTS:
+            if slug == "grok-bot":
+                continue  # redirects to /grokbot; list only the canonical
             add(f"/agents/{slug}", copy_day, "0.8")
         add("/use-cases", copy_day, "0.8")
         for j in agent_pages.USE_CASE_PAGES:
@@ -3188,6 +3205,14 @@ def _strip_routed(text: str) -> str:
     return re.sub(r"<!--routed-->.*?<!--/routed-->\n?", "", text, flags=re.S)
 
 
+def _fill_headline(text: str) -> str:
+    """`{ENDPOINTS}` and `{PROVIDERS}` in a served document come from the loaded catalog, like
+    `{BASE}` comes from settings: the front-door files quote the catalog's size and a typed number
+    was always stale (see `catalog_store.headline_counts`)."""
+    endpoints, providers = catalog_store.headline_counts(catalog_store.load())
+    return text.replace("{ENDPOINTS}", endpoints).replace("{PROVIDERS}", str(providers))
+
+
 def _serve_md(name: str) -> PlainTextResponse:
     """Serve a bundled markdown file as inline text (so "open in new tab" shows it, not a download),
     with the serving domain templated in. Backs the 'copy markdown' buttons on the docs pages."""
@@ -3195,7 +3220,7 @@ def _serve_md(name: str) -> PlainTextResponse:
     if not f.exists():
         raise HTTPException(status_code=404, detail=f"{name} not bundled")
     base = get_settings().public_url.rstrip("/")
-    return PlainTextResponse(_strip_routed(f.read_text(encoding="utf-8")).replace("{BASE}", base),
+    return PlainTextResponse(_fill_headline(_strip_routed(f.read_text(encoding="utf-8"))).replace("{BASE}", base),
                              media_type="text/plain; charset=utf-8")
 
 
@@ -3255,6 +3280,18 @@ async def skill_md():
     """The OFFICIAL olywork Claude skill (3 personas), {BASE}-templated to this server.
     install.sh drops it into ~/.claude/skills/olywork/ so agents learn olywork at CLI install."""
     return _serve_md("skill.md")
+
+
+@app.get("/skills/ugc/SKILL.md", include_in_schema=False)
+async def make_ugc_skill_md():
+    """The make-ugc orchestrator skill: the /ugc workflow as a file an agent can follow. Served from
+    the bundled copy (`.agents/skills/make-ugc` is a symlink to it) so the two never drift."""
+    return _serve_md("skills/make-ugc/SKILL.md")
+
+
+@app.get("/feedback.md", include_in_schema=False)
+async def feedback_md():
+    return _serve_md("feedback.md")
 
 
 @app.get("/favicon.svg", include_in_schema=False)
@@ -3321,6 +3358,17 @@ async def privacy_page():
 async def claude_connector_page():
     """Setup, scope, billing, privacy, and removal instructions for the Claude connector."""
     return _legal_page("claude-connector.html")
+
+
+@app.get("/claude-connector", include_in_schema=False)
+async def claude_connector_alias():
+    return RedirectResponse("/connectors/claude", status_code=301)
+
+
+@app.get("/agent-setup.js", include_in_schema=False)
+async def agent_setup_js():
+    return FileResponse(_WEB_DIR / "agent-setup.js", media_type="application/javascript",
+                        headers={"Cache-Control": "no-cache"})
 
 
 @app.get("/adtrack.js", include_in_schema=False)
@@ -3396,6 +3444,39 @@ async def fable_page():
     return FileResponse(page, headers={"Cache-Control": "no-cache"})
 
 
+@app.get("/fable-gtm", include_in_schema=False)
+async def fable_gtm_alias():
+    return RedirectResponse("/fable", status_code=301)
+
+
+@app.get("/astra", include_in_schema=False)
+async def astra_page(request: Request):
+    """Keep launch links and their campaign attribution when moving to /gpt6."""
+    query = request.url.query
+    return RedirectResponse("/gpt6" + (f"?{query}" if query else ""), status_code=301)
+
+
+@app.get("/gpt6", include_in_schema=False)
+async def gpt6_page():
+    """GPT-6 launch destination, with the Codex demo and direct plugin listing."""
+    page = _WEB_DIR / "astra.html"
+    if not page.exists():
+        raise HTTPException(status_code=404, detail="astra.html not bundled")
+    return FileResponse(page, headers={"Cache-Control": "no-cache"})
+
+
+@app.get("/ugc", include_in_schema=False)
+async def ugc_page():
+    """Landing page for the AI-generated UGC workflow article: the five steps (trend pull,
+    JSON-prompt character, Seedance 2.5 talking head, phone demo + cloned voice, hooks at scale)
+    with the generated clips and the bill. Indexed like /people-search: canonical, OG meta,
+    in the sitemap, no-cache so edits land on refresh. Asset paths are relative (media/ugc/…)."""
+    page = _WEB_DIR / "ugc.html"
+    if not page.exists():
+        raise HTTPException(status_code=404, detail="ugc.html not bundled")
+    return FileResponse(page, headers={"Cache-Control": "no-cache"})
+
+
 @app.get("/people-search", include_in_schema=False)
 async def people_search_page():
     """Landing page for the people-search launch ("Claude for people search") — the destination the
@@ -3406,6 +3487,389 @@ async def people_search_page():
     if not page.exists():
         raise HTTPException(status_code=404, detail="people-search.html not bundled")
     return FileResponse(page, headers={"Cache-Control": "no-cache"})
+
+
+@app.get("/jev", include_in_schema=False)
+async def jev_page():
+    """Landing page for jev + olywork ("jev for GTM engineers"): three agent recipes, each with a prompt
+    to copy and a demo under it. The X launch-radar demo is live (`/jev/xboost.json`, judged daily by
+    `olywork-worker jev xboost`, plus visitor-submitted posts); the signup-triage and signal-leads demos
+    replay bundled, anonymised runs. Indexed like /ugc: canonical, OG meta, in the sitemap, no-cache."""
+    page = _WEB_DIR / "jev.html"
+    if not page.exists():
+        raise HTTPException(status_code=404, detail="jev.html not bundled")
+    return FileResponse(page, headers={"Cache-Control": "no-cache"})
+
+
+_JEV_JUDGE_NS = "jev_judge"
+
+
+@app.get("/jev/xboost.json", include_in_schema=False)
+async def jev_xboost_json(db: AsyncSession = Depends(get_session)):
+    """The latest launch-radar run: the worker's stored document, else the bundled snapshot so the
+    page renders on a fresh or unconfigured server."""
+    from .. import ratestore
+    from ..application import jev_xboost
+
+    run = await _xboost_run(db)
+    run["live"] = jev_xboost.configured()
+    return JSONResponse(run, headers={"Cache-Control": "no-cache"})
+
+
+async def _xboost_run(db: AsyncSession) -> dict:
+    """The worker's stored run, else the bundled snapshot marked `snapshot: true`."""
+    from .. import ratestore
+    from ..application import jev_xboost
+
+    run = await ratestore.kv_get(db, jev_xboost.KV_NS, jev_xboost.KV_KEY)
+    if run is None:
+        seed = _MEDIA_DIR / "jev" / "xboost-seed.json"
+        run = json.loads(seed.read_text(encoding="utf-8")) if seed.exists() else {"posts": [], "manual": []}
+        run["snapshot"] = True
+    return run
+
+
+@app.post("/jev/xboost/judge", include_in_schema=False)
+async def jev_xboost_judge(request: Request, db: AsyncSession = Depends(get_session)):
+    """A visitor pastes a post link; the same forensics + jev run on it and the verdict joins the
+    board. Unauthenticated, so per-IP and global sliding-window limits (ratestore) bound the spend:
+    every judge is a few olywork calls on the demo team's token plus one jev call."""
+    from .. import ratestore
+    from ..application import jev_xboost
+    from .auth import _client_ip
+
+    if not jev_xboost.configured():
+        raise HTTPException(status_code=503, detail="the live demo is not configured on this server")
+    try:
+        body = await request.json()
+    except ValueError:
+        body = {}
+    url = (body or {}).get("url") if isinstance(body, dict) else None
+    try:
+        jev_xboost.parse_post_url(url or "")
+    except jev_xboost.XboostError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from None
+    # A post already on the board (daily run or an earlier visitor) answers from the store: no
+    # second fetch, no second bill, no duplicate card.
+    _, post_id = jev_xboost.parse_post_url(url)
+    run = await _xboost_run(db)
+    for known in [*(run.get("manual") or []), *(run.get("posts") or [])]:
+        if str(known.get("id")) == post_id:
+            return {**known, "cached": True}
+    ok = await ratestore.rate_check(db, _JEV_JUDGE_NS, [(f"ip:{_client_ip(request)}", 5), ("all", 60)], window_s=3600)
+    await db.commit()
+    if not ok:
+        raise HTTPException(status_code=429, detail="that is enough for this hour; the daily run continues")
+    try:
+        judged = await jev_xboost.judge_url(request.app.state.http, url)
+    except jev_xboost.XboostError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from None
+    # A visitor may judge before the first daily run: keep the snapshot's board under their card.
+    run = await _xboost_run(db)
+    await ratestore.kv_put(db, jev_xboost.KV_NS, jev_xboost.KV_KEY, jev_xboost.with_manual(run, judged),
+                           ttl_s=jev_xboost.KV_TTL_S)
+    await db.commit()
+    return judged
+
+
+# The launch pages grouped into a thin index. Routes stay where they are; this is a directory, not
+# a move. The list is hand-maintained because each launch has its own framing and the order is
+# chronological (newest first), not alphabetical.
+_BLOG_LAUNCHES: list[tuple[str, str, str, str]] = [
+    # (slug, title, date, one-line blurb)
+    ("/jev", "How to use Jev", "2026-09-20",
+     "What Jev is and how to use it: live examples, use cases, code, and GTM automation recipes."),
+    ("/ugc", "AI UGC Videos for $0.67 a Clip", "2026-09-15",
+     "The five-step workflow: trending hooks, a JSON-prompt character, Seedance 2.5, a cloned voice."),
+    ("/gpt6", "GPT-6 and olywork.com", "2026-09-08",
+     "Codex demo: one prompt, the market read, and the catalog of tools it called."),
+    ("/fable", "Claude Fable 5.1 + olywork.com", "2026-09-02",
+     "Run your GTM from the terminal: one prompt, four agents, four results."),
+    ("/grokbot", "Grok Bot for Outreach", "2026-09-01",
+     "A scroll animatic of Grok Bot working a lead list through olywork.com."),
+    ("/people-search", "People Search Launch", "2026-09-01",
+     "Give your agent 1B+ contacts. The destination the launch film points at."),
+]
+
+# Identity/receipt posts: thin announcements that live under /blog/. These are not launches (which
+# have their own top-level routes), but they sit prominently on the /blog index above launches.
+_BLOG_POSTS: list[tuple[str, str, str, str]] = [
+    # (slug under /blog/, title, date, one-line blurb)
+    ("work-email-finding-bench", "Work Email Finding: a 292 Person Receipt", "2026-09-16",
+     "Quality tie across vendors. Cost is the gap: $0.0056 vs $0.0395 per correct."),
+    ("people-search-bench", "#1 on People Search Bench", "2026-09-14",
+     "olywork.com scores 80.0% on recruiting, 78.2% on B2B prospecting. 119 real tasks, same agent."),
+]
+
+
+def _blog_posting_ld(slug: str, base: str) -> dict:
+    """BlogPosting schema for one entry of `_BLOG_POSTS`: a dated, bylined article. The posts are
+    first-party measurements, and a named author with a visible date is what earns the validation
+    click and the AI citation; breadcrumbs alone describe a page, not a piece of writing."""
+    _, title, date, blurb = next(p for p in _BLOG_POSTS if p[0] == slug)
+    return {"@context": "https://schema.org", "@type": "BlogPosting", "headline": title,
+            "description": blurb, "datePublished": date, "dateModified": date,
+            "mainEntityOfPage": f"{base}/blog/{slug}", "url": f"{base}/blog/{slug}",
+            "author": {"@type": "Person", "name": "Jason Zhou", "url": "https://github.com/JayZeeDesign"},
+            "publisher": {"@type": "Organization", "name": "olywork.com", "url": base + "/"}}
+
+
+@app.get("/blog", include_in_schema=False)
+async def blog_index():
+    """Thin index of launch pages and notes. The launches stay at their existing routes; this page
+    links to them without moving files or creating /blog/grokbot clones. Indexed, canonical, in
+    the sitemap. Blog posts (identity/receipt announcements) sit above launches."""
+    if not _hosted():
+        raise HTTPException(status_code=404, detail="not found")
+    base = get_settings().public_url.rstrip("/")
+
+    # Blog posts (identity/receipt announcements) come first, prominently
+    post_cards = "".join(
+        f'<a class="pcard" href="/blog/{_esc_html(slug)}">'
+        f'<h3>{_esc_html(title)}</h3>'
+        f'<p>{_esc_html(blurb)}</p>'
+        f'<div class="meta">{_esc_html(date)}</div></a>'
+        for slug, title, date, blurb in _BLOG_POSTS
+    )
+
+    launch_cards = "".join(
+        f'<a class="pcard" href="{_esc_html(slug)}">'
+        f'<h3>{_esc_html(title)}</h3>'
+        f'<p>{_esc_html(blurb)}</p>'
+        f'<div class="meta">{_esc_html(date)}</div></a>'
+        for slug, title, date, blurb in _BLOG_LAUNCHES
+    )
+
+    body = (
+        '<main class="wrap"><div class="phead">'
+        '<div class="crumbs"><a href="/">olywork.com</a> / <a href="/blog">Blog</a></div>'
+        '<h1>Launches and Notes</h1>'
+        '<p class="lede">Product launches, partner posts and notes from the olywork.com team. '
+        'Each launch page shows a real run with the catalog and the bill.</p>'
+        '</div>'
+        + (f'<section class="cat"><h2>Posts</h2><div class="grid">{post_cards}</div></section>'
+           if _BLOG_POSTS else '')
+        + '<section class="cat"><h2>Launches</h2>'
+        f'<div class="grid">{launch_cards}</div></section>'
+        '</main>'
+    )
+
+    ld = [{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [
+        {"@type": "ListItem", "position": 1, "name": "olywork.com", "item": base + "/"},
+        {"@type": "ListItem", "position": 2, "name": "Blog", "item": base + "/blog"}]}]
+
+    return _page("Launches and Notes | olywork.com",
+                 "Product launches, partner posts and notes from the olywork.com team. "
+                 "Each launch page shows a real run with the catalog and the bill.",
+                 "/blog", body, ld)
+
+
+@app.get("/blog/people-search-bench", include_in_schema=False)
+async def blog_people_search_bench():
+    """Identity/receipt post: olywork.com is #1 on People Search Bench by LessieAI. Links to /grokbot#bench
+    for the interactive chart. Numbers from the benchmark: 119 real tasks, % answered correctly."""
+    if not _hosted():
+        raise HTTPException(status_code=404, detail="not found")
+    base = get_settings().public_url.rstrip("/")
+
+    # The benchmark numbers (from /grokbot#bench and the LessieAI chart)
+    scores = [
+        ("Recruiting", "80.0%"),
+        ("B2B prospecting", "78.2%"),
+        ("Deterministic", "76.3%"),
+        ("Influencer", "62.9%"),
+    ]
+    score_rows = "".join(
+        f'<tr><td>{_esc_html(cat)}</td><td style="text-align:right;font-weight:600">{_esc_html(pct)}</td></tr>'
+        for cat, pct in scores
+    )
+
+    body = (
+        '<main class="wrap" style="max-width:680px">'
+        '<div class="phead">'
+        '<div class="crumbs"><a href="/">olywork.com</a> / <a href="/blog">Blog</a> / '
+        '<a href="/blog/people-search-bench">#1 on People Search Bench</a></div>'
+        '<h1>#1 on People Search Bench</h1>'
+        '<p class="lede">olywork.com scores highest on People Search Bench by LessieAI: '
+        '119 real tasks, same agent, with and without the plugin.</p>'
+        '</div>'
+        '<section class="cat">'
+        '<p>People Search Bench tests whether an agent can answer real recruiting, B2B prospecting, '
+        'deterministic lookup and influencer discovery questions. The benchmark runs the same agent '
+        'with and without the olywork.com plugin, measuring % answered correctly across 119 tasks.</p>'
+        '<table style="width:100%;margin:24px 0;border-collapse:collapse">'
+        '<thead><tr style="border-bottom:1px solid var(--border)">'
+        '<th style="text-align:left;padding:8px 0">Category</th>'
+        '<th style="text-align:right;padding:8px 0">olywork.com score</th>'
+        '</tr></thead>'
+        f'<tbody style="font-size:1.1em">{score_rows}</tbody>'
+        '</table>'
+        '<p style="color:var(--muted);font-size:0.9em">Source: People Search Bench by LessieAI, 119 real tasks, '
+        '% answered correctly. Same agent, with and without the plugin.</p>'
+        '<p style="margin-top:24px"><a href="/grokbot#bench" style="font-weight:600">'
+        'See the interactive chart on the Grok Bot launch page &rarr;</a></p>'
+        '</section>'
+        '</main>'
+    )
+
+    ld = [_blog_posting_ld("people-search-bench", base),
+          {"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [
+        {"@type": "ListItem", "position": 1, "name": "olywork.com", "item": base + "/"},
+        {"@type": "ListItem", "position": 2, "name": "Blog", "item": base + "/blog"},
+        {"@type": "ListItem", "position": 3, "name": "#1 on People Search Bench",
+         "item": base + "/blog/people-search-bench"}]}]
+
+    return _page("#1 on People Search Bench | olywork.com",
+                 "olywork.com scores 80.0% on recruiting, 78.2% on B2B prospecting on People Search Bench "
+                 "by LessieAI. 119 real tasks, same agent with and without the plugin.",
+                 "/blog/people-search-bench", body, ld)
+
+
+@app.get("/blog/work-email-finding-bench", include_in_schema=False)
+async def blog_work_email_finding_bench():
+    """Receipt post: work-email finding across vendors on a 292-person list with published answers.
+    Measured 2026-09-16. Quality is a tie; cost is the gap."""
+    if not _hosted():
+        raise HTTPException(status_code=404, detail="not found")
+    base = get_settings().public_url.rstrip("/")
+
+    body = (
+        '<main class="wrap" style="max-width:780px">'
+        '<div class="phead">'
+        '<div class="crumbs"><a href="/">olywork.com</a> / <a href="/blog">Blog</a> / '
+        '<a href="/blog/work-email-finding-bench">Work Email Finding</a></div>'
+        '<h1>Work Email Finding: a 292 Person Receipt</h1>'
+        '<p class="lede">Measured 2026-09-16. Quality is a tie across vendors. Cost is the gap.</p>'
+        '</div>'
+        '<section class="cat">'
+        '<p>We ran a 292-person list (88 orgs, 16 industries, name + domain only) through five '
+        'aggregators and compared the returned emails against each org&#x27;s published team-page address. '
+        'Every person had a public team-page email, so find rates are inflated vs. a cold list; '
+        'cost per row and exact-match rate are the clean comparisons.</p>'
+        '<h2 style="margin-top:32px;font-size:1.1em">The run</h2>'
+        '<p><code>olywork.people.email.find</code> routed across catalog providers that answered '
+        '(QuickEnrich ~61%, Kitt ~36%, plus Tomba, DropLeads, Hunter, Findymail). The other columns '
+        'represent alternative aggregators, not the underlying providers.</p>'
+        '<div style="overflow-x:auto">'
+        '<table style="width:100%;margin:24px 0;border-collapse:collapse;font-size:0.95em">'
+        '<thead><tr style="border-bottom:1px solid var(--border)">'
+        '<th style="text-align:left;padding:8px 0"></th>'
+        '<th style="text-align:right;padding:8px 12px">olywork.com</th>'
+        '<th style="text-align:right;padding:8px 12px">Clay</th>'
+        '<th style="text-align:right;padding:8px 12px">Monid</th>'
+        '<th style="text-align:right;padding:8px 12px">Freckle</th>'
+        '<th style="text-align:right;padding:8px 12px">Deepline</th>'
+        '</tr></thead>'
+        '<tbody>'
+        '<tr><td style="padding:6px 0">Found</td>'
+        '<td style="text-align:right;padding:6px 12px">289</td>'
+        '<td style="text-align:right;padding:6px 12px">280</td>'
+        '<td style="text-align:right;padding:6px 12px">250</td>'
+        '<td style="text-align:right;padding:6px 12px">281</td>'
+        '<td style="text-align:right;padding:6px 12px">266</td></tr>'
+        '<tr><td style="padding:6px 0">Exact match</td>'
+        '<td style="text-align:right;padding:6px 12px">264</td>'
+        '<td style="text-align:right;padding:6px 12px">262</td>'
+        '<td style="text-align:right;padding:6px 12px">233</td>'
+        '<td style="text-align:right;padding:6px 12px">263</td>'
+        '<td style="text-align:right;padding:6px 12px">253</td></tr>'
+        '<tr><td style="padding:6px 0">Success (exact/292)</td>'
+        '<td style="text-align:right;padding:6px 12px;font-weight:600">90.4%</td>'
+        '<td style="text-align:right;padding:6px 12px">89.7%</td>'
+        '<td style="text-align:right;padding:6px 12px">79.8%</td>'
+        '<td style="text-align:right;padding:6px 12px">90.1%</td>'
+        '<td style="text-align:right;padding:6px 12px">86.6%</td></tr>'
+        '<tr><td style="padding:6px 0">Precision (exact/found)</td>'
+        '<td style="text-align:right;padding:6px 12px">91.3%</td>'
+        '<td style="text-align:right;padding:6px 12px">93.6%</td>'
+        '<td style="text-align:right;padding:6px 12px">93.2%</td>'
+        '<td style="text-align:right;padding:6px 12px">93.6%</td>'
+        '<td style="text-align:right;padding:6px 12px">95.1%</td></tr>'
+        '<tr><td style="padding:6px 0">Off-domain</td>'
+        '<td style="text-align:right;padding:6px 12px">5</td>'
+        '<td style="text-align:right;padding:6px 12px">4</td>'
+        '<td style="text-align:right;padding:6px 12px">0</td>'
+        '<td style="text-align:right;padding:6px 12px">4</td>'
+        '<td style="text-align:right;padding:6px 12px">0</td></tr>'
+        '<tr style="border-top:1px solid var(--border)"><td style="padding:6px 0">Cost (finding only)</td>'
+        '<td style="text-align:right;padding:6px 12px;font-weight:600">$1.49</td>'
+        '<td style="text-align:right;padding:6px 12px">$10.34</td>'
+        '<td style="text-align:right;padding:6px 12px">$5.98</td>'
+        '<td style="text-align:right;padding:6px 12px">$11.22</td>'
+        '<td style="text-align:right;padding:6px 12px">$23.38</td></tr>'
+        '<tr><td style="padding:6px 0">Per row</td>'
+        '<td style="text-align:right;padding:6px 12px;font-weight:600">$0.0051</td>'
+        '<td style="text-align:right;padding:6px 12px">$0.0354</td>'
+        '<td style="text-align:right;padding:6px 12px">$0.0205</td>'
+        '<td style="text-align:right;padding:6px 12px">$0.0384</td>'
+        '<td style="text-align:right;padding:6px 12px">$0.0801</td></tr>'
+        '<tr><td style="padding:6px 0">Per correct</td>'
+        '<td style="text-align:right;padding:6px 12px;font-weight:600">$0.0056</td>'
+        '<td style="text-align:right;padding:6px 12px">$0.0395</td>'
+        '<td style="text-align:right;padding:6px 12px">$0.0257</td>'
+        '<td style="text-align:right;padding:6px 12px">$0.0427</td>'
+        '<td style="text-align:right;padding:6px 12px">$0.0924</td></tr>'
+        '<tr><td style="padding:6px 0">Hit latency (median)</td>'
+        '<td style="text-align:right;padding:6px 12px">0.44s</td>'
+        '<td style="text-align:right;padding:6px 12px">11.2s</td>'
+        '<td style="text-align:right;padding:6px 12px">2.0s</td>'
+        '<td style="text-align:right;padding:6px 12px">65s</td>'
+        '<td style="text-align:right;padding:6px 12px;color:var(--muted)">batch</td></tr>'
+        '</tbody>'
+        '</table>'
+        '</div>'
+        '<p style="color:var(--muted);font-size:0.85em;margin-top:8px">'
+        'Monid = Hunter only. Freckle = LeadMagic&rarr;Findymail. Deepline = ZeroBounce-first play. '
+        'Clay dollars are at Clay&#x27;s Launch data-credit list price ($0.05/credit on 2026-09-16).</p>'
+        '<h2 style="margin-top:32px;font-size:1.1em">What the numbers say</h2>'
+        '<ul style="margin:16px 0;padding-left:24px">'
+        '<li style="margin:8px 0"><strong>Quality is a tie.</strong> olywork.com, Clay and Freckle land at '
+        '264, 262 and 263 exact matches; the difference is noise.</li>'
+        '<li style="margin:8px 0"><strong>Different-from-published is mostly not invalid.</strong> '
+        'Many returned addresses are valid aliases. Exact-match is a floor, not a ceiling.</li>'
+        '<li style="margin:8px 0"><strong>Cost is structural.</strong> Credit-based waterfalls run '
+        '7x to 16x olywork.com per correct row. Deepline is an outlier because ZeroBounce fires on every '
+        'pattern guess.</li>'
+        '<li style="margin:8px 0"><strong>Latency only matters for per-call paths.</strong> '
+        'olywork.com (0.44s) and Monid (2.0s) are per-call; do not rank batch tools on speed.</li>'
+        '<li style="margin:8px 0"><strong>Aggregator columns are routes, not products.</strong> '
+        'Each column represents how that aggregator dispatched the query to its underlying providers.</li>'
+        '</ul>'
+        '<h2 style="margin-top:32px;font-size:1.1em">When to choose Clay</h2>'
+        '<p>Choose Clay when you want a visual table, the broader Clay ecosystem for GTM orchestration, '
+        'or a seat that already includes enrichment inside a bigger workflow. Spreadsheet-native teams '
+        'may prefer the Clay UI over API calls.</p>'
+        '<p>Choose olywork.com when you want a metered catalog call with a known provider price and a dated '
+        'receipt. See <a href="/pricing">how billing works</a>.</p>'
+        '<h2 style="margin-top:32px;font-size:1.1em">Disclosures</h2>'
+        '<ul style="margin:16px 0;padding-left:24px;color:var(--muted);font-size:0.9em">'
+        '<li style="margin:6px 0"><strong>List bias:</strong> every person had a published team-page '
+        'email, so find rates are inflated vs. a cold list.</li>'
+        '<li style="margin:6px 0"><strong>MillionVerifier re-verify:</strong> we re-verified addresses '
+        'with MillionVerifier after Kitt ran out of credits. MV served 0 cache hits. Kitt is also in '
+        'the olywork.com catalog, so its hits are not independent for the olywork.com column.</li>'
+        '<li style="margin:6px 0"><strong>olywork.com bug:</strong> 3 rows returned HTTP 502 (route_failed) '
+        'and were scored as misses. $0 charged for those rows.</li>'
+        '</ul>'
+        '<p style="margin-top:24px">Related: '
+        '<a href="/people-search">People Search</a>, '
+        '<a href="/workflows/find-and-verify-a-lead-list">Build a Verified Lead List</a>, '
+        '<a href="/use-cases/lead-enrichment-for-ai-agents">Waterfall Enrichment</a>.</p>'
+        '</section>'
+        '</main>'
+    )
+
+    ld = [_blog_posting_ld("work-email-finding-bench", base),
+          {"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [
+        {"@type": "ListItem", "position": 1, "name": "olywork.com", "item": base + "/"},
+        {"@type": "ListItem", "position": 2, "name": "Blog", "item": base + "/blog"},
+        {"@type": "ListItem", "position": 3, "name": "Work Email Finding",
+         "item": base + "/blog/work-email-finding-bench"}]}]
+
+    return _page("Work Email Finding: 292 Person Bench | olywork.com",
+                 "Quality tie across vendors, cost is the gap. Measured 2026-09-16: "
+                 "olywork.com $0.0056/correct vs Clay $0.0395/correct on 292 people.",
+                 "/blog/work-email-finding-bench", body, ld)
 
 
 @app.get("/resources", include_in_schema=False)
@@ -3437,15 +3901,15 @@ public_docs_router = APIRouter()
 app = public_docs_router
 
 
-def _skill_frontmatter() -> dict[str, str]:
+def _skill_frontmatter(name: str = "skill.md") -> dict[str, str]:
     """The bundled skill's frontmatter, read at request time rather than duplicated in code — the
     description is what drives discovery in every registry, and a second copy of it would drift."""
-    f = _WEB_DIR / "skill.md"
+    f = _WEB_DIR / name
     if not f.exists():
-        raise HTTPException(status_code=404, detail="skill.md not bundled")
-    text = f.read_text(encoding="utf-8")
+        raise HTTPException(status_code=404, detail=f"{name} not bundled")
+    text = _fill_headline(f.read_text(encoding="utf-8"))
     if not text.startswith("---"):
-        raise HTTPException(status_code=404, detail="skill.md has no frontmatter")
+        raise HTTPException(status_code=404, detail=f"{name} has no frontmatter")
     out: dict[str, str] = {}
     for line in text.split("---", 2)[1].strip().splitlines():
         key, _, value = line.partition(":")
@@ -3462,11 +3926,11 @@ async def well_known_skills_index():
     — the same skill the plugins ship and `install.sh` drops, reached by whoever asks the domain.
     """
     fm = _skill_frontmatter()
-    return JSONResponse({"skills": [{
-        "name": fm.get("name", "olywork"),
-        "description": fm.get("description", ""),
-        "files": ["SKILL.md"],
-    }]})
+    ugc = _skill_frontmatter("skills/make-ugc/SKILL.md")
+    return JSONResponse({"skills": [
+        {"name": fm.get("name", "olywork"), "description": fm.get("description", ""), "files": ["SKILL.md"]},
+        {"name": ugc.get("name", "make-ugc"), "description": ugc.get("description", ""), "files": ["SKILL.md"]},
+    ]})
 
 
 @app.get("/.well-known/skills/olywork/SKILL.md", include_in_schema=False)
@@ -3475,6 +3939,12 @@ async def well_known_skill_md():
     canonical `/skill.md` uses, so `{BASE}` is templated to the serving host here too — a self-hosted
     registry advertises ITSELF, not olywork.com."""
     return _serve_md("skill.md")
+
+
+@app.get("/.well-known/skills/make-ugc/SKILL.md", include_in_schema=False)
+async def well_known_make_ugc_md():
+    """The second entry `index.json` promises; the same file as /skills/ugc/SKILL.md."""
+    return _serve_md("skills/make-ugc/SKILL.md")
 
 
 @app.get("/connect-demo", include_in_schema=False)

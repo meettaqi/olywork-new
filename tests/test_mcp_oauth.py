@@ -11,6 +11,8 @@ other MCP server must not spend a olywork balance just because it happens to be 
 
 from __future__ import annotations
 
+from conftest import verified_signup
+
 import json
 import time
 
@@ -326,7 +328,7 @@ async def _register(clients, redirect="https://client.test/cb"):
 async def _signed_in(clients, email="oauth-user@olywork.com"):
     """A browser session plus the org it belongs to. The consent step is a HUMAN action, so it needs
     a session cookie rather than a token."""
-    r = await clients.post("/users", json={"email": email})
+    r = await verified_signup(clients, json={"email": email})
     assert r.status_code == 200, r.text
     token = r.json()["token"]
     prev = clients.headers.get("X-Olywork-Token")
@@ -376,6 +378,8 @@ async def test_the_whole_flow_end_to_end(clients):
         "redirect_uri": "https://client.test/cb", "client_id": client_id,
         "code_verifier": verifier, "resource": mcp_oauth.mcp_resource_url()})
     assert tok.status_code == 200, tok.text
+    assert tok.headers["cache-control"] == "no-store"
+    assert tok.headers["pragma"] == "no-cache"
     access = tok.json()["access_token"]
     assert tok.json()["token_type"] == "Bearer"
 
@@ -947,6 +951,24 @@ async def test_a_signed_out_user_is_returned_to_the_consent_screen(clients):
     back = await clients.get("/app", follow_redirects=False)
     assert back.status_code == 302, "the dashboard must resume the parked authorization"
     assert back.headers["location"].startswith("/oauth/authorize?")
+
+
+async def test_email_sign_in_on_the_homepage_resumes_the_parked_authorization(clients):
+    """The OAuth sign-in modal opens on `/`, and the email-code door reloads that page once the code
+    is accepted, so the plain homepage must resume the authorization too. Only `/app` did, and an
+    email sign-in from an MCP client ended on the marketing page with the connection abandoned."""
+    clients.cookies.set("olywork_oauth_return", "/oauth/authorize?client_id=x")
+    signed_out = await clients.get("/", follow_redirects=False)
+    assert signed_out.status_code == 200, "a signed-out visitor sees the homepage, not a loop"
+
+    await _signed_in(clients, "homepage-returner@olywork.com")
+    clients.cookies.set("olywork_oauth_return", "/oauth/authorize?client_id=x")
+    back = await clients.get("/", follow_redirects=False)
+    assert back.status_code == 302
+    assert back.headers["location"] == "/oauth/authorize?client_id=x"
+
+    clients.cookies.set("olywork_oauth_return", "/anything-else")
+    assert (await clients.get("/", follow_redirects=False)).status_code == 200
 
 
 async def test_connect_demo_is_explicitly_enabled_and_never_displays_token_prefixes(

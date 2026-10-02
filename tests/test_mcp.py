@@ -11,6 +11,8 @@ The transport is exercised as a real MCP client would: JSON-RPC over the mounted
 
 from __future__ import annotations
 
+from conftest import verified_signup
+
 import json
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -109,8 +111,8 @@ async def mcp_session(client: AsyncClient):
         _mcp.clear_endpoint_observation_reader(reader)
 
 
-async def test_the_server_lists_exactly_the_six_tools(clients):
-    """Six tools, not 2,600. The catalog is DATA reached through a tool, never a tool per endpoint —
+async def test_the_server_lists_the_shared_tools(clients):
+    """The catalog is data reached through a tool, never a tool per endpoint -
     2,600 schemas would bury the model's context and make the catalog unusable."""
     token = (await clients.post("/users", json={"email": "lister@olywork.com"})).json()["token"]
     async with mcp_session(clients) as c:
@@ -118,7 +120,126 @@ async def test_the_server_lists_exactly_the_six_tools(clients):
                                      "clientInfo": {"name": "t", "version": "1"}}, token)
         r = await _rpc(c, "tools/list", token=token)
         names = {t["name"] for t in r.json()["result"]["tools"]}
-    assert names == {"catalog_search", "catalog_get", "call", "balance", "my_tools", "catalog_request"}
+    assert names == {"catalog_search", "catalog_get", "call", "call_media", "resources_list",
+                     "balance", "my_tools", "catalog_request", "feedback", "review"}
+
+
+async def test_call_media_returns_native_audio_with_structured_metadata(clients, monkeypatch):
+    import base64
+
+    from olywork.application.call import service as call_service
+    from olywork.application.call.types import UpstreamResponse
+    from olywork.config import get_settings
+
+    monkeypatch.setenv("OLYWORK_PLATFORM_KEY_FISHAUDIO", "PLATFORM-FISH")
+    monkeypatch.setenv("OLYWORK_PLATFORM_PROVIDERS", "fishaudio")
+    get_settings.cache_clear()
+
+    async def relay(*args, **kwargs):
+        async def stream():
+            yield b"audio-bytes"
+
+        async def close():
+            return None
+
+        return UpstreamResponse(200, ((b"content-type", b"audio/mpeg"),), stream(), close)
+
+    monkeypatch.setattr(call_service, "relay", relay)
+    token = clients.headers["X-Olywork-Token"]
+    try:
+        async with mcp_session(clients) as c:
+            await _rpc(c, "initialize", {"protocolVersion": "2025-06-18", "capabilities": {},
+                                         "clientInfo": {"name": "audio", "version": "1"}}, token)
+            response = await _rpc(c, "tools/call", {"name": "call_media", "arguments": {
+                "endpoint_id": "fishaudio.tts.s2-1-pro",
+                "headers": {"model": "s2.1-pro"},
+                "body": {"text": "hello"},
+            }}, token)
+        result = response.json()["result"]
+        assert result["content"][0] == {
+            "type": "audio", "data": base64.b64encode(b"audio-bytes").decode(),
+            "mimeType": "audio/mpeg",
+        }
+        assert result["structuredContent"]["status"] == 200
+        assert result["structuredContent"]["endpoint_id"] == "fishaudio.tts.s2-1-pro"
+    finally:
+        get_settings.cache_clear()
+
+
+async def test_call_accepts_base64_multipart_uploads_and_resources_list_reads_the_result(
+    clients, monkeypatch,
+):
+    import base64
+
+    from olywork.application.call import service as call_service
+    from olywork.application.call.types import UpstreamResponse
+    from olywork.config import get_settings
+
+    monkeypatch.setenv("OLYWORK_PLATFORM_KEY_FISHAUDIO", "PLATFORM-FISH")
+    monkeypatch.setenv("OLYWORK_PLATFORM_PROVIDERS", "fishaudio")
+    get_settings.cache_clear()
+
+    async def relay(*args, **kwargs):
+        async def stream():
+            yield b'{"_id":"mcp-voice"}'
+
+        async def close():
+            return None
+
+        return UpstreamResponse(201, ((b"content-type", b"application/json"),), stream(), close)
+
+    monkeypatch.setattr(call_service, "relay", relay)
+    token = clients.headers["X-Olywork-Token"]
+    try:
+        async with mcp_session(clients) as c:
+            created = await _call_tool(c, "call", {
+                "endpoint_id": "fishaudio.voices.create",
+                "form": {"type": "tts", "title": "MCP narrator", "train_mode": "fast",
+                         "visibility": "private"},
+                "uploads": [{"name": "voices", "filename": "voice.wav",
+                             "content_type": "audio/wav",
+                             "data_base64": base64.b64encode(b"RIFF-test").decode()}],
+            }, token=token)
+            listed = await _call_tool(c, "resources_list", {
+                "provider": "fishaudio", "kind": "voice",
+            }, token=token)
+        assert created["status"] == 201
+        assert listed["count"] == 1
+        assert listed["resources"][0]["upstream_id"] == "mcp-voice"
+    finally:
+        get_settings.cache_clear()
+
+
+async def test_resources_list_uses_and_normalizes_fish_byok_voices(clients, monkeypatch):
+    from olywork.application.call import service as call_service
+    from olywork.application.call.types import UpstreamResponse
+
+    await clients.post("/secrets", json={"name": "fishaudio", "value": "OWN-FISH"})
+
+    async def relay(*args, **kwargs):
+        async def stream():
+            yield b'{"items":[{"_id":"byok-voice","title":"Account narrator"}],"total":1}'
+
+        async def close():
+            return None
+
+        return UpstreamResponse(
+            200, ((b"content-type", b"application/json"),), stream(), close)
+
+    monkeypatch.setattr(call_service, "relay", relay)
+    token = clients.headers["X-Olywork-Token"]
+    async with mcp_session(clients) as c:
+        listed = await _call_tool(c, "resources_list", {
+            "provider": "fishaudio", "kind": "voice",
+        }, token=token)
+    assert listed["source"] == "byok"
+    assert listed["count"] == 1
+    assert listed["resources"][0] == {
+        "id": "byok-voice", "provider": "fishaudio", "kind": "voice",
+        "upstream_id": "byok-voice", "display_name": "Account narrator",
+        "created_by": None, "source_call_id": None,
+        "status": "active", "created_at": None, "updated_at": None, "deleted_at": None,
+    }
 
 
 async def test_catalog_search_returns_priced_results(clients):
@@ -131,6 +252,21 @@ async def test_catalog_search_returns_priced_results(clients):
     first = out["results"][0]
     assert first["endpoint_id"] and first["provider"]
     assert "usd_per_call" in first and "no_key_needed" in first
+
+
+async def test_catalog_get_quotes_hunter_domain_search_as_one_credit(clients):
+    """Feedback #201: usd_per_call must be the live 1-credit charge, not the 1/10 slice."""
+    token = (await clients.post("/users", json={"email": "hunter-price@olywork.com"})).json()["token"]
+    async with mcp_session(clients) as c:
+        got = await _call_tool(c, "catalog_get",
+                               {"endpoint_id": "hunter.companies.emails"}, token=token)
+        search = await _call_tool(c, "catalog_search",
+                                  {"query": "hunter domain search emails", "limit": 25}, token=token)
+    assert got["usd_per_call"] == 0.0245
+    assert got["endpoint"]["cost"]["usd"] == 0.00245
+    assert got["endpoint"]["cost"]["display_usd"] == 0.0245
+    row = next(r for r in search["results"] if r["endpoint_id"] == "hunter.companies.emails")
+    assert row["usd_per_call"] == 0.0245
 
 
 async def test_no_key_needed_is_false_when_the_deploy_holds_no_key(clients):
@@ -227,17 +363,17 @@ async def test_a_real_token_reads_its_OWN_balance(clients):
     assert out["balance_usd"] >= 0
 
 
-async def test_an_IDENTITY_token_resolves_its_team(clients):
-    """The bug production found. There are two kinds of token: a PER-ORG token (`olywork org agent-new`)
-    has its team baked in and `/auth/me` reports it; an IDENTITY token (`olywork login` — what most
-    people actually hold) belongs to a person who may be in several teams, so `/auth/me` reports no
-    org and every `/orgs/{id}/…` route must be told which one. Resolving only the first kind meant
-    `balance` answered "could not resolve the team" for the commonest token there is."""
+async def test_a_team_default_token_resolves_its_team(clients):
+    """A CLI login with a chosen team receives that team's Default key, so MCP can resolve billing
+    without a second X-Olywork-Org header."""
     r = await clients.post("/users", json={"email": "identity-user@olywork.com"})
     per_org = r.json()["token"]
     clients.headers["X-Olywork-Token"] = per_org
-    identity = (await clients.get("/auth/cli-token")).json()["token"]
-    assert identity != per_org
+    slug = (await clients.get("/orgs")).json()[0]["slug"]
+    identity = (await clients.get(
+        "/auth/cli-token", headers={"X-Olywork-Org": slug},
+    )).json()["token"]
+    assert identity == per_org  # deterministic Default key for this membership generation
 
     async with mcp_session(clients) as c:
         out = await _call_tool(c, "balance", {}, token=identity)
@@ -349,16 +485,17 @@ async def test_every_tool_declares_what_it_can_do(clients):
     from olywork.mcp import mcp as server
 
     ann = {t.name: t.annotations for t in await server.list_tools()}
-    assert set(ann) == {"catalog_search", "catalog_get", "call", "balance", "my_tools",
-                        "catalog_request"}
+    assert set(ann) == {"catalog_search", "catalog_get", "call", "call_media", "resources_list",
+                        "balance", "my_tools", "catalog_request", "feedback", "review"}
     assert all(a.title is None for a in ann.values())
-    for name in ("catalog_search", "catalog_get", "balance", "my_tools"):
+    for name in ("catalog_search", "catalog_get", "resources_list", "balance", "my_tools"):
         a = ann[name]
         assert a and a.read_only_hint is True, name
         assert a.destructive_hint is False and a.open_world_hint is False, name
-    a = ann["call"]
-    assert a.read_only_hint is False
-    assert a.destructive_hint is True and a.open_world_hint is True
+    for name in ("call", "call_media"):
+        a = ann[name]
+        assert a.read_only_hint is False
+        assert a.destructive_hint is True and a.open_world_hint is True
     # catalog_request writes (a row on olywork itself) but touches nothing upstream and spends nothing.
     a = ann["catalog_request"]
     assert a.read_only_hint is False
@@ -797,7 +934,7 @@ def test_a_relayed_402_carries_NO_link_out(clients):
     real = {"detail": {
         "error": "insufficient_balance",
         "message": ("akta.companies.enrich would cost ~$0.875 on olywork's akta key and this team's "
-                    "balance is $0.5765.\n  add funds:      https://olywork.com/app#billing"
+                    "balance is $0.5765.\n  add funds:      https://olywork.to/app#billing"
                     "\n  or use your own key: olywork connections connect --provider akta"),
         "balance_micro": 576500, "estimated_cost_micro": 875000,
         "topup_url": "/app#billing", "provider": "akta"}}
@@ -815,7 +952,7 @@ def test_stripping_the_link_keeps_the_DIAGNOSIS(clients):
     real = {"detail": {
         "error": "insufficient_balance",
         "message": ("akta.companies.enrich would cost ~$0.875 and this team's balance is $0.5765."
-                    "\n  add funds:      https://olywork.com/app#billing"
+                    "\n  add funds:      https://olywork.to/app#billing"
                     "\n  or use your own key: olywork connections connect --provider akta"),
         "balance_micro": 576500, "estimated_cost_micro": 875000}}
     out = _without_purchase_pointers(real)
@@ -977,7 +1114,7 @@ async def test_the_same_key_through_MCP_bills_once(clients, monkeypatch):
     monkeypatch.setenv("OLYWORK_PLATFORM_PROVIDERS", "tikhub")
     get_settings.cache_clear()
 
-    token = (await clients.post("/users", json={"email": "mcponce@olywork.com"})).json()["token"]
+    token = (await verified_signup(clients, json={"email": "mcponce@olywork.com"})).json()["token"]
     prev = clients.headers.get("X-Olywork-Token")
     clients.headers["X-Olywork-Token"] = token
     org_id = (await clients.get("/orgs")).json()[0]["org_id"]
@@ -1129,7 +1266,10 @@ async def test_call_resolves_the_team_for_an_identity_token(clients):
     r = await clients.post("/users", json={"email": "call-identity@olywork.com"})
     per_org = r.json()["token"]
     clients.headers["X-Olywork-Token"] = per_org
-    identity = (await clients.get("/auth/cli-token")).json()["token"]
+    slug = (await clients.get("/orgs")).json()[0]["slug"]
+    identity = (await clients.get(
+        "/auth/cli-token", headers={"X-Olywork-Org": slug},
+    )).json()["token"]
     made = await clients.post("/tools", json={"name": "echo2", "base_url": "http://upstream"})
     assert made.status_code == 200, made.text
 
@@ -1258,7 +1398,9 @@ async def test_search_survives_missing_a_few_words_of_an_agent_sentence(clients)
     # single letters can never select: "K&L" must not let k + l decide admission, and the company
     # job ("enrich by name") must lead instead of 67 rows of noise (logged miss, 2026-08-20)
     rows, total = cs.search("K&L Gates company lookup", cat, 8)
-    assert 0 < total < 30 and rows[0][0]["capability"].startswith("companies.")
+    # Provider growth can add a few legitimate company-lookup rows. Keep the guard tight enough
+    # to reject single-letter noise without treating new lookup providers as false positives.
+    assert 0 < total < 35 and rows[0][0]["capability"].startswith("companies.")
     # the jobs rows must survive an industry qualifier the catalog never says ("law firm"), via
     # the openings->postings and firm->company aliases (logged miss, 2026-08-20)
     rows, total = cs.search("law firm job openings hiring signal", cat, 8)
@@ -1394,7 +1536,7 @@ async def test_the_SEARCH_TOOL_itself_ranks_on_evidence_not_just_the_helper(clie
     from olywork.infra.db import session_maker
     from olywork.models import CallRecord
 
-    broken = "apify.meta-ads.library.search"  # earlier in file order: rerank must move it
+    broken = "apify.tiktok-ads.library.search"  # earlier in file order: rerank must move it
     good = "tikhub.x.tiktok-ads-search-ads"
     async with session_maker() as db:
         for status in (200, 200, 200, 200, 503):
@@ -1408,11 +1550,91 @@ async def test_the_SEARCH_TOOL_itself_ranks_on_evidence_not_just_the_helper(clie
 
     token = (await clients.post("/users", json={"email": "ranker@olywork.com"})).json()["token"]
     async with mcp_session(clients) as c:
-        await _call_tool(c, "catalog_search", {"query": "ad library", "limit": 25}, token=token)
+        await _call_tool(c, "catalog_search", {"query": "tiktok ads", "limit": 25}, token=token)
         await app.state.endpoint_observation_reader.wait_for_idle()
-        out = await _call_tool(c, "catalog_search", {"query": "ad library", "limit": 25}, token=token)
+        out = await _call_tool(c, "catalog_search", {"query": "tiktok ads", "limit": 25}, token=token)
     ids = [r["endpoint_id"] for r in out["results"]]
     assert ids.index(good) < ids.index(broken), ids
     good_row = next(r for r in out["results"] if r["endpoint_id"] == good)
     broken_row = next(r for r in out["results"] if r["endpoint_id"] == broken)
     assert good_row["works"] == 0.8 and broken_row["works"] == 0.0
+
+
+# ---- the overflow relay is disclosed on THIS surface, not only in a header ------------------
+# 2026-09-08: apollo.people.search (catalog cost free) was served through Orthogonal 8,810 times
+# at $0.002 while olywork's Apollo account was out. `/call/` said so in X-Olywork-Served-Via; an MCP
+# client never sees headers, so the agent reported a free call that billed. Six reports.
+
+from test_capacity_overflow import VENDOR_BODY, _orthogonal, _route, overflow_on, platform_on  # noqa: E402,F401
+
+
+async def _overflow_rescued(monkeypatch, price_cents: float = 0.3):
+    """Vendor 402 on olywork's own key, Orthogonal answers: the shape of every rescued call."""
+    from olywork.application.call import overflow as O
+    from olywork.application.call import service as call_service
+    from test_marketplace_call import _fake_relay
+
+    await _route(price_micro=3_000)
+    monkeypatch.setattr(call_service, "relay", _fake_relay(402, b'{"detail":"Insufficient balance"}'))
+    seen: list = []
+    monkeypatch.setattr(O, "_send", _orthogonal([(200, {"success": True, "data": VENDOR_BODY,
+                                                         "priceCents": price_cents})], seen))
+    return seen
+
+
+async def test_a_call_served_by_the_overflow_relay_says_so_and_prices_it(clients, overflow_on, monkeypatch):
+    token = clients.headers["X-Olywork-Token"]
+    seen = await _overflow_rescued(monkeypatch)
+    async with mcp_session(clients) as c:
+        out = await _call_tool(c, "call", {"endpoint_id": "tikhub.tiktok.video.comments",
+                                           "params": {"aweme_id": "7"}}, token=token)
+    assert out.get("status") == 200, out
+    assert out["served_via"] == "overflow:orthogonal" and out["cost_usd"] == 0.003
+    assert out["body"] == VENDOR_BODY, "the vendor's body, verbatim, through the relay"
+    hint = out.get("hint") or ""
+    assert "overflow relay (orthogonal)" in hint and "olywork's tikhub account is out" in hint, hint
+    assert "real price" in hint and len(seen) == 1
+
+
+async def test_a_direct_call_carries_no_served_via(clients, platform_on):
+    token = clients.headers["X-Olywork-Token"]
+    async with mcp_session(clients) as c:
+        out = await _call_tool(c, "call", {"endpoint_id": "tikhub.tiktok.video.comments",
+                                           "params": {"aweme_id": "7"}}, token=token)
+    assert out.get("status") == 200, out
+    assert "served_via" not in out and "overflow" not in (out.get("hint") or "")
+
+
+async def test_the_directory_surface_discloses_the_relay_the_same_way(clients, overflow_on, monkeypatch):
+    """`/mcp/v2/` builds the same result through `_call_impl`; reviewed against both on purpose."""
+    from test_mcp_directory import _call_tool as _directory_call, directory_session
+
+    token = clients.headers["X-Olywork-Token"]
+    await _overflow_rescued(monkeypatch)
+    async with directory_session() as client:
+        out = await _directory_call(client, "catalog_call_read",
+                                    {"endpoint_id": "tikhub.tiktok.video.comments",
+                                     "params": {"aweme_id": "7"}}, token)
+    assert out.get("status") == 200, out
+    assert out["served_via"] == "overflow:orthogonal" and out["cost_usd"] == 0.003
+    assert "overflow relay (orthogonal)" in (out.get("hint") or "")
+
+
+async def test_catalog_get_shows_what_a_FREE_endpoint_bills_through_the_relay(clients, overflow_on):
+    """The price an agent quotes before calling must include the one it may actually pay."""
+    from test_capacity_overflow import APOLLO_SEARCH_EP, APOLLO_SEARCH_PATH
+    from test_mcp_directory import _call_tool as _directory_call, directory_session
+
+    token = clients.headers["X-Olywork-Token"]
+    await _route(endpoint_id=APOLLO_SEARCH_EP, provider="apollo", method="POST", path=APOLLO_SEARCH_PATH,
+                 price_micro=2_000, ratio=None)
+    async with mcp_session(clients) as c:
+        team = await _call_tool(c, "catalog_get", {"endpoint_id": APOLLO_SEARCH_EP}, token=token)
+    async with directory_session() as client:
+        directory = await _directory_call(client, "catalog_get", {"endpoint_id": APOLLO_SEARCH_EP}, token)
+    for out in (team, directory):
+        assert out["endpoint"]["cost"]["usd"] == 0, out["endpoint"]["cost"]
+        assert out["overflow_price_usd"] == 0.002 and out["overflow_via"] == "orthogonal"
+        assert out["overflow_price_unit"] == "call"
+        assert out["endpoint"]["overflow_price_usd"] == 0.002
+        assert any("overflow relay (orthogonal)" in h for h in out["hints"])

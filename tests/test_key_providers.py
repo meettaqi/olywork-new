@@ -7,7 +7,13 @@ conftest (`/whoami` echoes; `/units` and `/units-bad` model Semrush's plain-text
 
 from __future__ import annotations
 
+import json
+import httpx
+from olywork.api import app
+from olywork.config import Settings
+from olywork.domain.catalog import store as catalog_store
 import dataclasses
+import pytest
 
 from httpx import AsyncClient
 
@@ -18,20 +24,80 @@ from olywork import oauth_providers as P
 def test_key_providers_are_offerable_without_deployment_credentials():
     """The user brings the key, so olywork holds no app of its own — a key provider must be offerable,
     not shown as 'not configured' the way an unset OAuth provider is."""
-    for svc in ("apollo", "pdl", "akta", "hunter", "crunchbase", "tikhub", "brightdata", "semrush",
+    for svc in ("anyapi", "apollo", "pdl", "akta", "hunter", "sumble", "moltsets", "openmart", "harvestapi", "fetchinio", "dropleads", "quickenrich", "prospeo", "aiark", "wiza", "limadata", "getleadsio", "scrubby", "zerobounce", "datagma", "contactout", "millionverifier", "bounceban", "trykitt", "crunchbase", "tikhub", "brightdata", "semrush",
                 "justoneapi", "dataforseo", "seranking", "moz", "majestic", "serpstat", "exa",
+                "cloro",
                 "lusha", "coresignal", "diffbot", "thecompaniesapi", "leadmagic", "fiber-ai",
                 "companyenrich", "oceanio", "tomba", "predictleads", "findymail", "branddev",
                 "icypeas", "leadsforge", "influencersclub", "crustdata", "aviato",
-                "spyfu", "apify", "meta-ad-library", "serpapi",
+                "spyfu", "apify", "meta-ad-library", "serpapi", "adyntel",
                 "coingecko", "polygon", "finnhub", "twelvedata", "fmp", "eodhd", "marketstack",
-                "tiingo"):
+                "tiingo", "financialdatasets", "tinyfish", "keenable", "olostep",
+                "scrapegraphai", "serper"):
         p = P.get(svc)
         assert p is not None, svc
         assert p.auth_kind == "key", svc
         assert p.uses_pasted_secret is True, svc
         assert p.is_token_kind is False, f"{svc}: an API key is not a Slack bot token"
         assert P.is_configured(p) is True, svc
+
+
+def test_adyntel_registry_uses_two_json_body_credentials(monkeypatch):
+    monkeypatch.setenv("OLYWORK_PLATFORM_KEY_ADYNTEL", "PLATFORM-ADYNTEL")
+    monkeypatch.setenv("OLYWORK_PLATFORM_EMAIL_ADYNTEL", "owner@example.com")
+    monkeypatch.setenv("OLYWORK_PLATFORM_PROVIDERS", "adyntel")
+    provider = P.get("adyntel")
+    assert provider is not None
+    assert provider.base_url == "https://api.adyntel.com"
+    assert provider.probe_path == "/facebook"
+    assert provider.probe_method == "POST"
+    assert provider.probe_deferred_statuses == (422,)
+    assert provider.token_location == "json" and provider.token_param == "api_key"
+    assert provider.extra_credential_location == "json"
+    assert provider.extra_credential_name == "email"
+    assert P.platform_bindings(provider) == [
+        {"platform_setting": "platform_key_adyntel", "injector": "env",
+         "location": "json", "name": "api_key", "format": "{secret}"},
+        {"platform_setting": "platform_email_adyntel", "injector": "env",
+         "location": "json", "name": "email", "format": "{secret}"},
+    ]
+
+
+async def test_adyntel_connect_collects_both_credentials_before_provisioning(clients, monkeypatch):
+    def probe(request):
+        assert request.method == "POST"
+        assert request.url.path == "/facebook"
+        assert json.loads(request.content) == {
+            "company_domain": "olywork-credential-check.invalid",
+            "api_key": "own-key",
+        }
+        return httpx.Response(422, json={"detail": "email is required"})
+
+    async with AsyncClient(transport=httpx.MockTransport(probe)) as upstream:
+        monkeypatch.setattr(app.state, "http", upstream)
+        first = await clients.post(
+            "/connections/token", json={"provider": "adyntel", "token": "own-key"},
+        )
+        assert first.status_code == 200, first.text
+        connection = first.json()
+        assert connection["health"] == "unknown"
+        pending_tool = next(
+            t for t in (await clients.get("/tools")).json() if t["name"] == "adyntel"
+        )
+        assert [(b["location"], b["name"]) for b in pending_tool["bindings"]] == [
+            ("json", "api_key"),
+        ]
+        ready = await clients.post(
+            f"/connections/{connection['id']}/extra-credential",
+            json={"value": "owner@example.com"},
+        )
+        assert ready.status_code == 200, ready.text
+        assert ready.json()["ready"] is True
+
+    tool = next(t for t in (await clients.get("/tools")).json() if t["name"] == "adyntel")
+    assert [(b["location"], b["name"]) for b in tool["bindings"]] == [
+        ("json", "api_key"), ("json", "email"),
+    ]
 
 
 def test_key_providers_appear_in_the_marketplace_listing():
@@ -41,15 +107,499 @@ def test_key_providers_appear_in_the_marketplace_listing():
     assert listing["semrush"]["category"] == "SEO"
     assert listing["tikhub"]["category"] == "Social media"
     assert listing["coingecko"]["category"] == "Market data"
+    assert listing["financialdatasets"]["category"] == "Market data"
+    assert listing["bounceban"]["category"] == "Enrichment"
+    assert listing["bounceban"]["auth_kind"] == "key"
+    assert listing["zerobounce"]["category"] == "Enrichment"
+    assert listing["zerobounce"]["auth_kind"] == "key"
     assert listing["minimax"]["category"] == "AI generation"
+    assert listing["minimax"]["summary"] == "Generate voice, images, and videos from text or source images."
     assert listing["openrouter"]["auth_kind"] == "token"
     assert listing["replicate"]["base_url"] == "https://api.replicate.com/v1"
     assert "Enrichment" in P.CATEGORY_ORDER
     assert "Market data" in P.CATEGORY_ORDER
 
 
+def test_serper_registry_uses_free_account_probe_and_scopes_the_scrape_host(monkeypatch):
+    monkeypatch.setenv("OLYWORK_PLATFORM_KEY_SERPER", "PLATFORM-SERPER")
+    monkeypatch.setenv("OLYWORK_PLATFORM_PROVIDERS", "serper")
+    settings = Settings(_env_file=None)
+    provider = P.get("serper")
+    assert provider is not None
+    assert provider.base_url == "https://google.serper.dev"
+    assert provider.probe_path == "/account"
+    assert provider.probe_method == "GET"
+    assert [(target.host, target.base_url) for target in provider.catalog_targets] == [
+        ("scrape.serper.dev", "https://scrape.serper.dev"),
+    ]
+    assert provider.extra_tools == (
+        {"suffix": "scrape", "base_url": "https://scrape.serper.dev"},
+    )
+    assert settings.platform_key_for("serper") == "PLATFORM-SERPER"
+    assert P.platform_bindings(provider) == [{
+        "platform_setting": "platform_key_serper",
+        "injector": "env",
+        "location": "header",
+        "name": "X-API-KEY",
+        "format": "{secret}",
+    }]
+
+
+def test_fetchin_registry_uses_free_subscription_probe_and_x_api_key(monkeypatch):
+    monkeypatch.setenv("OLYWORK_PLATFORM_KEY_FETCHINIO", "PLATFORM-FETCHIN")
+    monkeypatch.setenv("OLYWORK_PLATFORM_PROVIDERS", "fetchinio")
+    provider = P.get("fetchinio")
+    assert provider is not None
+    assert provider.base_url == "https://api.fetchin.io"
+    assert provider.probe_path == "/api/v1/subscription"
+    assert provider.probe_method == "GET"
+    assert Settings(_env_file=None).platform_key_for("fetchinio") == "PLATFORM-FETCHIN"
+    assert P.platform_bindings(provider) == [{
+        "platform_setting": "platform_key_fetchinio",
+        "injector": "env",
+        "location": "header",
+        "name": "X-API-Key",
+        "format": "{secret}",
+    }]
+
+
+async def test_fetchin_connect_accepts_valid_key_and_rejects_bad_key(clients, monkeypatch):
+    def probe(request):
+        assert request.method == "GET"
+        assert request.url.path == "/api/v1/subscription"
+        if request.headers["x-api-key"] == "bad":
+            return httpx.Response(401, json={"code": "INVALID_API_KEY"})
+        return httpx.Response(200, json={
+            "plan": "free", "active": True, "status": "free",
+            "creditsRemaining": 0, "creditsLimit": 1000, "creditsUsed": 1000,
+            "renewalDate": None, "rpsLimit": 5, "cancelAtPeriodEnd": False,
+        })
+
+    async with AsyncClient(transport=httpx.MockTransport(probe)) as upstream:
+        monkeypatch.setattr(app.state, "http", upstream)
+        bad = await clients.post(
+            "/connections/token", json={"provider": "fetchinio", "token": "bad"})
+        assert bad.status_code == 422
+        good = await clients.post(
+            "/connections/token", json={"provider": "fetchinio", "token": "own-key"})
+        assert good.status_code == 200, good.text
+
+    tool = next(t for t in (await clients.get("/tools")).json() if t["name"] == "fetchinio")
+    assert tool["base_url"] == "https://api.fetchin.io"
+    assert tool["bindings"][0]["name"] == "X-API-Key"
+
+
+def test_paid_key_verification_probe_is_typed_and_unique():
+    paid = {p.service: p.probe_cost_micro for p in P.REGISTRY.values() if p.probe_cost_micro}
+    assert paid == {"keenable": 4_000, "trestleiq": 15_000}
+    assert all(isinstance(p.probe_cost_micro, int) and p.probe_cost_micro >= 0
+               for p in P.REGISTRY.values())
+    listing = {row["service"]: row for row in P.listing()}
+    assert listing["trestleiq"]["probe_cost_micro"] == 15_000
+    assert listing["wiza"]["probe_cost_micro"] == 0
+
+
+def test_keenable_registry_uses_the_billed_fetch_probe_and_x_api_key(monkeypatch):
+    monkeypatch.setenv("OLYWORK_PLATFORM_KEY_KEENABLE", "PLATFORM-KEENABLE")
+    monkeypatch.setenv("OLYWORK_PLATFORM_PROVIDERS", "keenable")
+    provider = P.get("keenable")
+    assert provider is not None
+    assert provider.base_url == "https://api.keenable.ai"
+    assert provider.probe_path == "/v1/fetch?url=https%3A%2F%2Fdocs.keenable.ai%2F&max_chars=1"
+    assert provider.probe_cost_micro == 4_000
+    assert provider.token_verify_field == "url"
+    assert Settings(_env_file=None).platform_key_for("keenable") == "PLATFORM-KEENABLE"
+    assert P.platform_bindings(provider) == [{
+        "platform_setting": "platform_key_keenable",
+        "injector": "env",
+        "location": "header",
+        "name": "X-API-Key",
+        "format": "{secret}",
+    }]
+
+
+def test_olostep_registry_uses_free_credit_probe_and_bearer_auth(monkeypatch):
+    monkeypatch.setenv("OLYWORK_PLATFORM_KEY_OLOSTEP", "PLATFORM-OLOSTEP")
+    monkeypatch.setenv("OLYWORK_PLATFORM_PROVIDERS", "olostep")
+    provider = P.get("olostep")
+    assert provider is not None
+    assert provider.base_url == "https://api.olostep.com"
+    assert provider.probe_path == "/user/credits/info"
+    assert provider.probe_cost_micro == 0
+    assert Settings(_env_file=None).platform_key_for("olostep") == "PLATFORM-OLOSTEP"
+    assert P.platform_bindings(provider) == [{
+        "platform_setting": "platform_key_olostep",
+        "injector": "env",
+        "location": "header",
+        "name": "Authorization",
+        "format": "Bearer {secret}",
+    }]
+
+
+def test_scrapegraphai_registry_uses_free_credit_probe_and_sgai_header(monkeypatch):
+    monkeypatch.setenv("OLYWORK_PLATFORM_KEY_SCRAPEGRAPHAI", "PLATFORM-SCRAPEGRAPHAI")
+    monkeypatch.setenv("OLYWORK_PLATFORM_PROVIDERS", "scrapegraphai")
+    provider = P.get("scrapegraphai")
+    assert provider is not None
+    assert provider.base_url == "https://v2-api.scrapegraphai.com"
+    assert provider.probe_path == "/api/credits"
+    assert provider.probe_cost_micro == 0
+    assert Settings(_env_file=None).platform_key_for("scrapegraphai") == "PLATFORM-SCRAPEGRAPHAI"
+    assert P.platform_bindings(provider) == [{
+        "platform_setting": "platform_key_scrapegraphai",
+        "injector": "env",
+        "location": "header",
+        "name": "SGAI-APIKEY",
+        "format": "{secret}",
+    }]
+
+
+def test_trestleiq_registry_uses_the_billed_sandbox_probe_and_lowercase_header(monkeypatch):
+    monkeypatch.setenv("OLYWORK_PLATFORM_KEY_TRESTLEIQ", "PLATFORM-TRESTLEIQ")
+    monkeypatch.setenv("OLYWORK_PLATFORM_PROVIDERS", "trestleiq")
+    provider = P.get("trestleiq")
+    assert provider.base_url == "https://api.trestleiq.com"
+    assert provider.probe_path == "/3.0/phone_intel?phone=%2B13005550100&is_sandbox=true"
+    assert provider.probe_cost_micro == 15_000
+    assert Settings(_env_file=None).platform_key_for("trestleiq") == "PLATFORM-TRESTLEIQ"
+    assert P.platform_bindings(provider) == [{
+        "platform_setting": "platform_key_trestleiq",
+        "injector": "env",
+        "location": "header",
+        "name": "x-api-key",
+        "format": "{secret}",
+    }]
+
+
+async def test_trestleiq_paid_probe_rejects_bad_key_and_is_never_saved_as_health_check(
+    clients, monkeypatch,
+):
+    def probe(request):
+        assert request.url.path == "/3.0/phone_intel"
+        assert request.url.params["phone"] == "+13005550100"
+        assert request.url.params["is_sandbox"] == "true"
+        if request.headers["x-api-key"] == "bad":
+            return httpx.Response(403, json={"errorCode": "AUTHENTICATION_FAILED"})
+        return httpx.Response(200, json={"is_valid": False, "warnings": ["Invalid Input"]})
+
+    async with AsyncClient(transport=httpx.MockTransport(probe)) as upstream:
+        monkeypatch.setattr(app.state, "http", upstream)
+        bad = await clients.post("/connections/token", json={"provider": "trestleiq", "token": "bad"})
+        assert bad.status_code == 422
+        good = await clients.post(
+            "/connections/token", json={"provider": "trestleiq", "token": "own-key"})
+        assert good.status_code == 200, good.text
+    tool = next(t for t in (await clients.get("/tools")).json() if t["name"] == "trestleiq")
+    assert tool["health_check"] is None
+
+
+def test_openmart_registry_uses_the_free_balance_probe_and_bearer_key(monkeypatch):
+    monkeypatch.setenv("OLYWORK_PLATFORM_KEY_OPENMART", "PLATFORM-OPENMART")
+    monkeypatch.setenv("OLYWORK_PLATFORM_PROVIDERS", "openmart")
+    provider = P.get("openmart")
+    settings = Settings(_env_file=None)
+    assert provider.base_url == "https://api.openmart.ai"
+    assert provider.probe_path == "/api/v2/credit-balance"
+    assert provider.probe_method == "GET"
+    assert settings.platform_key_for("openmart") == "PLATFORM-OPENMART"
+    assert P.platform_bindings(provider) == [{
+        "platform_setting": "platform_key_openmart",
+        "injector": "env",
+        "location": "header",
+        "name": "Authorization",
+        "format": "Bearer {secret}",
+    }]
+
+
+async def test_openmart_connect_rejects_bad_key_and_accepts_valid_key(clients, monkeypatch):
+    def probe(request):
+        assert request.method == "GET"
+        assert request.url.path == "/api/v2/credit-balance"
+        if request.headers["authorization"] == "Bearer bad":
+            return httpx.Response(401, json={"detail": "Invalid API Key"})
+        return httpx.Response(200, json={"balance": 4800})
+
+    async with AsyncClient(transport=httpx.MockTransport(probe)) as upstream:
+        monkeypatch.setattr(app.state, "http", upstream)
+        bad = await clients.post(
+            "/connections/token", json={"provider": "openmart", "token": "bad"})
+        assert bad.status_code == 422
+        good = await clients.post(
+            "/connections/token", json={"provider": "openmart", "token": "own-key"})
+        assert good.status_code == 200, good.text
+
+
+def test_zerobounce_registry_uses_internal_usage_probe_and_query_key(monkeypatch):
+    monkeypatch.setenv("OLYWORK_PLATFORM_KEY_ZEROBOUNCE", "PLATFORM-ZEROBOUNCE")
+    monkeypatch.setenv("OLYWORK_PLATFORM_PROVIDERS", "zerobounce")
+    provider = P.get("zerobounce")
+    settings = Settings(_env_file=None)
+    assert provider.base_url == "https://api.zerobounce.net"
+    assert provider.probe_path.startswith("/v2/getapiusage?")
+    assert settings.platform_key_for("zerobounce") == "PLATFORM-ZEROBOUNCE"
+    assert P.platform_bindings(provider) == [{
+        "platform_setting": "platform_key_zerobounce",
+        "injector": "env",
+        "location": "query",
+        "name": "api_key",
+        "format": "{secret}",
+    }]
+
+
+async def test_zerobounce_connect_rejects_bad_key_and_accepts_valid_key(clients, monkeypatch):
+    def probe(request):
+        assert request.url.path == "/v2/getapiusage"
+        assert request.url.params["start_date"] == "2026-01-01"
+        assert request.url.params["end_date"] == "2026-12-31"
+        key = request.url.params["api_key"]
+        if key == "bad-key":
+            return httpx.Response(403, json={"error": "invalid api key"})
+        return httpx.Response(200, json={"total": 0, "status_valid": 0})
+
+    async with AsyncClient(transport=httpx.MockTransport(probe)) as upstream:
+        monkeypatch.setattr(app.state, "http", upstream)
+        bad = await clients.post(
+            "/connections/token", json={"provider": "zerobounce", "token": "bad-key"})
+        assert bad.status_code == 422
+        good = await clients.post(
+            "/connections/token", json={"provider": "zerobounce", "token": "own-key"})
+        assert good.status_code == 200, good.text
+
+
+def test_dropleads_registry_uses_the_standard_key_provider_paths(monkeypatch):
+    monkeypatch.setenv("OLYWORK_PLATFORM_KEY_DROPLEADS", "PLATFORM-DROPLEADS")
+    monkeypatch.setenv("OLYWORK_PLATFORM_PROVIDERS", "dropleads")
+    settings = Settings(_env_file=None)
+    provider = P.get("dropleads")
+    assert provider.base_url == "https://prime.dropleads.io"
+    assert provider.probe_path == "/api/v2/prime-db/credits/balance"
+    assert provider.catalog_targets[0].host == "api.dropleads.io"
+    assert provider.extra_tools[0]["suffix"] == "contact"
+    assert settings.platform_key_for("dropleads") == "PLATFORM-DROPLEADS"
+    assert P.platform_bindings(provider) == [{
+        "platform_setting": "platform_key_dropleads",
+        "injector": "env",
+        "location": "header",
+        "name": "X-API-Key",
+        "format": "{secret}",
+    }]
+
+
+async def test_dropleads_connect_provisions_both_approved_hosts(clients, monkeypatch):
+    def probe(request):
+        assert request.url.host == "prime.dropleads.io"
+        assert request.url.path == "/api/v2/prime-db/credits/balance"
+        assert request.headers["x-api-key"] in ("bad", "own-key")
+        if request.headers["x-api-key"] == "bad":
+            return httpx.Response(401, json={"message": "Invalid API key"})
+        return httpx.Response(
+            200, json={"success": True, "credits": {"totalAvailable": 0}}
+        )
+
+    async with AsyncClient(transport=httpx.MockTransport(probe)) as upstream:
+        monkeypatch.setattr(app.state, "http", upstream)
+        bad = await clients.post(
+            "/connections/token", json={"provider": "dropleads", "token": "bad"}
+        )
+        assert bad.status_code == 422
+        good = await clients.post(
+            "/connections/token", json={"provider": "dropleads", "token": "own-key"}
+        )
+        assert good.status_code == 200, good.text
+
+    tools = {tool["name"]: tool for tool in (await clients.get("/tools")).json()}
+    assert set(tools) == {"dropleads", "dropleads-contact"}
+    assert tools["dropleads"]["base_url"] == "https://prime.dropleads.io"
+    assert tools["dropleads-contact"]["base_url"] == "https://api.dropleads.io"
+    assert tools["dropleads"]["bindings"] == tools["dropleads-contact"]["bindings"]
+
+
+def test_prospeo_registry_uses_account_information_without_exposing_it(monkeypatch):
+    monkeypatch.setenv("OLYWORK_PLATFORM_KEY_PROSPEO", "PLATFORM-PROSPEO")
+    monkeypatch.setenv("OLYWORK_PLATFORM_PROVIDERS", "prospeo")
+    settings = Settings(_env_file=None)
+    provider = P.get("prospeo")
+    assert provider.base_url == "https://api.prospeo.io"
+    assert provider.probe_path == "/account-information"
+    assert provider.probe_method == "GET"
+    assert provider.token_header == "X-KEY"
+    assert settings.platform_key_for("prospeo") == "PLATFORM-PROSPEO"
+    assert P.platform_bindings(provider) == [{
+        "platform_setting": "platform_key_prospeo",
+        "injector": "env",
+        "location": "header",
+        "name": "X-KEY",
+        "format": "{secret}",
+    }]
+
+
+async def test_prospeo_connect_provisions_a_single_catalog_host(clients, monkeypatch):
+    def probe(request):
+        assert request.url.host == "api.prospeo.io"
+        assert request.url.path == "/account-information"
+        key = request.headers["x-key"]
+        if key == "bad":
+            return httpx.Response(400, json={"error": True, "error_code": "INVALID_API_KEY"})
+        return httpx.Response(200, json={
+            "error": False,
+            "response": {"current_plan": "STARTER", "remaining_credits": 10},
+        })
+
+    async with AsyncClient(transport=httpx.MockTransport(probe)) as upstream:
+        monkeypatch.setattr(app.state, "http", upstream)
+        bad = await clients.post(
+            "/connections/token", json={"provider": "prospeo", "token": "bad"}
+        )
+        assert bad.status_code == 422
+        good = await clients.post(
+            "/connections/token", json={"provider": "prospeo", "token": "own-key"}
+        )
+        assert good.status_code == 200, good.text
+
+    tools = {tool["name"]: tool for tool in (await clients.get("/tools")).json()}
+    assert set(tools) == {"prospeo"}
+    assert tools["prospeo"]["base_url"] == "https://api.prospeo.io"
+
+
+def test_aiark_registry_uses_credits_probe_and_x_token(monkeypatch):
+    monkeypatch.setenv("OLYWORK_PLATFORM_KEY_AIARK", "PLATFORM-AIARK")
+    monkeypatch.setenv("OLYWORK_PLATFORM_PROVIDERS", "aiark")
+    settings = Settings(_env_file=None)
+    provider = P.get("aiark")
+    assert provider.base_url == "https://api.ai-ark.com/api/developer-portal"
+    assert provider.probe_path == "/v1/payments/credits"
+    assert provider.probe_method == "GET"
+    assert settings.platform_key_for("aiark") == "PLATFORM-AIARK"
+    assert P.platform_bindings(provider) == [{
+        "platform_setting": "platform_key_aiark",
+        "injector": "env",
+        "location": "header",
+        "name": "X-TOKEN",
+        "format": "{secret}",
+    }]
+
+
+async def test_aiark_connect_rejects_a_bad_key_and_provisions_the_catalog_host(
+        clients, monkeypatch):
+    def probe(request):
+        assert request.url.path == "/api/developer-portal/v1/payments/credits"
+        key = request.headers["x-token"]
+        if key == "bad":
+            return httpx.Response(401, json={"error": "Unauthorized"})
+        return httpx.Response(200, json={"total": 15000})
+
+    async with AsyncClient(transport=httpx.MockTransport(probe)) as upstream:
+        monkeypatch.setattr(app.state, "http", upstream)
+        bad = await clients.post(
+            "/connections/token", json={"provider": "aiark", "token": "bad"}
+        )
+        assert bad.status_code == 422
+        good = await clients.post(
+            "/connections/token", json={"provider": "aiark", "token": "own-key"}
+        )
+        assert good.status_code == 200, good.text
+
+    tools = {tool["name"]: tool for tool in (await clients.get("/tools")).json()}
+    assert set(tools) == {"aiark"}
+    assert tools["aiark"]["base_url"] == "https://api.ai-ark.com/api/developer-portal"
+
+
+def test_limadata_registry_uses_the_free_validation_probe_and_x_api_key(monkeypatch):
+    monkeypatch.setenv("OLYWORK_PLATFORM_KEY_LIMADATA", "PLATFORM-LIMADATA")
+    monkeypatch.setenv("OLYWORK_PLATFORM_PROVIDERS", "limadata")
+    settings = Settings(_env_file=None)
+    provider = P.get("limadata")
+    assert provider.base_url == "https://api.limadata.com"
+    assert provider.probe_path == "/api/v1/search/web"
+    assert provider.probe_method == "POST"
+    assert provider.probe_json == {}
+    assert provider.probe_reject_statuses == (401, 403)
+    assert settings.platform_key_for("limadata") == "PLATFORM-LIMADATA"
+    assert P.platform_bindings(provider) == [{
+        "platform_setting": "platform_key_limadata",
+        "injector": "env",
+        "location": "header",
+        "name": "x-api-key",
+        "format": "{secret}",
+    }]
+
+
+async def test_limadata_connect_rejects_bad_key_and_accepts_validation_error(
+        clients, monkeypatch):
+    def probe(request):
+        assert request.url == "https://api.limadata.com/api/v1/search/web"
+        assert request.content == b"{}"
+        if request.headers["x-api-key"] == "bad":
+            return httpx.Response(401, json={"message": "Unauthorized"})
+        return httpx.Response(400, json={"message": "query is required"})
+
+    async with AsyncClient(transport=httpx.MockTransport(probe)) as upstream:
+        monkeypatch.setattr(app.state, "http", upstream)
+        bad = await clients.post(
+            "/connections/token", json={"provider": "limadata", "token": "bad"}
+        )
+        assert bad.status_code == 422
+        good = await clients.post(
+            "/connections/token", json={"provider": "limadata", "token": "own-key"}
+        )
+        assert good.status_code == 200, good.text
+
+    tools = {tool["name"]: tool for tool in (await clients.get("/tools")).json()}
+    assert set(tools) == {"limadata"}
+    assert tools["limadata"]["base_url"] == "https://api.limadata.com"
+
+
+def test_getleadsio_registry_uses_bearer_and_the_free_usage_probe(monkeypatch):
+    monkeypatch.setenv("OLYWORK_PLATFORM_KEY_GETLEADSIO", "PLATFORM-GETLEADSIO")
+    monkeypatch.setenv("OLYWORK_PLATFORM_PROVIDERS", "getleadsio")
+    settings = Settings(_env_file=None)
+    provider = P.get("getleadsio")
+    assert provider.base_url == "https://app.getleads.io"
+    assert provider.probe_path == "/api/v1/usage/fair-use"
+    assert provider.probe_method == "GET"
+    assert provider.token_header == "Authorization"
+    assert provider.token_format == "Bearer {secret}"
+    assert settings.platform_key_for("getleadsio") == "PLATFORM-GETLEADSIO"
+    assert P.platform_bindings(provider) == [{
+        "platform_setting": "platform_key_getleadsio",
+        "injector": "env",
+        "location": "header",
+        "name": "Authorization",
+        "format": "Bearer {secret}",
+    }]
+
+
+async def test_getleadsio_connect_rejects_a_bad_key_and_provisions_the_catalog_host(
+        clients, monkeypatch):
+    def probe(request):
+        assert request.url.host == "app.getleads.io"
+        assert request.url.path == "/api/v1/usage/fair-use"
+        key = request.headers["authorization"]
+        if key == "Bearer bad":
+            return httpx.Response(401, json={"ok": False, "message": "Invalid API key"})
+        return httpx.Response(200, json={"ok": True, "credits_remaining": 997})
+
+    async with AsyncClient(transport=httpx.MockTransport(probe)) as upstream:
+        monkeypatch.setattr(app.state, "http", upstream)
+        bad = await clients.post(
+            "/connections/token", json={"provider": "getleadsio", "token": "bad"}
+        )
+        assert bad.status_code == 422
+        good = await clients.post(
+            "/connections/token", json={"provider": "getleadsio", "token": "own-key"}
+        )
+        assert good.status_code == 200, good.text
+
+    tools = {tool["name"]: tool for tool in (await clients.get("/tools")).json()}
+    assert set(tools) == {"getleadsio"}
+    assert tools["getleadsio"]["base_url"] == "https://app.getleads.io"
+    binding = tools["getleadsio"]["bindings"][0]
+    assert binding["name"] == "Authorization"
+    assert binding["format"] == "Bearer {secret}"
+
+
 def test_aigc_token_providers_are_offerable_without_deployment_credentials():
-    for service in ("minimax", "openrouter", "replicate"):
+    for service in ("minimax", "openrouter", "replicate", "reapi"):
         provider = P.get(service)
         assert provider is not None
         assert provider.auth_kind == "token"
@@ -58,6 +608,10 @@ def test_aigc_token_providers_are_offerable_without_deployment_credentials():
     assert P.get("minimax").probe_method == "POST"
     assert P.get("minimax").probe_json == {}
     assert P.get("minimax").probe_reject_statuses == (401, 403)
+    # reAPI has no free account route: an unknown task id is 404 on a valid key, 401 on a bad one.
+    assert P.get("reapi").probe_path == "/tasks/probe"
+    assert P.get("reapi").probe_reject_statuses == (401, 403)
+    assert P.get("piapi").auth_kind == "key" and P.get("piapi").token_header == "X-API-Key"
 
 
 # ---- connect-by-key ----------------------------------------------------------------------
@@ -190,6 +744,42 @@ async def test_basic_provider_accepts_a_ready_made_base64_blob(clients: AsyncCli
     assert echoed == "Basic " + blob, "a pasted Base64 blob must not be double-encoded"
 
 
+async def test_secret_add_raw_basic_credential_encodes_at_injection(clients: AsyncClient, monkeypatch):
+    """Secrets added via `olywork secret add dataforseo` bypass the connect flow and store the raw value.
+    The injector must detect and Base64-encode a raw `login:password` to produce a valid Basic header.
+
+    Regression test for feedback #294 / #276 / #280-282: DataForSEO Lighthouse returned 40100
+    (401 Unauthorized) through olywork while the same credential worked via direct curl. The cause
+    was that `olywork secret add dataforseo --env-var` stored raw `login:password`, but the injector
+    used it verbatim as `Basic login:password` instead of `Basic <base64(login:password)>`.
+    """
+    import base64
+    monkeypatch.setitem(P.REGISTRY, "dataforseo", dataclasses.replace(
+        P.REGISTRY["dataforseo"], base_url="http://upstream", probe_path="/whoami"))
+    # Add a raw secret directly, bypassing the /connections/token flow that would Base64-encode it
+    r = await clients.post("/secrets", json={"name": "dataforseo", "value": "login:pw"})
+    assert r.status_code == 200, r.text
+    # Call a DataForSEO catalog endpoint to trigger marketplace resolution with the named secret
+    # (the named-tool path won't find a tool; this exercises _marketplace_secret -> _provider_bindings)
+    echoed = (await clients.get("/call/dataforseo.account.usage")).json()["auth"]
+    expected = "Basic " + base64.b64encode(b"login:pw").decode()
+    assert echoed == expected, f"raw secret must be Base64-encoded at injection time, got {echoed!r}"
+
+
+async def test_secret_add_already_encoded_basic_credential_not_double_encoded(clients: AsyncClient, monkeypatch):
+    """Secrets added with an already-encoded Base64 blob must not be double-encoded by the injector."""
+    import base64
+    blob = base64.b64encode(b"login:pw").decode()
+    monkeypatch.setitem(P.REGISTRY, "dataforseo", dataclasses.replace(
+        P.REGISTRY["dataforseo"], base_url="http://upstream", probe_path="/whoami"))
+    # Add an already-encoded secret directly
+    r = await clients.post("/secrets", json={"name": "dataforseo", "value": blob})
+    assert r.status_code == 200, r.text
+    # Call a DataForSEO catalog endpoint to trigger marketplace resolution with the named secret
+    echoed = (await clients.get("/call/dataforseo.account.usage")).json()["auth"]
+    assert echoed == "Basic " + blob, f"already-encoded secret must not be double-encoded, got {echoed!r}"
+
+
 # ---- corrected probe shapes (regression guards for the 2026-08-13 connect-flow fixes) --------
 def test_brightdata_probe_is_a_real_route():
     """The old /datasets/v3/datasets 404'd even for a valid token, refusing every real key. /status is
@@ -232,3 +822,242 @@ async def test_query_token_survives_alongside_a_probe_path_query(clients: AsyncC
         probe_path="/needs-query?field=title", token_verify_field=""))
     r = await clients.post("/connections/token", json={"provider": "spyfu", "token": "spyfu-secret"})
     assert r.status_code == 200, r.text
+
+
+async def test_millionverifier_connect_checks_body_and_injects_query(clients, monkeypatch):
+    """The live bad-key response is HTTP 200; zero credits must not reject a valid key."""
+    import httpx
+    from olywork.api import app
+
+    def probe(request):
+        assert request.url.path == "/api/v3/credits"
+        assert "authorization" not in request.headers
+        if request.url.params["api"] == "bad-key":
+            return httpx.Response(200, json={"result": "error", "error": "apikey_not_found"})
+        return httpx.Response(200, json={"credits": 0, "bulk_credits": 0, "renewing_credits": 0, "plan": 4})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(probe)) as upstream:
+        monkeypatch.setattr(app.state, "http", upstream)
+        bad = await clients.post("/connections/token", json={"provider": "millionverifier", "token": "bad-key"})
+        assert bad.status_code == 422, bad.text
+        assert "apikey_not_found" in bad.text
+        assert not (await clients.get("/tools")).json()
+        good = await clients.post("/connections/token", json={"provider": "millionverifier", "token": "good-key"})
+        assert good.status_code == 200, good.text
+        tool = next(t for t in (await clients.get("/tools")).json() if t["name"] == "millionverifier")
+        binding = tool["bindings"][0]
+        assert binding["location"] == "query" and binding["name"] == "api"
+        assert binding["format"] == "{secret}"
+
+
+def test_millionverifier_platform_key_configuration(monkeypatch):
+    from olywork.config import Settings
+    monkeypatch.setenv("OLYWORK_PLATFORM_KEY_MILLIONVERIFIER", "platform-test-key")
+    monkeypatch.setenv("OLYWORK_PLATFORM_PROVIDERS", "millionverifier")
+    settings = Settings(_env_file=None)
+    assert settings.platform_key_for("millionverifier") == "platform-test-key"
+    assert P.platform_bindings(P.get("millionverifier")) == [
+        {"platform_setting": "platform_key_millionverifier", "injector": "env",
+         "location": "query", "name": "api", "format": "{secret}"}]
+
+
+def test_bounceban_registry_and_platform_key_configuration(monkeypatch):
+    monkeypatch.setenv("OLYWORK_PLATFORM_KEY_BOUNCEBAN", "platform-test-key")
+    monkeypatch.setenv("OLYWORK_PLATFORM_PROVIDERS", "bounceban")
+    settings = Settings(_env_file=None)
+    provider = P.get("bounceban")
+    assert provider.base_url == "https://api.bounceban.com"
+    assert provider.probe_path == "/v1/account"
+    assert provider.token_header == "Authorization"
+    assert provider.token_format == "{secret}"
+    assert provider.catalog_targets[0].host == "api-waterfall.bounceban.com"
+    assert settings.platform_key_for("bounceban") == "platform-test-key"
+    assert P.platform_bindings(provider) == [{
+        "platform_setting": "platform_key_bounceban",
+        "injector": "env",
+        "location": "header",
+        "name": "Authorization",
+        "format": "{secret}",
+    }]
+
+
+async def test_bounceban_connect_rejects_bad_key_and_provisions_both_hosts(clients, monkeypatch):
+    def probe(request):
+        assert request.url.host == "api.bounceban.com"
+        assert request.url.path == "/v1/account"
+        key = request.headers["authorization"]
+        if key == "bad-key":
+            return httpx.Response(401, json={"msg": "Invalid API key"})
+        return httpx.Response(200, json={"available_credits": 0, "rate_limit": []})
+
+    async with AsyncClient(transport=httpx.MockTransport(probe)) as upstream:
+        monkeypatch.setattr(app.state, "http", upstream)
+        bad = await clients.post(
+            "/connections/token", json={"provider": "bounceban", "token": "bad-key"})
+        assert bad.status_code == 422
+        good = await clients.post(
+            "/connections/token", json={"provider": "bounceban", "token": "own-key"})
+        assert good.status_code == 200, good.text
+
+    tools = {tool["name"]: tool for tool in (await clients.get("/tools")).json()}
+    assert set(tools) == {"bounceban", "bounceban-waterfall"}
+    assert tools["bounceban"]["base_url"] == "https://api.bounceban.com"
+    assert tools["bounceban-waterfall"]["base_url"] == "https://api-waterfall.bounceban.com"
+    assert tools["bounceban"]["bindings"] == tools["bounceban-waterfall"]["bindings"]
+
+
+async def test_quickenrich_connect_uses_free_authenticated_discovery(clients, monkeypatch):
+    import httpx
+    import json
+    from olywork.api import app
+
+    def probe(request):
+        assert request.method == 'POST'
+        assert request.url.host == 'app.quickenrich.io'
+        assert request.url.path == '/api/employees/contact-finder'
+        assert json.loads(request.content)['per_page'] == 1
+        if request.headers['authorization'] == 'Bearer bad-key':
+            return httpx.Response(401, json={'success': False, 'message': 'Invalid or inactive API key'})
+        return httpx.Response(200, json={'success': True, 'data': [], 'meta': {'credits_used': 0, 'remaining_credits': 0}})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(probe)) as upstream:
+        monkeypatch.setattr(app.state, 'http', upstream)
+        bad = await clients.post('/connections/token', json={'provider': 'quickenrich', 'token': 'bad-key'})
+        assert bad.status_code == 422
+        good = await clients.post('/connections/token', json={'provider': 'quickenrich', 'token': 'good-key'})
+        assert good.status_code == 200, good.text
+        tool = next(t for t in (await clients.get('/tools')).json() if t['name'] == 'quickenrich')
+        binding = tool['bindings'][0]
+        assert binding['location'] == 'header' and binding['name'] == 'Authorization'
+        assert binding['format'] == 'Bearer {secret}'
+
+
+def test_quickenrich_platform_key_configuration(monkeypatch):
+    from olywork.config import Settings
+    monkeypatch.setenv('OLYWORK_PLATFORM_KEY_QUICKENRICH', 'platform-test-key')
+    monkeypatch.setenv('OLYWORK_PLATFORM_PROVIDERS', 'quickenrich')
+    settings = Settings(_env_file=None)
+    assert settings.platform_key_for('quickenrich') == 'platform-test-key'
+    assert P.platform_bindings(P.get('quickenrich')) == [
+        {'platform_setting': 'platform_key_quickenrich', 'injector': 'env',
+         'location': 'header', 'name': 'Authorization', 'format': 'Bearer {secret}'}]
+
+
+# ---- ContactOut ----
+
+async def test_contactout_connect_rejects_garbage_and_accepts_zero_pools(clients, monkeypatch):
+    def reply(request):
+        assert request.url.path == "/v1/stats"
+        assert request.headers["token"] in ("garbage", "valid-test")
+        if request.headers["token"] == "garbage":
+            return httpx.Response(
+                401, json={"status_code": 401, "message": "Bad credentials"}
+            )
+        return httpx.Response(
+            200,
+            json={
+                "status_code": 200,
+                "usage": {"quota": 0, "phone_quota": 0, "search_quota": 0},
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(reply)) as upstream:
+        monkeypatch.setattr(app.state, "http", upstream)
+        bad = await clients.post(
+            "/connections/token", json={"provider": "contactout", "token": "garbage"}
+        )
+        assert bad.status_code == 422
+        assert not (await clients.get("/tools")).json()
+        good = await clients.post(
+            "/connections/token", json={"provider": "contactout", "token": "valid-test"}
+        )
+        assert good.status_code == 200, good.text
+        binding = (await clients.get("/tools")).json()[0]["bindings"][0]
+        assert binding["name"] == "token" and binding["format"] == "{secret}"
+
+
+def test_contactout_platform_binding(contactout_platform):
+    assert Settings(_env_file=None).platform_key_for("contactout") == "PLATFORM-TEST"
+    assert P.platform_bindings(P.get("contactout")) == [
+        {
+            "platform_setting": "platform_key_contactout",
+            "injector": "env",
+            "location": "header",
+            "name": "token",
+            "format": "{secret}",
+        }
+    ]
+    assert "contactout.account.usage" not in catalog_store.load().by_id
+
+
+@pytest.mark.parametrize("status", [200, 402])
+async def test_financialdatasets_connect_accepts_only_valid_key_outcomes_without_health_probe(
+    clients, monkeypatch, status,
+):
+    """200 and 402 prove the key reached the prepaid account.
+
+    The absolute connect-only probe must also stay out of the saved Tool health metadata: replaying
+    a paid data request from recurring health would consume Credits.
+    """
+    def probe(request):
+        assert request.url.path == "/prices/snapshot"
+        assert request.url.params["ticker"] == "AAPL"
+        assert request.headers["X-API-KEY"] == "valid-empty-key"
+        return httpx.Response(status, json={"detail": "Insufficient credits"})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(probe)) as upstream:
+        monkeypatch.setattr(app.state, "http", upstream)
+        response = await clients.post(
+            "/connections/token",
+            json={"provider": "financialdatasets", "token": "valid-empty-key"},
+        )
+        assert response.status_code == 200, response.text
+        tool = next(t for t in (await clients.get("/tools")).json()
+                    if t["name"] == "financialdatasets")
+        assert tool["health_check"] is None
+        assert tool["bindings"][0]["name"] == "X-API-KEY"
+
+
+@pytest.mark.parametrize("status", [201, 301, 400, 401, 403, 404, 409, 422, 429, 500, 503])
+async def test_financialdatasets_connect_rejects_any_other_status(clients, monkeypatch, status):
+    def probe(request):
+        assert request.headers["X-API-KEY"] == "invalid-key"
+        return httpx.Response(status, json={"detail": "Invalid API key"})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(probe)) as upstream:
+        monkeypatch.setattr(app.state, "http", upstream)
+        response = await clients.post(
+            "/connections/token",
+            json={"provider": "financialdatasets", "token": "invalid-key"},
+        )
+        assert response.status_code == 422, response.text
+        assert not [t for t in (await clients.get("/tools")).json()
+                    if t["name"] == "financialdatasets"]
+
+
+def test_financialdatasets_registry_and_platform_key_configuration(monkeypatch):
+    provider = P.get("financialdatasets")
+    assert provider.base_url == "https://api.financialdatasets.ai"
+    assert provider.token_header == "X-API-KEY"
+    assert provider.probe_url == (
+        "https://api.financialdatasets.ai/prices/snapshot?ticker=AAPL"
+    )
+    assert provider.probe_path == ""
+    assert 200 not in provider.probe_reject_statuses
+    assert 402 not in provider.probe_reject_statuses
+    assert all(
+        status in provider.probe_reject_statuses
+        for status in (201, 301, 400, 401, 403, 404, 409, 422, 429, 500, 503)
+    )
+
+    monkeypatch.setenv("OLYWORK_PLATFORM_KEY_FINANCIALDATASETS", "platform-test-key")
+    monkeypatch.setenv("OLYWORK_PLATFORM_PROVIDERS", "financialdatasets")
+    settings = Settings(_env_file=None)
+    assert settings.platform_key_for("financialdatasets") == "platform-test-key"
+    assert P.platform_bindings(provider) == [{
+        "platform_setting": "platform_key_financialdatasets",
+        "injector": "env",
+        "location": "header",
+        "name": "X-API-KEY",
+        "format": "{secret}",
+    }]

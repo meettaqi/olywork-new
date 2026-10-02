@@ -37,6 +37,13 @@ def get_path(doc: Any, path: str) -> Any:
     return cur
 
 
+def values(value: Any) -> list | None:
+    """Read rows from an object keyed by ID/domain, or preserve an existing row list."""
+    if isinstance(value, dict):
+        return list(value.values())
+    return value if isinstance(value, list) else None
+
+
 def set_path(doc: dict, path: str, value: Any) -> None:
     """`body.enrichmentType.getWorkEmails` → nested set (creating dicts)."""
     cur = doc
@@ -120,10 +127,18 @@ def linkedin_handle(v: Any) -> str | None:
 
 
 def linkedin_url(v: Any) -> str | None:
-    """A handle → the public profile URL; a URL passes through."""
+    """A handle → the public profile URL; a URL passes through; a scheme-less URL
+    (`linkedin.com/in/x`, `www.linkedin.com/in/x`) gets `https://` — quickenrich 422'd 311 routed
+    calls in two days with "linkedin url must be a valid URL" on exactly that shape (2026-09-18)."""
     if not isinstance(v, str) or not v:
         return None
-    return v if v.startswith("http") else f"https://www.linkedin.com/in/{v.strip('/')}"
+    v = v.strip()
+    if v.startswith("http"):
+        return v
+    m = re.match(r"^((?:[a-z]{2,3}\.)?(?:www\.)?linkedin\.com)(/.*)$", v, re.I)  # anchored: the HOST is linkedin, not a path that mentions it
+    if m:
+        return f"https://{m.group(1).lower()}{m.group(2)}"   # lower-cased host so linkedin_handle() can derive from it
+    return f"https://www.linkedin.com/in/{v.strip('/')}"
 
 
 def email_domain(v: Any) -> str | None:
@@ -196,7 +211,18 @@ def as_list(v: Any) -> Any:
     return v if isinstance(v, list) else [v]
 
 
-TRANSFORMS = {"split_first": split_first, "split_last": split_last, "join": join, "has_type": has_type, "len": length,
+def null_if(value: Any, *sentinels: Any) -> Any:
+    """Convert declared empty markers to null; retain the original nonempty value."""
+    key = value.strip().lower() if isinstance(value, str) else value
+    return None if key in sentinels else value
+
+
+def choose(condition: Any, when_true: Any, when_false: Any) -> Any:
+    """Select a value for a request-dependent adapter rule."""
+    return when_true if condition else when_false
+
+
+TRANSFORMS = {"values": values, "get": get_path, "null_if": null_if, "choose": choose, "split_first": split_first, "split_last": split_last, "join": join, "has_type": has_type, "len": length,
               "dfs_location": dfs_location, "seranking_source": seranking_source, "lower": lower, "upper": upper,
               "list": as_list, "at_least": at_least, "linkedin_handle": linkedin_handle, "linkedin_url": linkedin_url,
               "email_domain": email_domain, "host": host, "fmt": fmt, "obj": obj, "tca_filter": tca_filter, "csv": csv, "country_name": country_name}

@@ -174,6 +174,7 @@ CATALOG: list[dict] = [
     {"provider": "EODHD",       "tokens": ["EODHD"],               "base_url": "https://eodhd.com/api",                           "auth": {"shape": "query", "param": "api_token"}},
     {"provider": "Marketstack", "tokens": ["MARKETSTACK"],         "base_url": "https://api.marketstack.com/v1",                  "auth": {"shape": "query", "param": "access_key"}},
     {"provider": "Tiingo",      "tokens": ["TIINGO"],              "base_url": "https://api.tiingo.com",                          "auth": {"shape": "api_key_header", "header": "Authorization", "format": "Token {secret}"}},
+    {"provider": "Financial Datasets", "tokens": ["FINANCIALDATASETS"], "base_url": "https://api.financialdatasets.ai",           "auth": {"shape": "api_key_header", "header": "X-API-KEY"}},
     # --- dev / infra / cloud ---
     {"provider": "DigitalOcean","tokens": ["DIGITALOCEAN"],        "base_url": "https://api.digitalocean.com/v2",                 "auth": {"shape": "bearer"},
      "skills": ["doctl", "digitalocean"],

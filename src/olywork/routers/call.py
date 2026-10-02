@@ -29,8 +29,8 @@ from ..application.call.service import (
     create_call_context,
     execute_call,
 )
+from ..application.call.invite import invitation
 from ..application.call.intake import (
-    LEGACY_META_HEADER,
     META_HEADER,
     CallMeta,
     _parse_call_meta as parse_call_meta,
@@ -102,8 +102,8 @@ def _attach_async_descriptor(upstream: UpstreamResponse, context, rest: str = ""
     value = json.dumps(descriptor, ensure_ascii=True, separators=(",", ":")).encode("ascii")
     upstream.raw_headers = tuple(
         (name, existing) for name, existing in upstream.raw_headers
-        if name.lower() not in (b"x-olywork-async", b"x-olywork-async")
-    ) + ((b"x-olywork-async", value), (b"x-olywork-async", value))
+        if name.lower() != b"x-olywork-async"
+    ) + ((b"x-olywork-async", value),)
 
 
 def _require_tool_use_http(caller: Caller, tool: Tool) -> None:
@@ -141,8 +141,7 @@ def _translate_call_failure(exc: CallFailure) -> HTTPException:
 
 def _parse_call_meta(request: Request, caller: Caller | None = None) -> CallMeta:
     try:
-        raw_meta = request.headers.get(META_HEADER) or request.headers.get(LEGACY_META_HEADER)
-        return parse_call_meta(raw_meta, caller)
+        return parse_call_meta(request.headers.get(META_HEADER), caller)
     except CallFailure as exc:
         raise _translate_call_failure(exc) from exc
 
@@ -228,19 +227,19 @@ async def _stamp_call_exit(
     call_ref = getattr(request.state, "call_ref", "") or uuid.uuid4().hex
     request.state.call_ref = call_ref
     resp.headers["X-Olywork-Call-Id"] = call_ref
-    resp.headers["X-Olywork-Call-Id"] = call_ref
     if (cost_micro := getattr(request.state, "call_cost_micro", None)) is not None:
-        resp.headers["X-Olywork-Cost-Micro"] = str(cost_micro)
         resp.headers["X-Olywork-Cost-Micro"] = str(cost_micro)
     if not getattr(request.state, "call_audited", False):
         org_id, email = getattr(request.state, "call_identity", (None, ""))
+        key_id, key_name, key_prefix = getattr(request.state, "call_key", (None, None, None))
         context = getattr(request.state, "call_context", None)
         rest = _call_rest(request, context)
         audit.record_call(
             org_id=org_id, user_email=email, tool_name=rest.split("/", 1)[0] or "—",
             method=request.method, path=request.url.path, status_code=status_code,
             client=_client_of(request), refused_by=_refusal_kind(status_code),
-            telemetry={"call_ref": call_ref})
+            api_key_id=key_id, api_key_name=key_name, api_key_prefix=key_prefix,
+            telemetry={"call_ref": call_ref, "tags": getattr(request.state, "call_pins", None)})
         if failure_kind:
             _capture_exceptional_call(
                 request, call_ref=call_ref, status_code=status_code, failure_kind=failure_kind)
@@ -269,6 +268,17 @@ async def catalog_endpoint_access(
     except CallFailure as exc:
         raise _translate_call_failure(exc) from exc
 
+def _capture_hint(request: Request, context, kind: str) -> None:
+    """One event per invitation actually sent, on every surface: the response-rate denominator.
+    Attachment is not display; the surface's `X-Olywork-Client` says who was asked."""
+    marketplace = context.marketplace
+    slug = context.input.caller.org.slug
+    analytics.capture(analytics.SERVER_DISTINCT_ID, "hint_attached", {
+        "kind": kind, "call_id": context.call_ref, "client": _client_of(request),
+        "endpoint_id": marketplace.endpoint_id if marketplace is not None else None,
+    }, groups={"team": slug} if slug else None)
+
+
 @app.api_route(
     "/call/{rest:path}",
     methods=["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"],
@@ -282,7 +292,15 @@ async def call_tool(
     # tool, deny rule, daily cap) leaves this handler without an audit row, and the exception handler
     # is the one place every such refusal passes through — but it has no Caller of its own.
     request.state.call_identity = (caller.org_id, caller.email)
+    # The pin too: a pinned caller's history is filtered on it, and a refusal (403 on a pin
+    # mismatch above all) is the row they most need to see while integrating.
+    request.state.call_pins = dict(caller.membership.pinned_tags or {}) or None
     request.state.call_team_slug = caller.org.slug
+    request.state.call_key = (
+        caller.api_key.id if caller.api_key else None,
+        caller.api_key.name if caller.api_key else None,
+        caller.api_key.safe_prefix if caller.api_key else None,
+    )
     # Faithful-relay: use the RAW request path, not Starlette's decoded path param. Decoding is
     # lossy — an encoded slash (`%2f`) in `rest` would become a real `/` and change the upstream
     # route (npm's scoped publish `PUT /@scope%2fname` 404s as `/@scope/name`). httpx preserves
@@ -313,7 +331,19 @@ async def call_tool(
     try:
         upstream = await execute_call(context, request.app.state.http)
         _attach_async_descriptor(upstream, context, rest)
-        return _http_upstream_response(upstream)
+        response = _http_upstream_response(upstream)
+        try:
+            # Optional invitation, decided before the body streams (application/call/invite.py).
+            kind = await invitation(context, response.status_code,
+                                    replayed=bool(response.headers.get("X-Olywork-Idempotent-Replay")))
+            if kind is not None:
+                response.headers["X-Olywork-Hint"] = kind
+                if kind == "review":
+                    response.headers["X-Olywork-Review"] = "requested"  # read by CLI <= 0.18
+                _capture_hint(request, context, kind)
+        except Exception:
+            pass  # A fault here can only lose the header; the answer is already built.
+        return response
     except CallFailure as exc:
         raise _translate_call_failure(exc) from exc
     except PoolTimeoutError:

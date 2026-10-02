@@ -1,4 +1,4 @@
-"""The legacy-host redirect (olywork.olywork.com → olywork.com).
+"""The legacy-host redirect (legacy.olywork.com → olywork.com).
 
 Only browser-facing marketing pages — and only for ANONYMOUS visitors — 301 to the canonical host.
 Everything else is served in place on the legacy host forever: installed CLIs/skills point there
@@ -17,7 +17,7 @@ from olywork.domain.identity import session as sess
 from olywork.api import app
 from olywork.config import get_settings
 
-LEGACY = {"host": "olywork.olywork.com"}
+LEGACY = {"host": "legacy.olywork.com"}
 OFF_HOST_CODES = (301, 302, 303, 307, 308)   # any of these off-host would strand a client
 
 
@@ -92,8 +92,8 @@ async def test_post_is_never_redirected(raw_client):
 
 async def test_lookalike_host_is_not_treated_as_canonical(raw_client):
     # The self-hoster guard is hostname EQUALITY with public_url, not substring: a lookalike like
-    # not-olywork.olywork.com is simply an unknown Host — served, never redirected.
-    r = await raw_client.get("/", headers={"host": "not-olywork.olywork.com"})
+    # not-legacy.olywork.com is simply an unknown Host — served, never redirected.
+    r = await raw_client.get("/", headers={"host": "not-legacy.olywork.com"})
     assert r.status_code == 200
 
 
@@ -111,25 +111,25 @@ async def test_legacy_mcp_host_and_oauth_audience_stay_valid():
     # List MEMBERSHIP (exact strings), not substring checks — .count() keeps CodeQL from reading
     # these as URL-substring sanitization.
     hosts, origins = mcp._allowed_hosts(), mcp._allowed_origins()
-    assert hosts.count("olywork.olywork.com") == 1
-    assert origins.count("https://olywork.olywork.com") == 1
+    assert hosts.count("legacy.olywork.com") == 1
+    assert origins.count("https://legacy.olywork.com") == 1
     # The SDK compares exactly, and `host:443` is a valid spelling of the https default —
     # both names must allow it, for Host and for Origin.
-    assert hosts.count("olywork.olywork.com:443") == 1
-    assert origins.count("https://olywork.olywork.com:443") == 1
-    assert "https://olywork.olywork.com/mcp/" in mcp_oauth.mcp_resource_audiences()
+    assert hosts.count("legacy.olywork.com:443") == 1
+    assert origins.count("https://legacy.olywork.com:443") == 1
+    assert "https://legacy.olywork.com/mcp/" in mcp_oauth.mcp_resource_audiences()
     # A pre-move access token — audience = the legacy resource URL — must still validate, and so
     # must the canonical one; a token minted for someone else's server must not.
     old = mcp_oauth.make_access_token(user_id=1, org_id=1, scope="olywork:read", token_version=0,
-                                      audience="https://olywork.olywork.com/mcp/")
+                                      audience="https://legacy.olywork.com/mcp/")
     assert mcp_oauth.read_access_token_any(old) is not None
     foreign = mcp_oauth.make_access_token(user_id=1, org_id=1, scope="olywork:read", token_version=0,
                                           audience="https://evil.example/mcp/")
     assert mcp_oauth.read_access_token_any(foreign) is None
     # Slash-variant spellings of OUR resource normalize onto the canonical member — a grant row
     # stored as `…/mcp` (accepted by the forgiving authorize compare) must mint a live token.
-    for ours in ("https://olywork.olywork.com/mcp", "https://olywork.olywork.com/mcp/"):
-        assert mcp_oauth.normalize_resource(ours) == "https://olywork.olywork.com/mcp/"
+    for ours in ("https://legacy.olywork.com/mcp", "https://legacy.olywork.com/mcp/"):
+        assert mcp_oauth.normalize_resource(ours) == "https://legacy.olywork.com/mcp/"
     assert mcp_oauth.normalize_resource("https://evil.example/mcp") == "https://evil.example/mcp"
 
 
@@ -138,7 +138,7 @@ async def test_canonical_and_legacy_resources_are_the_same_server(raw_client):
     # the other — in BOTH directions, and regardless of slash spelling. (Round-2's refactor of
     # this helper silently dropped the cross-name rule; round-3 review caught it.)
     from olywork.routers.auth import _same_mcp_resource
-    canon, legacy = "https://olywork.com/mcp/", "https://olywork.olywork.com/mcp/"
+    canon, legacy = "https://olywork.com/mcp/", "https://legacy.olywork.com/mcp/"
     assert _same_mcp_resource(canon, legacy)
     assert _same_mcp_resource(legacy, canon)
     assert _same_mcp_resource(legacy.rstrip("/"), canon)
@@ -158,8 +158,8 @@ async def test_login_round_trip_is_anchored_to_the_host_it_started_on(raw_client
         return StarletteRequest({"type": "http", "method": "GET", "path": "/",
                                  "headers": [(b"host", host.encode())], "query_string": b""})
 
-    assert _login_callback_base(req("olywork.olywork.com")) == "https://olywork.olywork.com"
-    assert _login_callback_base(req("olywork.olywork.com:443")) == "https://olywork.olywork.com"
+    assert _login_callback_base(req("legacy.olywork.com")) == "https://legacy.olywork.com"
+    assert _login_callback_base(req("legacy.olywork.com:443")) == "https://legacy.olywork.com"
     assert _login_callback_base(req("olywork.com")) == "https://olywork.com"
     assert _login_callback_base(req("anything.else")) == "https://olywork.com"
 
@@ -175,7 +175,7 @@ async def test_env_revert_is_a_complete_rollback(monkeypatch):
     from olywork.api import app
     from olywork.routers.auth import _login_callback_base
 
-    monkeypatch.setenv("OLYWORK_PUBLIC_URL", "https://olywork.olywork.com")
+    monkeypatch.setenv("OLYWORK_PUBLIC_URL", "https://legacy.olywork.com")
     get_settings.cache_clear()
     try:
         # Recognition stays symmetric: olywork.com tokens/hosts/origins remain valid.
@@ -187,7 +187,7 @@ async def test_env_revert_is_a_complete_rollback(monkeypatch):
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://registry") as c:
             # Neither host redirects: canonical == old suppresses the marketing 301s, and olywork.com
             # is not a redirect source by design.
-            for host in ("olywork.olywork.com", "olywork.com"):
+            for host in ("legacy.olywork.com", "olywork.com"):
                 r = await c.get("/", headers={"host": host})
                 assert r.status_code == 200, host
     finally:

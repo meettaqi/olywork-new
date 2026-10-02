@@ -96,7 +96,9 @@ def test_match_catalogs_by_exact_host_method_path_with_prefix_folding():
 
 async def test_sync_reproduces_the_verified_set_and_never_enables_a_bad_ratio(monkeypatch):
     await reset_db()
-    seed = R.load_seed()
+    # Preserve the August baseline; September provider verifications are tested separately.
+    seed = [{**x, "verified_at": None} if x["provider"] in ("influencersclub", "contactout") else x
+            for x in R.load_seed()]
     verified = {(x["endpoint_id"], x["aggregator"]) for x in seed if x["verified_at"]}
     assert len(verified) == 145, "the 2026-08-26 verified set (131 ROUTE + 11 tomba + 2 phone + hunter domain-search)"
     # Freeze "now" at the mapping date so the seed's stamps are within the 7-day window.
@@ -200,7 +202,7 @@ def test_every_recorded_phrase_arms_the_tripwire():
     phrase in `_TABLE` (the 429 rows carry period words, not capacity phrases) is in CAPACITY_PHRASES."""
     import re as _re
     for provider, status, pattern, kind in S._TABLE:
-        if not pattern or status == 429 or _re.escape(pattern) != pattern:
+        if kind not in ("balance", "quota") or not pattern or status == 429 or _re.escape(pattern) != pattern:
             continue  # empty (the bare 402 row), a period word, or a regex we cannot use as a body
         sig = S.classify("someone-else", 400, None, pattern.encode())
         assert sig is not None and sig.kind == "unrecorded", f"{provider}'s phrase {pattern!r} does not arm the tripwire"
@@ -217,6 +219,20 @@ def test_moz_spent_row_quota_is_a_quota_mark():
     assert sig is not None and sig.kind == "quota" and sig.resets_at is None
     assert S.classify("moz", 400, None, b'{"error":"target is required"}') is None
     assert S.classify("moz", 403, None, b'{"error":"forbidden"}') is None
+
+
+def test_tavily_documents_separate_plan_and_paygo_quota_statuses():
+    plan = S.classify(
+        "tavily", 432, None,
+        b'{"detail":{"error":"This request exceeds your plan\'s set usage limit."}}',
+    )
+    paygo = S.classify(
+        "tavily", 433, None,
+        b'{"detail":{"error":"This request exceeds the pay-as-you-go limit."}}',
+    )
+    assert plan is not None and plan.kind == "quota" and S.is_exhausting(plan)
+    assert paygo is not None and paygo.kind == "quota" and S.is_exhausting(paygo)
+    assert S.classify("tavily", 432, None, b'{"detail":{"error":"bad query"}}') is None
 
 
 def test_an_unrecorded_vendor_phrase_is_a_tripwire_never_a_mark():
@@ -247,9 +263,38 @@ def test_an_unrecorded_vendor_phrase_is_a_tripwire_never_a_mark():
 # Platform providers whose out-of-credit answer nobody has recorded in `_TABLE` yet. An acknowledged
 # gap, not a claim the vendor never runs dry: their 4xx trips `unrecorded` instead.
 _UNRECORDED_SIGNATURE = {
+    "adyntel",  # no balance endpoint; documented 402 does not uniquely prove wallet exhaustion
     "apify", "aviato", "branddev", "brightdata", "coingecko", "coresignal", "crustdata", "dataforseo",
-    "diffbot", "exa", "fiber-ai", "finnhub", "icypeas", "influencersclub", "justoneapi", "marketstack",
-    "minimax", "oceanio", "openrouter", "pdl", "replicate", "scrapecreators", "seranking",
+    "diffbot", "exa", "fiber-ai", "finnhub", "icypeas", "justoneapi", "marketstack",
+    "sumble",  # exhaustion not forced; no overflow route claimed
+    "harvestapi",  # wallet exhaustion unobserved; no overflow route
+    "quickenrich",  # subscription exhaustion not observed; do not spend the trial to force it
+    "dropleads",  # free trial was not exhausted; no provider-specific 402 body recorded
+    "prospeo",  # Starter allowance was not exhausted; no provider-specific body was forced
+    "aiark",  # funded allowance was not exhausted; no provider-specific body was forced
+    "wiza",  # The funded grant was not exhausted; no provider-specific body was forced
+    "limadata",  # Starter credits remain; no provider-specific empty-balance body was forced
+    "getleadsio",  # promotional allocation was not exhausted; bare 402 remains the generic signal
+    "keenable",  # funded request balance remains; documented bare 402 was not forced
+    "olostep",  # funded credit balance remains; documented 402 was not forced
+    "scrapegraphai",  # trial credits remain; no provider-specific empty-balance body was forced
+    "scrubby",  # funded account not exhausted; no provider-specific empty-balance body recorded
+    "millionverifier",  # funded-account exhaustion not observed; trial still has credits
+    "bounceban",  # verification credits remain; exhaustion was not forced and no overflow is claimed
+    "zerobounce",  # credits remain; exhaustion was not forced and no overflow is claimed
+    "datagma",  # prepaid credits remain; exhaustion was not forced and no overflow is claimed
+    "moltsets",  # rolling allowance exhaustion was not forced; no overflow route claimed
+    "openmart",  # funded subscription was not exhausted; shared-key exhaustion was not forced
+    # Bare 402 is already the generic balance signal; the real empty-Credits body was not forced.
+    "financialdatasets",
+    "fetchinio",  # funded credits remain; documented generic 402 was not deliberately forced
+    "fishaudio",  # shared-key serving stays disabled until the funded-account signatures are verified
+    "minimax", "oceanio", "openrouter", "replicate", "scrapecreators", "seranking",
+    "piapi",  # prepaid wallet exhaustion not observed ($50 funded 2026-09-14); no overflow route
+    "serper",  # funded credits remain; no provider-specific empty-balance response was forced
+    "tinyfish",  # funded wallet remains; no provider-specific empty-wallet response was forced
+    "trestleiq",  # funded wallet remains; documented 403/429 shapes do not identify empty balance
+
     "serpapi", "serpstat", "spyfu", "tiingo", "tikhub", "tomba", "twelvedata",
 }
 
@@ -507,3 +552,26 @@ def test_worker_cli_parses_overflow_commands(monkeypatch):
     monkeypatch.setattr(worker, "_overflow_verify", fake)
     assert worker.main(["overflow", "sync", "--live"]) == 0 and seen["live"] is True
     assert worker.main(["overflow", "verify", "--max-usd", "0.05"]) == 0 and seen["max_usd"] == 0.05
+    assert seen["renew_max_usd"] == worker.RENEW_MAX_USD and seen["budget_usd"] == worker.VERIFY_BUDGET_USD
+    assert worker.main(["overflow", "verify", "--renew-max-usd", "0.7", "--budget-usd", "3"]) == 0
+    assert seen["renew_max_usd"] == 0.7 and seen["budget_usd"] == 3.0
+
+
+def test_trykitt_throttle_is_not_exhaustion():
+    s=S.classify('trykitt',418,body=json.dumps({'message': 'temporarily throttled', 'response_code': 418}))
+    assert s.kind=='burst' and not S.is_exhausting(s)
+    assert S.classify('trykitt',402,body='rate limit').kind=='unknown'
+    assert S.classify('trykitt',402,body='insufficient funds').kind=='balance'
+
+    assert S.classify("trykitt", 418, headers={"retry-after": "5"}, body="temporarily throttled").retry_after_s == 5
+
+
+
+def test_pdl_operation_allowance_does_not_lock_other_pdl_products():
+    from olywork.domain.capacity.marks import lock_key
+    body = b'{"status":402,"error":{"message":"You have hit your account maximum for person_identify (all matches used)"}}'
+    signal = S.classify('pdl', 402, None, body)
+    assert signal.kind == 'quota'
+    assert lock_key('pdl', 'pdl.x.person-identify', signal.kind) == 'pdl.x.person-identify'
+    assert S.classify('pdl', 402, None, b'{"error":"Insufficient credits"}').kind == 'balance'
+    assert S.classify('pdl', 400, None, b'{"error":"email is required"}') is None
